@@ -557,7 +557,7 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
         {
             const int u = mCurrentFrame.mvObjKeys[i].pt.x;
             const int v = mCurrentFrame.mvObjKeys[i].pt.y;
-            if (u<mImGray.cols && u>0 && v<mImGray.rows && v>0)
+            if (u<mImGray.cols && u>0 && v<mImGray.rows && v>0 && imDepth.at<float>(v,u)<25 && imDepth.at<float>(v,u)>0)
             {
                 mCurrentFrame.mvObjDepth[i] = imDepth.at<float>(v,u);
                 mCurrentFrame.vSemObjLabel[i] = maskSEM.at<int>(v,u);
@@ -671,15 +671,6 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
     {
         std::vector<cv::KeyPoint> KeyPoints_tmp(1);
         // background features
-        // for (int i = 0; i < mvKeysCurrentFrame.size(); i=i+2)
-        // {
-        //     KeyPoints_tmp[0] = mvKeysCurrentFrame[i];
-        //     if (KeyPoints_tmp[0].pt.x>=mImGray.cols || KeyPoints_tmp[0].pt.y>=mImGray.rows || KeyPoints_tmp[0].pt.x<=0 || KeyPoints_tmp[0].pt.y<=0)
-        //         continue;
-        //     if(maskSEM.at<int>(KeyPoints_tmp[0].pt.y,KeyPoints_tmp[0].pt.x)!=0)
-        //         continue;
-        //     cv::drawKeypoints(imRGB, KeyPoints_tmp, imRGB, cv::Scalar(0,0,255), 1); // red
-        // }
         for (int i = 0; i < mCurrentFrame.mvSiftKeysTmp.size(); i=i+2)
         {
             KeyPoints_tmp[0] = mCurrentFrame.mvSiftKeysTmp[i];
@@ -773,7 +764,7 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
             }
         }
         cv::imshow("Sparse Static Features and Dense Object Points", imRGB);
-        cv::waitKey(1);
+        cv::waitKey(0);
     }
 
     // // ************** show bounding box with speed ***************
@@ -1434,7 +1425,7 @@ void Tracking::Track()
             }
             else
             {
-                // cout << "one object found that contains less than 100 points..." << endl;
+                // cout << "object " << UniLab[i] << " found that contains less than 100 points..." << endl;
                 for (int k = 0; k < Posi[i].size(); ++k)
                     mCurrentFrame.vObjLabel[Posi[i][k]] = -1;
                 continue;
@@ -1502,9 +1493,9 @@ void Tracking::Track()
                     mCurrentFrame.vObjLabel[ObjId[i][k]] = 0;
                 continue;
             }
-            else if (obj_center_depth/ObjId[i].size()>25.0 || ObjId[i].size()*2.0*2.0/465750.0*100<0.5)
+            else if (obj_center_depth/ObjId[i].size()>25.0 || ObjId[i].size()<200)
             {
-                // cout << "Too far away or too small!" << endl;
+                // cout << "object " << sem_posi[i] <<" is too far away or too small!" << endl;
                 // label this object as far away object
                 for (int k = 0; k < ObjId[i].size(); ++k)
                     mCurrentFrame.vObjLabel[ObjId[i][k]] = -1;
@@ -2220,7 +2211,7 @@ void Tracking::Track()
     // ============== batch optimize on all the measurements (global optimization) ==============
     // ==========================================================================================
 
-    if (f_id==10) // bFrame2Frame f_id>=2
+    if (f_id==100) // bFrame2Frame f_id>=2
     {
         // Metric Error BEFORE Optimization
         GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion,mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT);

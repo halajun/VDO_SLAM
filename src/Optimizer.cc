@@ -22,6 +22,7 @@
 
 #include "Thirdparty/g2o/g2o/core/block_solver.h"
 #include "Thirdparty/g2o/g2o/core/optimization_algorithm_levenberg.h"
+#include "Thirdparty/g2o/g2o/core/optimization_algorithm_gauss_newton.h"
 #include "Thirdparty/g2o/g2o/core/optimization_algorithm_dogleg.h"
 #include "Thirdparty/g2o/g2o/solvers/linear_solver_eigen.h"
 #include "Thirdparty/g2o/g2o/types/types_six_dof_expmap.h"
@@ -821,8 +822,8 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
 //     optimizer.addParameter(cameraOffset);
 
 //     // set information matrix
-//     const float sigma_cam = 1; // 0.5*0.5
-//     const float sigma_obj = 1; // 0.5*0.5
+//     const float sigma2_cam = 1; // 0.5*0.5
+//     const float sigma2_obj = 1; // 0.5*0.5
 //     const float sigma_3d  = 1; // 0.2*0.2
 
 //     cv::Mat id_temp = cv::Mat::eye(4,4, CV_32F);
@@ -861,7 +862,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
 //             ep->setVertex(0, optimizer.vertex(PreFrameID));
 //             ep->setVertex(1, optimizer.vertex(CurFrameID));
 //             ep->setMeasurement(Converter::toSE3Quat(pMap->vmRigidMotion[i-1][0]));
-//             ep->information() = Eigen::MatrixXd::Identity(6, 6)/sigma_cam;
+//             ep->information() = Eigen::MatrixXd::Identity(6, 6)/sigma2_cam;
 //             if (ROBUST_KERNEL){
 //                 g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
 //                 ep->setRobustKernel(rk);
@@ -1112,7 +1113,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
 //                     em->setVertex(1, optimizer.vertex(count_unique_id));
 //                     em->setVertex(2, optimizer.vertex(ObjPositionID));
 //                     em->setMeasurement(Eigen::Vector3d(0,0,0));
-//                     em->information() = Eigen::Matrix3d::Identity()/sigma_obj;
+//                     em->information() = Eigen::Matrix3d::Identity()/sigma2_obj;
 //                     if (ROBUST_KERNEL) {
 //                         g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
 //                         em->setRobustKernel(rk);
@@ -1157,7 +1158,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
 //                     em->setVertex(1, optimizer.vertex(count_unique_id));
 //                     em->setVertex(2, optimizer.vertex(ObjPositionID));
 //                     em->setMeasurement(Eigen::Vector3d(0,0,0));
-//                     em->information() = Eigen::Matrix3d::Identity()/sigma_obj;
+//                     em->information() = Eigen::Matrix3d::Identity()/sigma2_obj;
 //                     if (ROBUST_KERNEL){
 //                         g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
 //                         em->setRobustKernel(rk);
@@ -1259,7 +1260,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     for (int i = 0; i < StaTracks.size(); ++i)
     {
         // filter the tracklets via threshold
-        if (StaTracks[i].size()<3) // 3 the length of track on background.
+        if (StaTracks[i].size()<5) // 3 the length of track on background.
             continue;
         // label them
         for (int j = 0; j < StaTracks[i].size(); ++j)
@@ -1290,18 +1291,13 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     // =======================================================================================
 
     g2o::SparseOptimizer optimizer;
-    g2o::BlockSolver_6_3::LinearSolverType * linearSolver;
-    linearSolver = new g2o::LinearSolverEigen<g2o::BlockSolver_6_3::PoseMatrixType>();
-    g2o::BlockSolver_6_3 * solver_ptr = new g2o::BlockSolver_6_3(linearSolver);
-    g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
-    optimizer.setAlgorithm(solver);
-
-    // g2o::SparseOptimizer optimizer;
-    // g2o::BlockSolverX::LinearSolverType * linearSolver;
-    // linearSolver = new g2o::LinearSolverCSparse<g2o::BlockSolverX::PoseMatrixType>();
-    // g2o::BlockSolverX * solver_ptr = new g2o::BlockSolverX(linearSolver);
+    g2o::BlockSolverX::LinearSolverType * linearSolver;
+    linearSolver = new g2o::LinearSolverCSparse<g2o::BlockSolverX::PoseMatrixType>();
+    g2o::BlockSolverX * solver_ptr = new g2o::BlockSolverX(linearSolver);
     // g2o::OptimizationAlgorithmDogleg* solver = new g2o::OptimizationAlgorithmDogleg(solver_ptr);
-    // optimizer.setAlgorithm(solver);
+    g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
+    // g2o::OptimizationAlgorithmGaussNewton* solver = new g2o::OptimizationAlgorithmGaussNewton(solver_ptr);
+    optimizer.setAlgorithm(solver);
 
     g2o::SparseOptimizerTerminateAction* terminateAction = new g2o::SparseOptimizerTerminateAction;
     terminateAction->setGainThreshold(1e-4);
@@ -1312,10 +1308,10 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     optimizer.addParameter(cameraOffset);
 
     // === set information matrix ===
-    const float sigma_cam = 0.005; // 0.005
-    const float sigma_3d_sta = 0.01; // 50 80
-    const float sigma_obj = 1.0; // 
-    const float sigma_3d_dyn = 100; // 
+    const float sigma2_cam = 0.005; // 0.005
+    const float sigma2_3d_sta = 10; // 50 80
+    const float sigma2_obj = 1.0; // 
+    const float sigma2_3d_dyn = 100; // 
 
     // === identity initialization ===
     cv::Mat id_temp = cv::Mat::eye(4,4, CV_32F);
@@ -1368,7 +1364,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
             ep->setVertex(0, optimizer.vertex(PreFrameID));
             ep->setVertex(1, optimizer.vertex(CurFrameID));
             ep->setMeasurement(Converter::toSE3Quat(pMap->vmRigidMotion[i-1][0]));
-            ep->information() = Eigen::MatrixXd::Identity(6, 6)/sigma_cam;
+            ep->information() = Eigen::MatrixXd::Identity(6, 6)/sigma2_cam;
             if (ROBUST_KERNEL){
                 g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
                 ep->setRobustKernel(rk);
@@ -1397,7 +1393,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                 cv::Mat Xw = Optimizer::Get3DinWorld(pMap->vpFeatSta[i][j],pMap->vfDepSta[i][j],Calib_K,pMap->vmCameraPose[i]);
                 v_p->setEstimate(Converter::toVector3d(Xw));
                 // v_p->setFixed(true);
-                // optimizer.addVertex(v_p);
+                optimizer.addVertex(v_p);
                 // if (count_unique_id==2)
                 // {
                 //     // add point prior edge
@@ -1413,15 +1409,15 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                 e->setVertex(1, optimizer.vertex(count_unique_id));
                 cv::Mat Xc = Optimizer::Get3DinCamera(pMap->vpFeatSta[i][j],pMap->vfDepSta[i][j],Calib_K);
                 e->setMeasurement(Converter::toVector3d(Xc));
-                e->information() = Eigen::Matrix3d::Identity()/sigma_3d_sta;
+                e->information() = Eigen::Matrix3d::Identity()/sigma2_3d_sta;
                 if (ROBUST_KERNEL){
                     g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
                     e->setRobustKernel(rk);
                     e->robustKernel()->setDelta(deltaHuber3D);
                 }
                 e->setParameterId(0, 0);
-                // optimizer.addEdge(e);
-                // vpEdgeSE3PointSta.push_back(e);
+                optimizer.addEdge(e);
+                vpEdgeSE3PointSta.push_back(e);
 
                 // update unique id
                 vnFeaMakSta[i][j] = count_unique_id;
@@ -1466,22 +1462,22 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                     cv::Mat Xw = Optimizer::Get3DinWorld(pMap->vpFeatSta[i][j],pMap->vfDepSta[i][j],Calib_K,pMap->vmCameraPose[i]);
                     v_p->setEstimate(Converter::toVector3d(Xw));
                     // v_p->setFixed(true);
-                    // optimizer.addVertex(v_p);
+                    optimizer.addVertex(v_p);
                     // (4) save <EDGE_3D>
                     g2o::EdgeSE3PointXYZ * e = new g2o::EdgeSE3PointXYZ();
                     e->setVertex(0, optimizer.vertex(CurFrameID));
                     e->setVertex(1, optimizer.vertex(count_unique_id));
                     cv::Mat Xc = Optimizer::Get3DinCamera(pMap->vpFeatSta[i][j],pMap->vfDepSta[i][j],Calib_K);
                     e->setMeasurement(Converter::toVector3d(Xc));
-                    e->information() = Eigen::Matrix3d::Identity()/sigma_3d_sta;
+                    e->information() = Eigen::Matrix3d::Identity()/sigma2_3d_sta;
                     if (ROBUST_KERNEL){
                         g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
                         e->setRobustKernel(rk);
                         e->robustKernel()->setDelta(deltaHuber3D);
                     }
                     e->setParameterId(0, 0);
-                    // optimizer.addEdge(e);
-                    // vpEdgeSE3PointSta.push_back(e);
+                    optimizer.addEdge(e);
+                    vpEdgeSE3PointSta.push_back(e);
 
                     // update unique id
                     vnFeaMakSta[i][j] = count_unique_id;
@@ -1497,15 +1493,15 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                     e->setVertex(1, optimizer.vertex(FeaMakTmp));
                     cv::Mat Xc = Optimizer::Get3DinCamera(pMap->vpFeatSta[i][j],pMap->vfDepSta[i][j],Calib_K);
                     e->setMeasurement(Converter::toVector3d(Xc));
-                    e->information() = Eigen::Matrix3d::Identity()/sigma_3d_sta;
+                    e->information() = Eigen::Matrix3d::Identity()/sigma2_3d_sta;
                     if (ROBUST_KERNEL){
                         g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
                         e->setRobustKernel(rk);
                         e->robustKernel()->setDelta(deltaHuber3D);
                     }
                     e->setParameterId(0, 0);
-                    // optimizer.addEdge(e);
-                    // vpEdgeSE3PointSta.push_back(e);
+                    optimizer.addEdge(e);
+                    vpEdgeSE3PointSta.push_back(e);
 
                     // update unique id
                     vnFeaMakSta[i][j] = FeaMakTmp;
@@ -1537,7 +1533,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                 e->setVertex(1, optimizer.vertex(count_unique_id));
                 cv::Mat Xc = Optimizer::Get3DinCamera(pMap->vpFeatDyn[i][j],pMap->vfDepDyn[i][j],Calib_K);
                 e->setMeasurement(Converter::toVector3d(Xc));
-                e->information() = Eigen::Matrix3d::Identity()/sigma_3d_dyn;
+                e->information() = Eigen::Matrix3d::Identity()/sigma2_3d_dyn;
                 if (ROBUST_KERNEL){
                     g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
                     e->setRobustKernel(rk);
@@ -1551,7 +1547,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                 vnFeaMakDyn[i][j] = count_unique_id;
                 count_unique_id++;
             }
-            cout << "SAVE SOME DYNAMIC POINTS IN FIRST FRAME ....." << endl;
+            // cout << "SAVE SOME DYNAMIC POINTS IN FIRST FRAME ....." << endl;
         }
         else
         {
@@ -1627,7 +1623,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                     e->setVertex(1, optimizer.vertex(count_unique_id));
                     cv::Mat Xc = Optimizer::Get3DinCamera(pMap->vpFeatDyn[i][j],pMap->vfDepDyn[i][j],Calib_K);
                     e->setMeasurement(Converter::toVector3d(Xc));
-                    e->information() = Eigen::Matrix3d::Identity()/sigma_3d_dyn;
+                    e->information() = Eigen::Matrix3d::Identity()/sigma2_3d_dyn;
                     if (ROBUST_KERNEL){
                         g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
                         e->setRobustKernel(rk);
@@ -1656,7 +1652,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                     e->setVertex(1, optimizer.vertex(count_unique_id));
                     cv::Mat Xc = Optimizer::Get3DinCamera(pMap->vpFeatDyn[i][j],pMap->vfDepDyn[i][j],Calib_K);
                     e->setMeasurement(Converter::toVector3d(Xc));
-                    e->information() = Eigen::Matrix3d::Identity()/sigma_3d_dyn;
+                    e->information() = Eigen::Matrix3d::Identity()/sigma2_3d_dyn;
                     if (ROBUST_KERNEL){
                         g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
                         e->setRobustKernel(rk);
@@ -1675,7 +1671,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                     em->setVertex(1, optimizer.vertex(count_unique_id));
                     em->setVertex(2, optimizer.vertex(ObjPositionID));
                     em->setMeasurement(Eigen::Vector3d(0,0,0));
-                    em->information() = Eigen::Matrix3d::Identity()/sigma_obj;
+                    em->information() = Eigen::Matrix3d::Identity()/sigma2_obj;
                     if (ROBUST_KERNEL){
                         g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
                         em->setRobustKernel(rk);

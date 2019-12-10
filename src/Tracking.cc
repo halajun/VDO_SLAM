@@ -764,7 +764,7 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
             }
         }
         cv::imshow("Sparse Static Features and Dense Object Points", imRGB);
-        cv::waitKey(0);
+        cv::waitKey(1);
     }
 
     // // ************** show bounding box with speed ***************
@@ -1988,7 +1988,7 @@ void Tracking::Track()
             // cv::Mat Obj_X_tmp = Optimizer::PoseOptimizationFlow(&mCurrentFrame,&mLastFrame,ObjIdTest_in);
             // cv::Mat Obj_X_tmp = Optimizer::PoseOptimizationFlow2RanSac(&mCurrentFrame,&mLastFrame,ObjIdTest_in,of_gt_in,e_bef);
             cv::Mat Obj_X_tmp = Optimizer::PoseOptimizationFlow2(&mCurrentFrame,&mLastFrame,ObjIdTest_in,of_gt_in,e_bef,InlierID);
-            mCurrentFrame.vObjMod[i] = InvMatrix(mCurrentFrame.mTcw)*Obj_X_tmp; // *mOriginInv
+            mCurrentFrame.vObjMod[i] = InvMatrix(mCurrentFrame.mTcw)*Obj_X_tmp;
             // mCurrentFrame.vObjMod[i] = Optimizer::PoseOptimizationObjMot(&mCurrentFrame,&mLastFrame,ObjIdTest_in,flo_cov);
 
             mCurrentFrame.vnObjInlierID[i] = InlierID;
@@ -2211,7 +2211,7 @@ void Tracking::Track()
     // ============== batch optimize on all the measurements (global optimization) ==============
     // ==========================================================================================
 
-    if (f_id==100) // bFrame2Frame f_id>=2
+    if (f_id==70) // bFrame2Frame f_id>=2
     {
         // Metric Error BEFORE Optimization
         GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion,mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT);
@@ -4019,7 +4019,7 @@ cv::Mat Tracking::GetInitModelCam(const std::vector<int> &MatchId, std::vector<i
 
     // solve
     int iter_num = 500;
-    double reprojectionError = 0.5, confidence = 0.98; // 0.5 0.3
+    double reprojectionError = 0.3, confidence = 0.98; // 0.5 0.3
     cv::solvePnPRansac(pre_3d, cur_2d, camera_mat, distCoeffs, Rvec, Tvec, false,
                iter_num, reprojectionError, confidence, inliers, cv::SOLVEPNP_AP3P); // AP3P EPNP P3P ITERATIVE DLS
 
@@ -4116,7 +4116,7 @@ cv::Mat Tracking::GetInitModelObj(const std::vector<int> &ObjId, std::vector<int
 
     // solve
     int iter_num = 500;
-    double reprojectionError = 1.0, confidence = 0.98; // 0.3 0.5 1.0
+    double reprojectionError = 0.3, confidence = 0.98; // 0.3 0.5 1.0
     cv::solvePnPRansac(pre_3d, cur_2d, camera_mat, distCoeffs, Rvec, Tvec, false,
                iter_num, reprojectionError, confidence, inliers, cv::SOLVEPNP_AP3P); // AP3P EPNP P3P ITERATIVE DLS
 
@@ -4959,12 +4959,12 @@ std::vector<std::vector<std::pair<int, int> > > Tracking::GetStaticTrack()
         TrackCheck_pre = TrackCheck_cur;
     }
 
-    // display info
-    cout << endl;
-    cout << "==============================================" << endl;
-    cout << "the number of static feature tracklets: " << TrackLets.size() << endl;
-    cout << "==============================================" << endl;
-    cout << endl;
+    // // display info
+    // cout << endl;
+    // cout << "==============================================" << endl;
+    // cout << "the number of static feature tracklets: " << TrackLets.size() << endl;
+    // cout << "==============================================" << endl;
+    // cout << endl;
 
     // std::vector<int> TrackLength(N,0);
     // for (int i = 0; i < TrackLets.size(); ++i)
@@ -5058,12 +5058,12 @@ std::vector<std::vector<std::pair<int, int> > > Tracking::GetDynamicTrackNew()
     // update object ID list
     mpMap->nObjID = ObjectID;
 
-    // display info
-    cout << endl;
-    cout << "==============================================" << endl;
-    cout << "the number of dynamic feature tracklets: " << TrackLets.size() << endl;
-    cout << "==============================================" << endl;
-    cout << endl;
+    // // display info
+    // cout << endl;
+    // cout << "==============================================" << endl;
+    // cout << "the number of dynamic feature tracklets: " << TrackLets.size() << endl;
+    // cout << "==============================================" << endl;
+    // cout << endl;
 
     // std::vector<int> TrackLength(N,0);
     // for (int i = 0; i < TrackLets.size(); ++i)
@@ -5241,8 +5241,6 @@ std::vector<std::vector<std::pair<int, int> > > Tracking::GetDynamicTrack()
 
 void Tracking::RenewFrameInfo(const std::vector<int> &TM_sta)
 {
-    cv::RNG rng((unsigned)time(NULL));
-
     // cout << endl << "START UPDATE FRAME INFORMATION......" << endl;
 
     // ---------------------------------------------------------------------------------------
@@ -5290,54 +5288,63 @@ void Tracking::RenewFrameInfo(const std::vector<int> &TM_sta)
     // cout << "accumulate static inlier number in: " << mvKeysTmp.size() << endl;
 
     // (2) Save extra key points to make it a fixed number (max = 1000)
-    int tot_num = mvKeysTmp.size(), max_num_sta = 1000;
+    int tot_num = mvKeysTmp.size(), max_num_sta = 800, start_id = 0, step = 20;
     while (tot_num<max_num_sta)
     {
-        int i = rng.uniform((int)0,(int)mCurrentFrame.mvKeys.size());
+        // start id > step number, then stop
+        if (start_id==step)
+            break;
 
-        // check if this key point is already been used
-        float min_dist = 100;
-        bool used = false;
-        for (int j = 0; j < mvKeysTmp.size(); ++j)
+        for (int i = start_id; i < mCurrentFrame.mvKeys.size(); i=i+step)
         {
-            float cur_dist = std::sqrt( (mvKeysTmp[j].pt.x-mCurrentFrame.mvKeys[i].pt.x)*(mvKeysTmp[j].pt.x-mCurrentFrame.mvKeys[i].pt.x) + (mvKeysTmp[j].pt.y-mCurrentFrame.mvKeys[i].pt.y)*(mvKeysTmp[j].pt.y-mCurrentFrame.mvKeys[i].pt.y) );
-            if (cur_dist<min_dist)
-                min_dist = cur_dist;
-            if (min_dist<1.0)
+            // check if this key point is already been used
+            float min_dist = 100;
+            bool used = false;
+            for (int j = 0; j < mvKeysTmp.size(); ++j)
             {
-                used = true;
+                float cur_dist = std::sqrt( (mvKeysTmp[j].pt.x-mCurrentFrame.mvKeys[i].pt.x)*(mvKeysTmp[j].pt.x-mCurrentFrame.mvKeys[i].pt.x) + (mvKeysTmp[j].pt.y-mCurrentFrame.mvKeys[i].pt.y)*(mvKeysTmp[j].pt.y-mCurrentFrame.mvKeys[i].pt.y) );
+                if (cur_dist<min_dist)
+                    min_dist = cur_dist;
+                if (min_dist<1.0)
+                {
+                    used = true;
+                    break;
+                }
+            }
+            if (used)
+                continue;
+
+            int x = mCurrentFrame.mvKeys[i].pt.x;
+            int y = mCurrentFrame.mvKeys[i].pt.y;
+
+            if (x>=mImGrayLast.cols || y>=mImGrayLast.rows || x<=0 || y<=0)
+                continue;
+
+            if (mSegMap.at<int>(y,x)!=0)
+                continue;
+
+            if (mDepthMap.at<float>(y,x)>40 || mDepthMap.at<float>(y,x)<=0)
+                continue;
+
+            float flow_xe = mFlowMap.at<cv::Vec2f>(y,x)[0];
+            float flow_ye = mFlowMap.at<cv::Vec2f>(y,x)[1];
+
+            if(flow_xe!=0 && flow_ye!=0)
+            {
+                if(mCurrentFrame.mvKeys[i].pt.x+flow_xe < mImGrayLast.cols && mCurrentFrame.mvKeys[i].pt.y+flow_ye < mImGrayLast.rows && mCurrentFrame.mvKeys[i].pt.x < mImGrayLast.cols && mCurrentFrame.mvKeys[i].pt.y < mImGrayLast.rows)
+                {
+                    mvKeysTmp.push_back(mCurrentFrame.mvKeys[i]);
+                    mvCorresTmp.push_back(cv::KeyPoint(mCurrentFrame.mvKeys[i].pt.x+flow_xe,mCurrentFrame.mvKeys[i].pt.y+flow_ye,0,0,0,-1));
+                    mvFlowNextTmp.push_back(cv::Point2f(flow_xe,flow_ye));
+                    StaInlierIDTmp.push_back(-1);
+                    tot_num = tot_num + 1;
+                }
+            }
+
+            if (tot_num>=max_num_sta)
                 break;
-            }
         }
-        if (used)
-            continue;
-
-        int x = mCurrentFrame.mvKeys[i].pt.x;
-        int y = mCurrentFrame.mvKeys[i].pt.y;
-
-        if (x>=mImGrayLast.cols || y>=mImGrayLast.rows || x<=0 || y<=0)
-            continue;
-
-        if (mSegMap.at<int>(y,x)!=0)
-            continue;
-
-        if (mDepthMap.at<float>(y,x)>40 || mDepthMap.at<float>(y,x)<=0)
-            continue;
-
-        float flow_xe = mFlowMap.at<cv::Vec2f>(y,x)[0];
-        float flow_ye = mFlowMap.at<cv::Vec2f>(y,x)[1];
-
-        if(flow_xe!=0 && flow_ye!=0)
-        {
-            if(mCurrentFrame.mvKeys[i].pt.x+flow_xe < mImGrayLast.cols && mCurrentFrame.mvKeys[i].pt.y+flow_ye < mImGrayLast.rows && mCurrentFrame.mvKeys[i].pt.x < mImGrayLast.cols && mCurrentFrame.mvKeys[i].pt.y < mImGrayLast.rows)
-            {
-                mvKeysTmp.push_back(mCurrentFrame.mvKeys[i]);
-                mvCorresTmp.push_back(cv::KeyPoint(mCurrentFrame.mvKeys[i].pt.x+flow_xe,mCurrentFrame.mvKeys[i].pt.y+flow_ye,0,0,0,-1));
-                mvFlowNextTmp.push_back(cv::Point2f(flow_xe,flow_ye));
-                StaInlierIDTmp.push_back(-1);
-                tot_num = tot_num + 1;
-            }
-        }
+        start_id = start_id + 1;
     }
 
     mCurrentFrame.N_s_tmp = mvKeysTmp.size();
@@ -5423,7 +5430,7 @@ void Tracking::RenewFrameInfo(const std::vector<int> &TM_sta)
     {
         int SemLabel = mCurrentFrame.nSemPosition[i];
         int tot_num = ObjFeaCount[i];
-        int start_id = 0, step = 12, max_num_obj = 1000;
+        int start_id = 0, step = 15, max_num_obj = 400;
         while (tot_num<max_num_obj)
         {
             // start id > step number, then stop
@@ -5663,7 +5670,7 @@ void Tracking::GetMetricError(const std::vector<cv::Mat> &CamPose, const std::ve
                 float r_rpe_obj = acos( ( trace_rpe -1.0 )/2.0 )*180.0/3.1415926;
                 r_rpe_sum = r_rpe_sum + r_rpe_obj;
 
-                cout << " t: " << t_rpe_obj << " R: " << r_rpe_obj << endl;
+                cout << "(" << j-1 << ")" << " t: " << t_rpe_obj << " R: " << r_rpe_obj << endl;
                 obj_count++;
             }
         }

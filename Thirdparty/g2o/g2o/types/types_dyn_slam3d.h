@@ -7,6 +7,7 @@
 #include "edge_se3.h"
 #include "vertex_pointxyz.h"
 #include "../core/base_multi_edge.h"
+#include "../core/base_unary_edge.h"
 
 namespace g2o {
 
@@ -31,6 +32,25 @@ class LandmarkMotionTernaryEdge: public BaseMultiEdge<3,Vector3>
 private:
     Eigen::Matrix<number_t,3,6,Eigen::ColMajor> J;
 
+};
+
+
+class EdgeSE3Altitude: public BaseUnaryEdge<1, double, VertexSE3>
+{
+    public:
+        EdgeSE3Altitude();
+
+        virtual bool read(std::istream& is);
+        virtual bool write(std::ostream& os) const;
+        void computeError();
+        void linearizeOplus();
+
+        virtual void setMeasurement(const double& m){
+            _measurement = m;
+        }
+
+    private:
+        Eigen::Matrix<number_t,1,6,Eigen::RowMajor> J;
 };
 
 

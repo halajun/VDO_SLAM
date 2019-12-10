@@ -1222,18 +1222,17 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
 
     // // show feature mark index
     // int count = 0;
-    // for (int i = 0; i < StaTracks.size(); ++i)
+    // for (int i = 0; i < DynTracks.size(); ++i)
     // {
-    //     if (StaTracks[i].size()==2)
+    //     if (DynTracks[i].size()==2)
     //         continue;
-    //     count = count + StaTracks[i].size();
-    //     for (int j = 0; j < StaTracks[i].size(); ++j)
+    //     count = count + DynTracks[i].size();
+    //     for (int j = 0; j < DynTracks[i].size(); ++j)
     //     {
-    //         // cout << "/" << StaTracks[i][j].first << " " << StaTracks[i][j].second << "/";
+    //         cout << DynTracks[i][j].first << " " << DynTracks[i][j].second << " / ";
     //     }
-    //     // cout << endl;
+    //     cout << endl;
     // }
-    // cout << "edge size: " << count << endl;
 
     // =======================================================================================
 
@@ -1256,12 +1255,14 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
         vnFeaLabDyn[i] = vnFLD_tmp;
         vnFeaMakDyn[i] = vnFLD_tmp;
     }
+    int valid_sta = 0, valid_dyn = 0;
     // label static feature
     for (int i = 0; i < StaTracks.size(); ++i)
     {
         // filter the tracklets via threshold
-        if (StaTracks[i].size()<5) // 3 the length of track on background.
+        if (StaTracks[i].size()<15) // 3 the length of track on background.
             continue;
+        valid_sta++;
         // label them
         for (int j = 0; j < StaTracks[i].size(); ++j)
             vnFeaLabSta[StaTracks[i][j].first][StaTracks[i][j].second] = i;
@@ -1270,14 +1271,16 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     for (int i = 0; i < DynTracks.size(); ++i)
     {
         // filter the tracklets via threshold
-        if (DynTracks[i].size()<100) // 3 the length of track on objects.
+        if (DynTracks[i].size()<30) // 3 the length of track on objects.
             continue;
+        valid_dyn++;
         // label them
         for (int j = 0; j < DynTracks[i].size(); ++j){
             vnFeaLabDyn[DynTracks[i][j].first][DynTracks[i][j].second] = i;
 
         }
     }
+    cout << "Valid Static and Dynamic Tracks:((( " << valid_sta << " / " << valid_dyn << " )))" << endl << endl;
 
     // save vertex ID in the graph
     std::vector<std::vector<int> > VertexID(N-1);
@@ -1308,10 +1311,11 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     optimizer.addParameter(cameraOffset);
 
     // === set information matrix ===
-    const float sigma2_cam = 0.005; // 0.005
-    const float sigma2_3d_sta = 10; // 50 80
-    const float sigma2_obj = 1.0; // 
-    const float sigma2_3d_dyn = 100; // 
+    const float sigma2_cam = 0.001; // 0.005 0.001
+    const float sigma2_3d_sta = 80; // 50 80
+    const float sigma2_obj = 0.5; // 0.5 1 10 20
+    const float sigma2_3d_dyn = 80; // 50 100
+    const float sigma2_alti = 0.01;
 
     // === identity initialization ===
     cv::Mat id_temp = cv::Mat::eye(4,4, CV_32F);
@@ -1320,12 +1324,13 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     vector<g2o::LandmarkMotionTernaryEdge*> vpEdgeLandmarkMotion;
     vector<g2o::EdgeSE3PointXYZ*> vpEdgeSE3PointSta;
     vector<g2o::EdgeSE3PointXYZ*> vpEdgeSE3PointDyn;
+    vector<g2o::EdgeSE3Altitude*> vpEdgeSE3Altitude;
 
     // ---------------------------------------------------------------------------------------
     // ---------=============!!!=- Main Loop for input data -=!!!=============----------------
     // ---------------------------------------------------------------------------------------
     int count_unique_id = 1;
-    bool ROBUST_KERNEL = false;
+    bool ROBUST_KERNEL = true, ALTITUDE_CONSTRAINT = true;
     float deltaHuberCamMot = 0.01, deltaHuberObjMot = 0.01, deltaHuber3D = 0.01;
     int PreFrameID;
     for (int i = 0; i < N; ++i)
@@ -1350,6 +1355,16 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
         }
         if (i!=0)
             VertexID[i-1][0] = count_unique_id;
+        if (false)
+        {
+            g2o::EdgeSE3Altitude * ea = new g2o::EdgeSE3Altitude();
+            ea->setVertex(0, optimizer.vertex(count_unique_id));
+            ea->setMeasurement(0);
+            Eigen::Matrix<double, 1, 1> altitude_information(1.0/sigma2_alti);
+            ea->information() = altitude_information;
+            optimizer.addEdge(ea);
+            vpEdgeSE3Altitude.push_back(ea);
+        }
         // record the ID of current frame saved in graph file
         int CurFrameID = count_unique_id;
         count_unique_id++;
@@ -1561,6 +1576,16 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                 m_se3->setEstimate(Converter::toSE3Quat(pMap->vmRigidMotion[i-1][j]));
                 // m_se3->setEstimate(Converter::toSE3Quat(id_temp));
                 optimizer.addVertex(m_se3);
+                if (ALTITUDE_CONSTRAINT)
+                {
+                    g2o::EdgeSE3Altitude * ea = new g2o::EdgeSE3Altitude();
+                    ea->setVertex(0, optimizer.vertex(count_unique_id));
+                    ea->setMeasurement(0);
+                    Eigen::Matrix<double, 1, 1> altitude_information(1.0/sigma2_alti);
+                    ea->information() = altitude_information;
+                    optimizer.addEdge(ea);
+                    vpEdgeSE3Altitude.push_back(ea);
+                }
                 ObjUniqueID[j-1]=count_unique_id;
                 VertexID[i-1][j]=count_unique_id;
                 count_unique_id++;
@@ -1707,134 +1732,301 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     optimizer.initializeOptimization();
     optimizer.setVerbose(true);
 
+    bool check_before_opt=true, check_after_opt=true;
+    if (check_before_opt)
+    {
+        // ****** check the chi2 error stats ******
+        cout << endl << "(" << vpEdgeSE3.size() << ") " << "EdgeSE3 chi2: " << endl;
+        for(size_t i=0, iend=vpEdgeSE3.size(); i<iend; i++)
+        {
+            g2o::EdgeSE3* e = vpEdgeSE3[i];
+            e->computeError();
+            const float chi2 = e->chi2();
+            cout << chi2 << " ";
+        }
+        cout << endl;
+
+        std::vector<int> range(12,0);
+        cout << "(" << vpEdgeSE3PointSta.size() << ") " << "EdgeSE3PointSta chi2: " << endl;
+        for(size_t i=0, iend=vpEdgeSE3PointSta.size(); i<iend; i++)
+        {
+            g2o::EdgeSE3PointXYZ* e = vpEdgeSE3PointSta[i];
+            e->computeError();
+            const float chi2 = e->chi2();
+            {
+                if (0.0<=chi2 && chi2<0.01)
+                    range[0] = range[0] + 1;
+                else if (0.01<=chi2 && chi2<0.02)
+                    range[1] = range[1] + 1;
+                else if (0.02<=chi2 && chi2<0.04)
+                    range[2] = range[2] + 1;
+                else if (0.04<=chi2 && chi2<0.08)
+                    range[3] = range[3] + 1;
+                else if (0.08<=chi2 && chi2<0.1)
+                    range[4] = range[4] + 1;
+                else if (0.1<=chi2 && chi2<0.2)
+                    range[5] = range[5] + 1;
+                else if (0.2<=chi2 && chi2<0.4)
+                    range[6] = range[6] + 1;
+                else if (0.4<=chi2 && chi2<0.8)
+                    range[7] = range[7] + 1;
+                else if (0.8<=chi2 && chi2<1.0)
+                    range[8] = range[8] + 1;
+                else if (1.0<=chi2 && chi2<5.0)
+                    range[9] = range[9] + 1;
+                else if (5.0<=chi2 && chi2<10.0)
+                    range[10] = range[10] + 1;
+                else if (chi2>=10.0)
+                    range[11] = range[11] + 1;
+            }
+            // cout << chi2 << " ";
+        }
+        // cout << endl;
+        for (int j = 0; j < range.size(); ++j)
+            cout << range[j] << " ";
+        cout << endl;
+
+        std::vector<int> range1(12,0);
+        cout << "(" << vpEdgeLandmarkMotion.size() << ") " << "LandmarkMotionTernaryEdge chi2: " << endl;
+        for(size_t i=0, iend=vpEdgeLandmarkMotion.size(); i<iend; i++)
+        {
+            g2o::LandmarkMotionTernaryEdge* e = vpEdgeLandmarkMotion[i];
+            e->computeError();
+            const float chi2 = e->chi2();
+            {
+                if (0.0<=chi2 && chi2<0.01)
+                    range1[0] = range1[0] + 1;
+                else if (0.01<=chi2 && chi2<0.02)
+                    range1[1] = range1[1] + 1;
+                else if (0.02<=chi2 && chi2<0.04)
+                    range1[2] = range1[2] + 1;
+                else if (0.04<=chi2 && chi2<0.08)
+                    range1[3] = range1[3] + 1;
+                else if (0.08<=chi2 && chi2<0.1)
+                    range1[4] = range1[4] + 1;
+                else if (0.1<=chi2 && chi2<0.2)
+                    range1[5] = range1[5] + 1;
+                else if (0.2<=chi2 && chi2<0.4)
+                    range1[6] = range1[6] + 1;
+                else if (0.4<=chi2 && chi2<0.8)
+                    range1[7] = range1[7] + 1;
+                else if (0.8<=chi2 && chi2<1.0)
+                    range1[8] = range1[8] + 1;
+                else if (1.0<=chi2 && chi2<5.0)
+                    range1[9] = range1[9] + 1;
+                else if (5.0<=chi2 && chi2<10.0)
+                    range1[10] = range1[10] + 1;
+                else if (chi2>=10.0)
+                    range1[11] = range1[11] + 1;
+            }
+            // cout << chi2 << " ";
+        }
+        // cout << endl;
+        for (int j = 0; j < range1.size(); ++j)
+            cout << range1[j] << " ";
+        cout << endl;
+
+        std::vector<int> range2(12,0);
+        cout << "(" << vpEdgeSE3PointDyn.size() << ") " << "EdgeSE3PointDyn chi2: " << endl;
+        for(size_t i=0, iend=vpEdgeSE3PointDyn.size(); i<iend; i++)
+        {
+            g2o::EdgeSE3PointXYZ* e = vpEdgeSE3PointDyn[i];
+            e->computeError();
+            const float chi2 = e->chi2();
+            {
+                if (0.0<=chi2 && chi2<0.01)
+                    range2[0] = range2[0] + 1;
+                else if (0.01<=chi2 && chi2<0.02)
+                    range2[1] = range2[1] + 1;
+                else if (0.02<=chi2 && chi2<0.04)
+                    range2[2] = range2[2] + 1;
+                else if (0.04<=chi2 && chi2<0.08)
+                    range2[3] = range2[3] + 1;
+                else if (0.08<=chi2 && chi2<0.1)
+                    range2[4] = range2[4] + 1;
+                else if (0.1<=chi2 && chi2<0.2)
+                    range2[5] = range2[5] + 1;
+                else if (0.2<=chi2 && chi2<0.4)
+                    range2[6] = range2[6] + 1;
+                else if (0.4<=chi2 && chi2<0.8)
+                    range2[7] = range2[7] + 1;
+                else if (0.8<=chi2 && chi2<1.0)
+                    range2[8] = range2[8] + 1;
+                else if (1.0<=chi2 && chi2<5.0)
+                    range2[9] = range2[9] + 1;
+                else if (5.0<=chi2 && chi2<10.0)
+                    range2[10] = range2[10] + 1;
+                else if (chi2>=10.0)
+                    range2[11] = range2[11] + 1;
+            }
+            // cout << chi2 << " ";
+        }
+        // cout << endl;
+        for (int j = 0; j < range2.size(); ++j)
+            cout << range2[j] << " ";
+        cout << endl;
+
+        if (ALTITUDE_CONSTRAINT)
+        {
+            cout << "(" << vpEdgeSE3Altitude.size() << ") " << "vpEdgeSE3Altitude chi2: " << endl;
+            for(size_t i=0, iend=vpEdgeSE3Altitude.size(); i<iend; i++)
+            {
+                g2o::EdgeSE3Altitude* ea = vpEdgeSE3Altitude[i];
+                ea->computeError();
+                const float chi2 = ea->chi2();
+                cout << chi2 << " ";
+            }
+            cout << endl;
+        }
+        cout << endl;
+        // **********************************************
+    }
+
     optimizer.save("dynamic_slam_graph_before_opt.g2o");
     optimizer.optimize(300);
     optimizer.save("dynamic_slam_graph_after_opt.g2o");
 
-    // ****** check the chi2 error stats ******
-    cout << endl << "EdgeSE3 chi2: " << endl;
-    for(size_t i=0, iend=vpEdgeSE3.size(); i<iend; i++)
+    if (check_after_opt)
     {
-        g2o::EdgeSE3* e = vpEdgeSE3[i];
-        const float chi2 = e->chi2();
-        cout << chi2 << " ";
-    }
-    cout << endl;
-
-    std::vector<int> range(12,0);
-    cout << "EdgeSE3PointSta chi2: " << endl;
-    for(size_t i=0, iend=vpEdgeSE3PointSta.size(); i<iend; i++)
-    {
-        g2o::EdgeSE3PointXYZ* e = vpEdgeSE3PointSta[i];
-        const float chi2 = e->chi2();
+        // ****** check the chi2 error stats ******
+        cout << endl << "(" << vpEdgeSE3.size() << ") " << "EdgeSE3 chi2: " << endl;
+        for(size_t i=0, iend=vpEdgeSE3.size(); i<iend; i++)
         {
-            if (0.0<=chi2 && chi2<0.01)
-                range[0] = range[0] + 1;
-            else if (0.01<=chi2 && chi2<0.02)
-                range[1] = range[1] + 1;
-            else if (0.02<=chi2 && chi2<0.04)
-                range[2] = range[2] + 1;
-            else if (0.04<=chi2 && chi2<0.08)
-                range[3] = range[3] + 1;
-            else if (0.08<=chi2 && chi2<0.1)
-                range[4] = range[4] + 1;
-            else if (0.1<=chi2 && chi2<0.2)
-                range[5] = range[5] + 1;
-            else if (0.2<=chi2 && chi2<0.4)
-                range[6] = range[6] + 1;
-            else if (0.4<=chi2 && chi2<0.8)
-                range[7] = range[7] + 1;
-            else if (0.8<=chi2 && chi2<1.0)
-                range[8] = range[8] + 1;
-            else if (1.0<=chi2 && chi2<5.0)
-                range[9] = range[9] + 1;
-            else if (5.0<=chi2 && chi2<10.0)
-                range[10] = range[10] + 1;
-            else if (5.0>chi2)
-                range[11] = range[11] + 1;
+            g2o::EdgeSE3* e = vpEdgeSE3[i];
+            const float chi2 = e->chi2();
+            cout << chi2 << " ";
         }
-        // cout << chi2 << " ";
-    }
-    for (int j = 0; j < range.size(); ++j)
-        cout << range[j] << " ";
-    cout << endl;
+        cout << endl;
 
-    std::vector<int> range1(12,0);
-    cout << "LandmarkMotionTernaryEdge chi2: " << endl;
-    for(size_t i=0, iend=vpEdgeLandmarkMotion.size(); i<iend; i++)
-    {
-        g2o::LandmarkMotionTernaryEdge* e = vpEdgeLandmarkMotion[i];
-        const float chi2 = e->chi2();
+        std::vector<int> range(12,0);
+        cout << "(" << vpEdgeSE3PointSta.size() << ") " << "EdgeSE3PointSta chi2: " << endl;
+        for(size_t i=0, iend=vpEdgeSE3PointSta.size(); i<iend; i++)
         {
-            if (0.0<=chi2 && chi2<0.01)
-                range1[0] = range1[0] + 1;
-            else if (0.01<=chi2 && chi2<0.02)
-                range1[1] = range1[1] + 1;
-            else if (0.02<=chi2 && chi2<0.04)
-                range1[2] = range1[2] + 1;
-            else if (0.04<=chi2 && chi2<0.08)
-                range1[3] = range1[3] + 1;
-            else if (0.08<=chi2 && chi2<0.1)
-                range1[4] = range1[4] + 1;
-            else if (0.1<=chi2 && chi2<0.2)
-                range1[5] = range1[5] + 1;
-            else if (0.2<=chi2 && chi2<0.4)
-                range1[6] = range1[6] + 1;
-            else if (0.4<=chi2 && chi2<0.8)
-                range1[7] = range1[7] + 1;
-            else if (0.8<=chi2 && chi2<1.0)
-                range1[8] = range1[8] + 1;
-            else if (1.0<=chi2 && chi2<5.0)
-                range1[9] = range1[9] + 1;
-            else if (5.0<=chi2 && chi2<10.0)
-                range1[10] = range1[10] + 1;
-            else if (5.0>chi2)
-                range1[11] = range1[11] + 1;
+            g2o::EdgeSE3PointXYZ* e = vpEdgeSE3PointSta[i];
+            const float chi2 = e->chi2();
+            {
+                if (0.0<=chi2 && chi2<0.01)
+                    range[0] = range[0] + 1;
+                else if (0.01<=chi2 && chi2<0.02)
+                    range[1] = range[1] + 1;
+                else if (0.02<=chi2 && chi2<0.04)
+                    range[2] = range[2] + 1;
+                else if (0.04<=chi2 && chi2<0.08)
+                    range[3] = range[3] + 1;
+                else if (0.08<=chi2 && chi2<0.1)
+                    range[4] = range[4] + 1;
+                else if (0.1<=chi2 && chi2<0.2)
+                    range[5] = range[5] + 1;
+                else if (0.2<=chi2 && chi2<0.4)
+                    range[6] = range[6] + 1;
+                else if (0.4<=chi2 && chi2<0.8)
+                    range[7] = range[7] + 1;
+                else if (0.8<=chi2 && chi2<1.0)
+                    range[8] = range[8] + 1;
+                else if (1.0<=chi2 && chi2<5.0)
+                    range[9] = range[9] + 1;
+                else if (5.0<=chi2 && chi2<10.0)
+                    range[10] = range[10] + 1;
+                else if (chi2>=10.0)
+                    range[11] = range[11] + 1;
+            }
+            // cout << chi2 << " ";
         }
-        // cout << chi2 << " ";
-    }
-    for (int j = 0; j < range1.size(); ++j)
-        cout << range1[j] << " ";
-    cout << endl;
+        for (int j = 0; j < range.size(); ++j)
+            cout << range[j] << " ";
+        cout << endl;
 
-    std::vector<int> range2(12,0);
-    cout << "EdgeSE3PointDyn chi2: " << endl;
-    for(size_t i=0, iend=vpEdgeSE3PointDyn.size(); i<iend; i++)
-    {
-        g2o::EdgeSE3PointXYZ* e = vpEdgeSE3PointDyn[i];
-        const float chi2 = e->chi2();
+        std::vector<int> range1(12,0);
+        cout << "(" << vpEdgeLandmarkMotion.size() << ") " << "LandmarkMotionTernaryEdge chi2: " << endl;
+        for(size_t i=0, iend=vpEdgeLandmarkMotion.size(); i<iend; i++)
         {
-            if (0.0<=chi2 && chi2<0.01)
-                range2[0] = range2[0] + 1;
-            else if (0.01<=chi2 && chi2<0.02)
-                range2[1] = range2[1] + 1;
-            else if (0.02<=chi2 && chi2<0.04)
-                range2[2] = range2[2] + 1;
-            else if (0.04<=chi2 && chi2<0.08)
-                range2[3] = range2[3] + 1;
-            else if (0.08<=chi2 && chi2<0.1)
-                range2[4] = range2[4] + 1;
-            else if (0.1<=chi2 && chi2<0.2)
-                range2[5] = range2[5] + 1;
-            else if (0.2<=chi2 && chi2<0.4)
-                range2[6] = range2[6] + 1;
-            else if (0.4<=chi2 && chi2<0.8)
-                range2[7] = range2[7] + 1;
-            else if (0.8<=chi2 && chi2<1.0)
-                range2[8] = range2[8] + 1;
-            else if (1.0<=chi2 && chi2<5.0)
-                range2[9] = range2[9] + 1;
-            else if (5.0<=chi2 && chi2<10.0)
-                range2[10] = range2[10] + 1;
-            else if (5.0>chi2)
-                range2[11] = range2[11] + 1;
+            g2o::LandmarkMotionTernaryEdge* e = vpEdgeLandmarkMotion[i];
+            const float chi2 = e->chi2();
+            {
+                if (0.0<=chi2 && chi2<0.01)
+                    range1[0] = range1[0] + 1;
+                else if (0.01<=chi2 && chi2<0.02)
+                    range1[1] = range1[1] + 1;
+                else if (0.02<=chi2 && chi2<0.04)
+                    range1[2] = range1[2] + 1;
+                else if (0.04<=chi2 && chi2<0.08)
+                    range1[3] = range1[3] + 1;
+                else if (0.08<=chi2 && chi2<0.1)
+                    range1[4] = range1[4] + 1;
+                else if (0.1<=chi2 && chi2<0.2)
+                    range1[5] = range1[5] + 1;
+                else if (0.2<=chi2 && chi2<0.4)
+                    range1[6] = range1[6] + 1;
+                else if (0.4<=chi2 && chi2<0.8)
+                    range1[7] = range1[7] + 1;
+                else if (0.8<=chi2 && chi2<1.0)
+                    range1[8] = range1[8] + 1;
+                else if (1.0<=chi2 && chi2<5.0)
+                    range1[9] = range1[9] + 1;
+                else if (5.0<=chi2 && chi2<10.0)
+                    range1[10] = range1[10] + 1;
+                else if (chi2>=10.0)
+                    range1[11] = range1[11] + 1;
+            }
+            // cout << chi2 << " ";
         }
-        // cout << chi2 << " ";
+        for (int j = 0; j < range1.size(); ++j)
+            cout << range1[j] << " ";
+        cout << endl;
+
+        std::vector<int> range2(12,0);
+        cout << "(" << vpEdgeSE3PointDyn.size() << ") " << "EdgeSE3PointDyn chi2: " << endl;
+        for(size_t i=0, iend=vpEdgeSE3PointDyn.size(); i<iend; i++)
+        {
+            g2o::EdgeSE3PointXYZ* e = vpEdgeSE3PointDyn[i];
+            const float chi2 = e->chi2();
+            {
+                if (0.0<=chi2 && chi2<0.01)
+                    range2[0] = range2[0] + 1;
+                else if (0.01<=chi2 && chi2<0.02)
+                    range2[1] = range2[1] + 1;
+                else if (0.02<=chi2 && chi2<0.04)
+                    range2[2] = range2[2] + 1;
+                else if (0.04<=chi2 && chi2<0.08)
+                    range2[3] = range2[3] + 1;
+                else if (0.08<=chi2 && chi2<0.1)
+                    range2[4] = range2[4] + 1;
+                else if (0.1<=chi2 && chi2<0.2)
+                    range2[5] = range2[5] + 1;
+                else if (0.2<=chi2 && chi2<0.4)
+                    range2[6] = range2[6] + 1;
+                else if (0.4<=chi2 && chi2<0.8)
+                    range2[7] = range2[7] + 1;
+                else if (0.8<=chi2 && chi2<1.0)
+                    range2[8] = range2[8] + 1;
+                else if (1.0<=chi2 && chi2<5.0)
+                    range2[9] = range2[9] + 1;
+                else if (5.0<=chi2 && chi2<10.0)
+                    range2[10] = range2[10] + 1;
+                else if (chi2>=10.0)
+                    range2[11] = range2[11] + 1;
+            }
+            // cout << chi2 << " ";
+        }
+        for (int j = 0; j < range2.size(); ++j)
+            cout << range2[j] << " ";
+        cout << endl;
+
+        if (ALTITUDE_CONSTRAINT)
+        {
+            cout << "(" << vpEdgeSE3Altitude.size() << ") " << "vpEdgeSE3Altitude chi2: " << endl;
+            for(size_t i=0, iend=vpEdgeSE3Altitude.size(); i<iend; i++)
+            {
+                g2o::EdgeSE3Altitude* ea = vpEdgeSE3Altitude[i];
+                ea->computeError();
+                const float chi2 = ea->chi2();
+                cout << chi2 << " ";
+            }
+            cout << endl;
+        }
+        cout << endl;
+        // **********************************************
     }
-    for (int j = 0; j < range2.size(); ++j)
-        cout << range2[j] << " ";
-    cout << endl;
-    // **********************************************
 
 
     // *** save optimized results ***
@@ -1857,21 +2049,21 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                 // camera motion
                 pMap->vmCameraPose_RF[i+1] = Converter::toCvSE3(rot,tra);
             }
-            // else
-            // {
-            //     g2o::VertexSE3* vSE3 = static_cast<g2o::VertexSE3*>(optimizer.vertex(VertexID[i][j]));
+            else
+            {
+                g2o::VertexSE3* vSE3 = static_cast<g2o::VertexSE3*>(optimizer.vertex(VertexID[i][j]));
 
-            //     // convert
-            //     double optimized[7];
-            //     vSE3->getEstimateData(optimized);
-            //     Eigen::Quaterniond q(optimized[6],optimized[3],optimized[4],optimized[5]);
-            //     Eigen::Matrix<double,3,3> rot = q.matrix();
-            //     Eigen::Matrix<double,3,1> tra;
-            //     tra << optimized[0],optimized[1],optimized[2];
+                // convert
+                double optimized[7];
+                vSE3->getEstimateData(optimized);
+                Eigen::Quaterniond q(optimized[6],optimized[3],optimized[4],optimized[5]);
+                Eigen::Matrix<double,3,3> rot = q.matrix();
+                Eigen::Matrix<double,3,1> tra;
+                tra << optimized[0],optimized[1],optimized[2];
 
-            //     // object
-            //     pMap->vmRigidMotion_RF[i][j] = Converter::toCvSE3(rot,tra);
-            // }
+                // object
+                pMap->vmRigidMotion_RF[i][j] = Converter::toCvSE3(rot,tra);
+            }
         }
     }
 
@@ -2038,7 +2230,7 @@ int Optimizer::PoseOptimizationNew(Frame *pCurFrame, Frame *pLastFrame, vector<i
 
 int Optimizer::PoseOptimizationFlow2Cam(Frame *pCurFrame, Frame *pLastFrame, vector<int> &TemperalMatch, const vector<Eigen::Vector2d> &flo_gt, const vector<double> &e_bef)
 {
-    float rp_thres = 0.09; // 0.25
+    float rp_thres = 0.01;
     bool updateflow = true;
 
     g2o::SparseOptimizer optimizer;
@@ -3821,7 +4013,7 @@ cv::Mat Optimizer::PoseOptimizationFlow(Frame *pCurFrame, Frame *pLastFrame, con
 
 cv::Mat Optimizer::PoseOptimizationFlow2(Frame *pCurFrame, Frame *pLastFrame, const vector<int> &ObjId, const vector<Eigen::Vector2d> &flo_gt, const vector<double> &e_bef, std::vector<int> &InlierID)
 {
-    float rp_thres = 0.25;  // 0.04 0.01 0.25
+    float rp_thres = 0.01;  // 0.04 0.01
     bool updateflow = true;
 
     g2o::SparseOptimizer optimizer;

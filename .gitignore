@@ -140,3 +140,4 @@ dynamic_slam_graph_after_opt.g2o
 dynamic_slam_graph_before_opt.g2o
 Thirdparty/g2o/build/CMakeFiles/Progress/35
 Thirdparty/g2o/build/CMakeFiles/Progress/count.txt
+debug.txt

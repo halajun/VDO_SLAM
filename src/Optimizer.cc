@@ -1260,7 +1260,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     for (int i = 0; i < StaTracks.size(); ++i)
     {
         // filter the tracklets via threshold
-        if (StaTracks[i].size()<15) // 3 the length of track on background.
+        if (StaTracks[i].size()<10) // 3 the length of track on background.
             continue;
         valid_sta++;
         // label them
@@ -1271,7 +1271,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     for (int i = 0; i < DynTracks.size(); ++i)
     {
         // filter the tracklets via threshold
-        if (DynTracks[i].size()<30) // 3 the length of track on objects.
+        if (DynTracks[i].size()<20) // 3 the length of track on objects.
             continue;
         valid_dyn++;
         // label them
@@ -1313,9 +1313,10 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     // === set information matrix ===
     const float sigma2_cam = 0.001; // 0.005 0.001
     const float sigma2_3d_sta = 80; // 50 80
-    const float sigma2_obj = 0.5; // 0.5 1 10 20
+    const float sigma2_obj = 0.09; // 0.1
+    const float sigma2_obj_point = 0.5; // 0.5 1 10 20
     const float sigma2_3d_dyn = 80; // 50 100
-    const float sigma2_alti = 0.01;
+    const float sigma2_alti = 0.1;
 
     // === identity initialization ===
     cv::Mat id_temp = cv::Mat::eye(4,4, CV_32F);
@@ -1325,12 +1326,13 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     vector<g2o::EdgeSE3PointXYZ*> vpEdgeSE3PointSta;
     vector<g2o::EdgeSE3PointXYZ*> vpEdgeSE3PointDyn;
     vector<g2o::EdgeSE3Altitude*> vpEdgeSE3Altitude;
+    vector<g2o::EdgeSE3*> vpEdgeSE3Smooth;
 
     // ---------------------------------------------------------------------------------------
     // ---------=============!!!=- Main Loop for input data -=!!!=============----------------
     // ---------------------------------------------------------------------------------------
     int count_unique_id = 1;
-    bool ROBUST_KERNEL = true, ALTITUDE_CONSTRAINT = true;
+    bool ROBUST_KERNEL = true, ALTITUDE_CONSTRAINT = false, SMOOTH_CONSTRAINT = true;
     float deltaHuberCamMot = 0.01, deltaHuberObjMot = 0.01, deltaHuber3D = 0.01;
     int PreFrameID;
     for (int i = 0; i < N; ++i)
@@ -1355,16 +1357,6 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
         }
         if (i!=0)
             VertexID[i-1][0] = count_unique_id;
-        if (false)
-        {
-            g2o::EdgeSE3Altitude * ea = new g2o::EdgeSE3Altitude();
-            ea->setVertex(0, optimizer.vertex(count_unique_id));
-            ea->setMeasurement(0);
-            Eigen::Matrix<double, 1, 1> altitude_information(1.0/sigma2_alti);
-            ea->information() = altitude_information;
-            optimizer.addEdge(ea);
-            vpEdgeSE3Altitude.push_back(ea);
-        }
         // record the ID of current frame saved in graph file
         int CurFrameID = count_unique_id;
         count_unique_id++;
@@ -1407,7 +1399,6 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                 v_p->setId(count_unique_id);
                 cv::Mat Xw = Optimizer::Get3DinWorld(pMap->vpFeatSta[i][j],pMap->vfDepSta[i][j],Calib_K,pMap->vmCameraPose[i]);
                 v_p->setEstimate(Converter::toVector3d(Xw));
-                // v_p->setFixed(true);
                 optimizer.addVertex(v_p);
                 // if (count_unique_id==2)
                 // {
@@ -1586,6 +1577,37 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                     optimizer.addEdge(ea);
                     vpEdgeSE3Altitude.push_back(ea);
                 }
+                if (SMOOTH_CONSTRAINT && i>2)
+                {
+                    // trace back the previous id in vnRMLabel
+                    int TraceID = -1;
+                    for (int k = 0; k < pMap->vnRMLabel[i-2].size(); ++k)
+                    {
+                        if (pMap->vnRMLabel[i-2][k]==pMap->vnRMLabel[i-1][j])
+                        {
+                            // cout << "what is in the label: " << pMap->vnRMLabel[i-2][k] << " " << pMap->vnRMLabel[i-1][j] << " " << VertexID[i-2][k] << endl;
+                            TraceID = k;
+                            break;
+                        }
+                    }
+                    // only if the back trace exist
+                    if (TraceID!=-1)
+                    {
+                        // add smooth constraint
+                        g2o::EdgeSE3 * ep = new g2o::EdgeSE3();
+                        ep->setVertex(0, optimizer.vertex(VertexID[i-2][TraceID]));
+                        ep->setVertex(1, optimizer.vertex(count_unique_id));
+                        ep->setMeasurement(Converter::toSE3Quat(cv::Mat::eye(4,4,CV_32F)));
+                        ep->information() = Eigen::MatrixXd::Identity(6, 6)/sigma2_obj;
+                        if (ROBUST_KERNEL){
+                            g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+                            ep->setRobustKernel(rk);
+                            ep->robustKernel()->setDelta(deltaHuberCamMot);
+                        }
+                        optimizer.addEdge(ep);
+                        vpEdgeSE3Smooth.push_back(ep);
+                    }
+                }
                 ObjUniqueID[j-1]=count_unique_id;
                 VertexID[i-1][j]=count_unique_id;
                 count_unique_id++;
@@ -1614,7 +1636,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                     }
                 }
                 if (PositionID==-1){
-                    cout << "cannot find the position of current feature in the tracklet !!!" << endl;
+                    // cout << "cannot find the position of current feature in the tracklet !!!" << endl;
                     continue;
                 }
 
@@ -1627,8 +1649,8 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                         break;
                     }
                 }
-                if (ObjPositionID==-1){
-                    cout << "cannot find the object association with this edge !!!" << endl;
+                if (ObjPositionID==-1 && PositionID!=0){
+                    cout << "cannot find the object association with this edge !!! WEIRD POINT !!! " << endl;
                     continue;
                 }
 
@@ -1696,7 +1718,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                     em->setVertex(1, optimizer.vertex(count_unique_id));
                     em->setVertex(2, optimizer.vertex(ObjPositionID));
                     em->setMeasurement(Eigen::Vector3d(0,0,0));
-                    em->information() = Eigen::Matrix3d::Identity()/sigma2_obj;
+                    em->information() = Eigen::Matrix3d::Identity()/sigma2_obj_point;
                     if (ROBUST_KERNEL){
                         g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
                         em->setRobustKernel(rk);
@@ -1878,6 +1900,19 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
             }
             cout << endl;
         }
+
+        if (SMOOTH_CONSTRAINT)
+        {
+            cout << "(" << vpEdgeSE3Smooth.size() << ") " << "vpEdgeSE3Smooth chi2: " << endl;
+            for(size_t i=0, iend=vpEdgeSE3Smooth.size(); i<iend; i++)
+            {
+                g2o::EdgeSE3* ea = vpEdgeSE3Smooth[i];
+                ea->computeError();
+                const float chi2 = ea->chi2();
+                cout << chi2 << " ";
+            }
+            cout << endl;
+        }
         cout << endl;
         // **********************************************
     }
@@ -2018,6 +2053,19 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
             for(size_t i=0, iend=vpEdgeSE3Altitude.size(); i<iend; i++)
             {
                 g2o::EdgeSE3Altitude* ea = vpEdgeSE3Altitude[i];
+                ea->computeError();
+                const float chi2 = ea->chi2();
+                cout << chi2 << " ";
+            }
+            cout << endl;
+        }
+
+        if (SMOOTH_CONSTRAINT)
+        {
+            cout << "(" << vpEdgeSE3Smooth.size() << ") " << "vpEdgeSE3Smooth chi2: " << endl;
+            for(size_t i=0, iend=vpEdgeSE3Smooth.size(); i<iend; i++)
+            {
+                g2o::EdgeSE3* ea = vpEdgeSE3Smooth[i];
                 ea->computeError();
                 const float chi2 = ea->chi2();
                 cout << chi2 << " ";

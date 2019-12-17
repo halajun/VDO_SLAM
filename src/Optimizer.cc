@@ -1214,6 +1214,1162 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
 
 // }
 
+void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const int WINDOW_SIZE)
+{
+    const int N = pMap->vpFeatSta.size(); // Number of Frames
+    std::vector<std::vector<std::pair<int, int> > > StaTracks = pMap->TrackletSta;
+    std::vector<std::vector<std::pair<int, int> > > DynTracks = pMap->TrackletDyn;
+
+    // =======================================================================================
+
+    // mark each feature if it is satisfied (valid) for usage
+    // here we use track length as threshold, for static >=3, dynamic >=3.
+    // label each feature of the position in TrackLets: -1(invalid) or >=0(TrackID);
+    // size: static: (N)xM_1, M_1 is the size of features in each frame
+    // size: dynamic: (N)xM_2, M_2 is the size of features in each frame
+    std::vector<std::vector<int> > vnFeaLabSta(N),vnFeaMakSta(N),vnFeaLabDyn(N),vnFeaMakDyn(N);
+    // initialize
+    for (int i = 0; i < N; ++i)
+    {
+        std::vector<int>  vnFLS_tmp(pMap->vpFeatSta[i].size(),-1);
+        vnFeaLabSta[i] = vnFLS_tmp;
+        vnFeaMakSta[i] = vnFLS_tmp;
+    }
+    for (int i = 0; i < N; ++i)
+    {
+        std::vector<int>  vnFLD_tmp(pMap->vpFeatDyn[i].size(),-1);
+        vnFeaLabDyn[i] = vnFLD_tmp;
+        vnFeaMakDyn[i] = vnFLD_tmp;
+    }
+    int valid_sta = 0, valid_dyn = 0;
+    // label static feature
+    for (int i = 0; i < StaTracks.size(); ++i)
+    {
+        // filter the tracklets via threshold
+        if (StaTracks[i].size()<3) // 3 the length of track on background.
+            continue;
+        valid_sta++;
+        // label them
+        for (int j = 0; j < StaTracks[i].size(); ++j)
+            vnFeaLabSta[StaTracks[i][j].first][StaTracks[i][j].second] = i;
+    }
+    // label dynamic feature
+    for (int i = 0; i < DynTracks.size(); ++i)
+    {
+        // filter the tracklets via threshold
+        if (DynTracks[i].size()<3) // 3 the length of track on objects.
+            continue;
+        valid_dyn++;
+        // label them
+        for (int j = 0; j < DynTracks[i].size(); ++j){
+            vnFeaLabDyn[DynTracks[i][j].first][DynTracks[i][j].second] = i;
+
+        }
+    }
+
+    // save vertex ID in the graph
+    std::vector<std::vector<int> > VertexID(N);
+    // initialize
+    for (int i = 0; i < N; ++i)
+    {
+        if (i==0)
+        {
+            std::vector<int> v_id_tmp(1,-1);
+            VertexID[i] = v_id_tmp;
+        }
+        else
+        {
+            std::vector<int> v_id_tmp(pMap->vnRMLabel[i-1].size(),-1);
+            VertexID[i] = v_id_tmp;
+        }
+    }
+
+    // check if objects has the required tracking length in current window
+    const int ObjLength = WINDOW_SIZE-1;
+    std::vector<std::vector<bool> > ObjCheck(N-1);
+    for (int i = 0; i < N-1; ++i)
+    {
+        std::vector<bool>  ObjCheck_tmp(pMap->vnRMLabel[i].size(),false);
+        ObjCheck[i] = ObjCheck_tmp;
+    }
+    // collect unique object label and how many times it appears
+    std::vector<int> UniLab, LabCount;
+    for (int i = N-WINDOW_SIZE; i < N-1; ++i)
+    {
+        if (i == N-WINDOW_SIZE)
+        {
+            for (int j = 1; j < pMap->vnRMLabel[i].size(); ++j)
+            {
+                UniLab.push_back(pMap->vnRMLabel[i][j]);
+                LabCount.push_back(1);
+            }
+        }
+        else
+        {
+            for (int j = 1; j < pMap->vnRMLabel[i].size(); ++j)
+            {
+                bool used = false;
+                for (int k = 0; k < UniLab.size(); ++k)
+                {
+                    if (UniLab[k]==pMap->vnRMLabel[i][j])
+                    {
+                        used = true;
+                        LabCount[k] = LabCount[k] + 1;
+                        break;
+                    }
+                }
+                if (used==false)
+                {
+                    UniLab.push_back(pMap->vnRMLabel[i][j]);
+                    LabCount.push_back(1);
+                }
+            }
+        }
+    }
+    // assign the ObjCheck ......
+    for (int i = N-WINDOW_SIZE; i < N-1; ++i)
+    {
+        for (int j = 1; j < pMap->vnRMLabel[i].size(); ++j)
+        {
+            for (int k = 0; k < UniLab.size(); ++k)
+            {
+                if (UniLab[k]==pMap->vnRMLabel[i][j] && LabCount[k]>=ObjLength)
+                {
+                    ObjCheck[i][j]= true;
+                    break;
+                }
+            }
+        }
+    }
+
+    // =======================================================================================
+
+    g2o::SparseOptimizer optimizer;
+    g2o::BlockSolverX::LinearSolverType * linearSolver;
+    linearSolver = new g2o::LinearSolverCSparse<g2o::BlockSolverX::PoseMatrixType>();
+    g2o::BlockSolverX * solver_ptr = new g2o::BlockSolverX(linearSolver);
+    // g2o::OptimizationAlgorithmDogleg* solver = new g2o::OptimizationAlgorithmDogleg(solver_ptr);
+    g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
+    // g2o::OptimizationAlgorithmGaussNewton* solver = new g2o::OptimizationAlgorithmGaussNewton(solver_ptr);
+    optimizer.setAlgorithm(solver);
+
+    g2o::SparseOptimizerTerminateAction* terminateAction = new g2o::SparseOptimizerTerminateAction;
+    terminateAction->setGainThreshold(1e-4);
+    optimizer.addPostIterationAction(terminateAction);
+
+    g2o::ParameterSE3Offset* cameraOffset = new g2o::ParameterSE3Offset;
+    cameraOffset->setId(0);
+    optimizer.addParameter(cameraOffset);
+
+    // === set information matrix ===
+    const float sigma2_cam = 0.001; // 0.005 0.001
+    const float sigma2_3d_sta = 80; // 50 80
+    const float sigma2_obj = 0.09; // 0.1
+    const float sigma2_obj_point = 0.5; // 0.5 1 10 20
+    const float sigma2_3d_dyn = 80; // 50 100
+    const float sigma2_alti = 0.1;
+
+    // === identity initialization ===
+    cv::Mat id_temp = cv::Mat::eye(4,4, CV_32F);
+
+    vector<g2o::EdgeSE3*> vpEdgeSE3;
+    vector<g2o::LandmarkMotionTernaryEdge*> vpEdgeLandmarkMotion;
+    vector<g2o::EdgeSE3PointXYZ*> vpEdgeSE3PointSta;
+    vector<g2o::EdgeSE3PointXYZ*> vpEdgeSE3PointDyn;
+    vector<g2o::EdgeSE3Altitude*> vpEdgeSE3Altitude;
+    vector<g2o::EdgeSE3*> vpEdgeSE3Smooth;
+
+    // ---------------------------------------------------------------------------------------
+    // ---------=============!!!=- Main Loop for input data -=!!!=============----------------
+    // ---------------------------------------------------------------------------------------
+    int count_unique_id = 1, FeaLengthThres = WINDOW_SIZE;
+    bool ROBUST_KERNEL = true, ALTITUDE_CONSTRAINT = false, SMOOTH_CONSTRAINT = true;
+    float deltaHuberCamMot = 0.01, deltaHuberObjMot = 0.01, deltaHuber3D = 0.01;
+    int PreFrameID;
+    for (int i = N-WINDOW_SIZE; i < N; ++i)
+    {
+        // cout << "current processing frame: " << i << endl;
+
+        // (1) save <VERTEX_POSE_R3_SO3>
+        g2o::VertexSE3 *v_se3 = new g2o::VertexSE3();
+        v_se3->setId(count_unique_id);
+        v_se3->setEstimate(Converter::toSE3Quat(pMap->vmCameraPose[i]));
+        // v_se3->setEstimate(Converter::toSE3Quat(id_temp));
+        optimizer.addVertex(v_se3);
+        if (count_unique_id==1)
+        {
+            // add prior edges
+            g2o::EdgeSE3Prior * pose_prior = new g2o::EdgeSE3Prior();
+            pose_prior->setVertex(0, optimizer.vertex(count_unique_id));
+            pose_prior->setMeasurement(Converter::toSE3Quat(pMap->vmCameraPose[i]));
+            pose_prior->information() = Eigen::MatrixXd::Identity(6, 6)*100000;
+            pose_prior->setParameterId(0, 0);
+            optimizer.addEdge(pose_prior);
+        }
+        VertexID[i][0] = count_unique_id;
+        // record the ID of current frame saved in graph file
+        int CurFrameID = count_unique_id;
+        count_unique_id++;
+
+        // cout << " (0) save camera pose " << endl;
+
+        // ****** save camera motion if it is not the first frame ******
+        if (i!=N-WINDOW_SIZE)
+        {
+            // (2) save <EDGE_R3_SO3>
+            g2o::EdgeSE3 * ep = new g2o::EdgeSE3();
+            ep->setVertex(0, optimizer.vertex(PreFrameID));
+            ep->setVertex(1, optimizer.vertex(CurFrameID));
+            ep->setMeasurement(Converter::toSE3Quat(pMap->vmRigidMotion[i-1][0]));
+            ep->information() = Eigen::MatrixXd::Identity(6, 6)/sigma2_cam;
+            if (ROBUST_KERNEL)
+            {
+                g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+                ep->setRobustKernel(rk);
+                ep->robustKernel()->setDelta(deltaHuberCamMot);
+            }
+            optimizer.addEdge(ep);
+            vpEdgeSE3.push_back(ep);
+            // cout << " (1) save camera motion " << endl;
+        }
+
+
+        // **************** save for static features ***************************
+        // **************** For frame i= start frame, for each point, **********
+        // **************** check the length it has in the batch ***************
+
+        // loop for static features
+        for (int j = 0; j < vnFeaLabSta[i].size(); ++j)
+        {
+            // check feature validation
+            if (vnFeaLabSta[i][j]==-1)
+                continue;
+
+            // get the TrackID of current feature
+            int TrackID = vnFeaLabSta[i][j];
+
+            // get the position of current feature in the tracklet
+            int PositionID = -1;
+            for (int k = 0; k < StaTracks[TrackID].size(); ++k)
+            {
+                if (StaTracks[TrackID][k].first==i && StaTracks[TrackID][k].second==j)
+                {
+                    PositionID = k;
+                    break;
+                }
+            }
+            if (PositionID==-1){
+                cout << "cannot find the position of current feature in the tracklet !!!" << endl;
+                continue;
+            }
+
+            // check if the PositionID is 0. Yes means this static point is first seen by this frame,
+            // then save both the vertex and edge, otherwise save edge only because vertex is saved before.
+            if (PositionID==0)
+            {
+                // check if this feature track has the same length as the window size
+                const int TrLength = StaTracks[TrackID].size();
+                if ( TrLength<FeaLengthThres )
+                    continue;
+
+                // (3) save <VERTEX_POINT_3D>
+                g2o::VertexPointXYZ *v_p = new g2o::VertexPointXYZ();
+                v_p->setId(count_unique_id);
+                cv::Mat Xw = pMap->vp3DPointSta[i][j];
+                v_p->setEstimate(Converter::toVector3d(Xw));
+                optimizer.addVertex(v_p);
+
+                // (4) save <EDGE_3D>
+                g2o::EdgeSE3PointXYZ * e = new g2o::EdgeSE3PointXYZ();
+                e->setVertex(0, optimizer.vertex(CurFrameID));
+                e->setVertex(1, optimizer.vertex(count_unique_id));
+                cv::Mat Xc = Optimizer::Get3DinCamera(pMap->vpFeatSta[i][j],pMap->vfDepSta[i][j],Calib_K);
+                e->setMeasurement(Converter::toVector3d(Xc));
+                e->information() = Eigen::Matrix3d::Identity()/sigma2_3d_sta;
+                if (ROBUST_KERNEL)
+                {
+                    g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+                    e->setRobustKernel(rk);
+                    e->robustKernel()->setDelta(deltaHuber3D);
+                }
+                e->setParameterId(0, 0);
+                optimizer.addEdge(e);
+                vpEdgeSE3PointSta.push_back(e);
+
+                // update unique id
+                vnFeaMakSta[i][j] = count_unique_id;
+                count_unique_id++;
+            }
+            else
+            {
+                // check if this feature track has the same length as the window size
+                // or its previous FeaMakTmp is not -1, then save it, otherwise skip.
+                const int TrLength = StaTracks[TrackID].size();
+                const int FeaMakTmp = vnFeaMakSta[StaTracks[TrackID][PositionID-1].first][StaTracks[TrackID][PositionID-1].second];
+                if (TrLength<FeaLengthThres || FeaMakTmp==-1)
+                    continue;
+
+                // (4) save <EDGE_3D>
+                g2o::EdgeSE3PointXYZ * e = new g2o::EdgeSE3PointXYZ();
+                e->setVertex(0, optimizer.vertex(CurFrameID));
+                e->setVertex(1, optimizer.vertex(FeaMakTmp));
+                cv::Mat Xc = Optimizer::Get3DinCamera(pMap->vpFeatSta[i][j],pMap->vfDepSta[i][j],Calib_K);
+                e->setMeasurement(Converter::toVector3d(Xc));
+                e->information() = Eigen::Matrix3d::Identity()/sigma2_3d_sta;
+                if (ROBUST_KERNEL)
+                {
+                    g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+                    e->setRobustKernel(rk);
+                    e->robustKernel()->setDelta(deltaHuber3D);
+                }
+                e->setParameterId(0, 0);
+                optimizer.addEdge(e);
+                vpEdgeSE3PointSta.push_back(e);
+
+                // update unique id
+                vnFeaMakSta[i][j] = FeaMakTmp;
+            }
+
+        }
+
+        // cout << " (2) save static features " << endl;
+
+        // **********************************************************************
+        // ************** save object motion, then dynamic features *************
+        // **********************************************************************
+        if (i==N-WINDOW_SIZE)
+        {
+            // loop for dynamic features
+            for (int j = 0; j < vnFeaLabDyn[i].size(); ++j)
+            {
+                // check feature validation
+                if (vnFeaLabDyn[i][j]==-1)
+                    continue;
+
+                // get the TrackID of current feature
+                int TrackID = vnFeaLabDyn[i][j];
+
+                // get the position of current feature in the tracklet
+                int PositionID = -1;
+                for (int k = 0; k < DynTracks[TrackID].size(); ++k)
+                {
+                    if (DynTracks[TrackID][k].first==i && DynTracks[TrackID][k].second==j)
+                    {
+                        PositionID = k;
+                        break;
+                    }
+                }
+                if (PositionID==-1){
+                    cout << "cannot find the position of current feature in the tracklet !!!" << endl;
+                    continue;
+                }
+
+                // check if this feature track has the same length as the window size
+                const int TrLength = DynTracks[TrackID].size();
+                if ( TrLength<FeaLengthThres )
+                    continue;
+
+                // (3) save <VERTEX_POINT_3D>
+                g2o::VertexPointXYZ *v_p = new g2o::VertexPointXYZ();
+                v_p->setId(count_unique_id);
+                cv::Mat Xw = pMap->vp3DPointDyn[i][j];
+                v_p->setEstimate(Converter::toVector3d(Xw));
+                optimizer.addVertex(v_p);
+                // (4) save <EDGE_3D>
+                g2o::EdgeSE3PointXYZ * e = new g2o::EdgeSE3PointXYZ();
+                e->setVertex(0, optimizer.vertex(CurFrameID));
+                e->setVertex(1, optimizer.vertex(count_unique_id));
+                cv::Mat Xc = Optimizer::Get3DinCamera(pMap->vpFeatDyn[i][j],pMap->vfDepDyn[i][j],Calib_K);
+                e->setMeasurement(Converter::toVector3d(Xc));
+                e->information() = Eigen::Matrix3d::Identity()/sigma2_3d_dyn;
+                if (ROBUST_KERNEL){
+                    g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+                    e->setRobustKernel(rk);
+                    e->robustKernel()->setDelta(deltaHuber3D);
+                }
+                e->setParameterId(0, 0);
+                optimizer.addEdge(e);
+                vpEdgeSE3PointDyn.push_back(e);
+
+                // update unique id
+                vnFeaMakDyn[i][j] = count_unique_id;
+                count_unique_id++;
+            }
+        }
+        else
+        {
+            // loop for object motion, and keep the unique vertex id for saving object feature edges
+            std::vector<int> ObjUniqueID(pMap->vmRigidMotion[i-1].size(),-1);
+            // (5) save <VERTEX_SE3Motion>
+            for (int j = 1; j < pMap->vmRigidMotion[i-1].size(); ++j)
+            {
+                if (ObjCheck[i-1][j]==false)
+                    continue;
+
+                g2o::VertexSE3 *m_se3 = new g2o::VertexSE3();
+                m_se3->setId(count_unique_id);
+                m_se3->setEstimate(Converter::toSE3Quat(pMap->vmRigidMotion[i-1][j]));
+                // m_se3->setEstimate(Converter::toSE3Quat(id_temp));
+                optimizer.addVertex(m_se3);
+                if (ALTITUDE_CONSTRAINT)
+                {
+                    g2o::EdgeSE3Altitude * ea = new g2o::EdgeSE3Altitude();
+                    ea->setVertex(0, optimizer.vertex(count_unique_id));
+                    ea->setMeasurement(0);
+                    Eigen::Matrix<double, 1, 1> altitude_information(1.0/sigma2_alti);
+                    ea->information() = altitude_information;
+                    optimizer.addEdge(ea);
+                    vpEdgeSE3Altitude.push_back(ea);
+                }
+                if (SMOOTH_CONSTRAINT && i>N-WINDOW_SIZE+2)
+                {
+                    // trace back the previous id in vnRMLabel
+                    int TraceID = -1;
+                    for (int k = 0; k < pMap->vnRMLabel[i-2].size(); ++k)
+                    {
+                        if (pMap->vnRMLabel[i-2][k]==pMap->vnRMLabel[i-1][j])
+                        {
+                            // cout << "what is in the label: " << pMap->vnRMLabel[i-2][k] << " " << pMap->vnRMLabel[i-1][j] << " " << VertexID[i-2][k] << endl;
+                            TraceID = k;
+                            break;
+                        }
+                    }
+                    // only if the back trace exist
+                    if (TraceID!=-1)
+                    {
+                        // add smooth constraint
+                        g2o::EdgeSE3 * ep = new g2o::EdgeSE3();
+                        ep->setVertex(0, optimizer.vertex(VertexID[i-1][TraceID]));
+                        ep->setVertex(1, optimizer.vertex(count_unique_id));
+                        ep->setMeasurement(Converter::toSE3Quat(cv::Mat::eye(4,4,CV_32F)));
+                        ep->information() = Eigen::MatrixXd::Identity(6, 6)/sigma2_obj;
+                        if (ROBUST_KERNEL){
+                            g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+                            ep->setRobustKernel(rk);
+                            ep->robustKernel()->setDelta(deltaHuberCamMot);
+                        }
+                        optimizer.addEdge(ep);
+                        vpEdgeSE3Smooth.push_back(ep);
+                    }
+                }
+                ObjUniqueID[j]=count_unique_id;
+                VertexID[i][j]=count_unique_id;
+                count_unique_id++;
+            }
+
+            // cout << " (3) save object motion " << endl;
+
+            // // save for dynamic features
+            for (int j = 0; j < vnFeaLabDyn[i].size(); j++)
+            {
+                // check feature validation
+                if (vnFeaLabDyn[i][j]==-1)
+                    continue;
+
+                // get the TrackID of current feature
+                int TrackID = vnFeaLabDyn[i][j];
+
+                // get the position of current feature in the tracklet
+                int PositionID = -1;
+                for (int k = 0; k < DynTracks[TrackID].size(); ++k)
+                {
+                    if (DynTracks[TrackID][k].first==i && DynTracks[TrackID][k].second==j)
+                    {
+                        PositionID = k;
+                        break;
+                    }
+                }
+                if (PositionID==-1){
+                    cout << "cannot find the position of current feature in the tracklet !!!" << endl;
+                    continue;
+                }
+
+                // get the object position id of current feature
+                int ObjPositionID = -1;
+                for (int k = 1; k < pMap->vnRMLabel[i-1].size(); ++k)
+                {
+                    if (pMap->vnRMLabel[i-1][k]==pMap->nObjID[TrackID]){
+                        ObjPositionID = ObjUniqueID[k];
+                        break;
+                    }
+                }
+                if (ObjPositionID==-1 && PositionID!=0){
+                    cout << "cannot find the object association with this edge !!! WEIRD POINT !!! " << endl;
+                    continue;
+                }
+
+
+                // check if the PositionID is 0. Yes means this dynamic point is first seen by this frame,
+                // then save both the vertex and edge, otherwise save edge only because vertex is saved before.
+                if (PositionID==0)
+                {
+
+                    // check if this feature track has the same length as the window size
+                    const int TrLength = DynTracks[TrackID].size();
+                    if ( TrLength<FeaLengthThres )
+                        continue;
+
+                    // (3) save <VERTEX_POINT_3D>
+                    g2o::VertexPointXYZ *v_p = new g2o::VertexPointXYZ();
+                    v_p->setId(count_unique_id);
+                    cv::Mat Xw = pMap->vp3DPointDyn[i][j];
+                    v_p->setEstimate(Converter::toVector3d(Xw));
+                    optimizer.addVertex(v_p);
+                    // (4) save <EDGE_3D>
+                    g2o::EdgeSE3PointXYZ * e = new g2o::EdgeSE3PointXYZ();
+                    e->setVertex(0, optimizer.vertex(CurFrameID));
+                    e->setVertex(1, optimizer.vertex(count_unique_id));
+                    cv::Mat Xc = Optimizer::Get3DinCamera(pMap->vpFeatDyn[i][j],pMap->vfDepDyn[i][j],Calib_K);
+                    e->setMeasurement(Converter::toVector3d(Xc));
+                    e->information() = Eigen::Matrix3d::Identity()/sigma2_3d_dyn;
+                    if (ROBUST_KERNEL)
+                    {
+                        g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+                        e->setRobustKernel(rk);
+                        e->robustKernel()->setDelta(deltaHuber3D);
+                    }
+                    e->setParameterId(0, 0);
+                    optimizer.addEdge(e);
+                    vpEdgeSE3PointDyn.push_back(e);
+
+                    // update unique id
+                    vnFeaMakDyn[i][j] = count_unique_id;
+                    count_unique_id++;
+                }
+                // if no, then only add this feature to the existing track it belongs to.
+                else
+                {
+                    // check if this feature track has the same length as the window size
+                    const int TrLength = DynTracks[TrackID].size();
+                    const int FeaMakTmp = vnFeaMakDyn[DynTracks[TrackID][PositionID-1].first][DynTracks[TrackID][PositionID-1].second];
+                    if ( TrLength<FeaLengthThres || FeaMakTmp==-1 )
+                        continue;
+
+                    // (3) save <VERTEX_POINT_3D>
+                    g2o::VertexPointXYZ *v_p = new g2o::VertexPointXYZ();
+                    v_p->setId(count_unique_id);
+                    cv::Mat Xw = pMap->vp3DPointDyn[i][j];
+                    v_p->setEstimate(Converter::toVector3d(Xw));
+                    optimizer.addVertex(v_p);
+                    // (4) save <EDGE_3D>
+                    g2o::EdgeSE3PointXYZ * e = new g2o::EdgeSE3PointXYZ();
+                    e->setVertex(0, optimizer.vertex(CurFrameID));
+                    e->setVertex(1, optimizer.vertex(count_unique_id));
+                    cv::Mat Xc = Optimizer::Get3DinCamera(pMap->vpFeatDyn[i][j],pMap->vfDepDyn[i][j],Calib_K);
+                    e->setMeasurement(Converter::toVector3d(Xc));
+                    e->information() = Eigen::Matrix3d::Identity()/sigma2_3d_dyn;
+                    if (ROBUST_KERNEL)
+                    {
+                        g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+                        e->setRobustKernel(rk);
+                        e->robustKernel()->setDelta(deltaHuber3D);
+                    }
+                    e->setParameterId(0, 0);
+                    optimizer.addEdge(e);
+                    vpEdgeSE3PointDyn.push_back(e);
+
+                    // only in the case of dynamic and it's not the first feature in tracklet
+                    // we save the dynamic point ID association.
+                    // (6) save <EDGE_2POINTS_SE3MOTION>
+                    g2o::LandmarkMotionTernaryEdge * em = new g2o::LandmarkMotionTernaryEdge();
+                    em->setVertex(0, optimizer.vertex(FeaMakTmp));
+                    em->setVertex(1, optimizer.vertex(count_unique_id));
+                    em->setVertex(2, optimizer.vertex(ObjPositionID));
+                    em->setMeasurement(Eigen::Vector3d(0,0,0));
+                    em->information() = Eigen::Matrix3d::Identity()/sigma2_obj_point;
+                    if (ROBUST_KERNEL)
+                    {
+                        g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+                        em->setRobustKernel(rk);
+                        em->robustKernel()->setDelta(deltaHuberObjMot);
+                    }
+                    optimizer.addEdge(em);
+                    vpEdgeLandmarkMotion.push_back(em);
+
+                    // update unique id
+                    vnFeaMakDyn[i][j] = count_unique_id;
+                    count_unique_id++;
+                }
+            }
+        }
+
+        // cout << " (4) save dynamic features " << endl;
+
+        // update frame ID
+        PreFrameID = CurFrameID;
+    }
+
+
+    // start optimize
+    optimizer.initializeOptimization();
+    optimizer.setVerbose(true);
+
+    bool check_before_opt=true, check_after_opt=true;
+    if (check_before_opt)
+    {
+        // ****** check the chi2 error stats ******
+        cout << endl << "(" << vpEdgeSE3.size() << ") " << "EdgeSE3 chi2: " << endl;
+        for(size_t i=0, iend=vpEdgeSE3.size(); i<iend; i++)
+        {
+            g2o::EdgeSE3* e = vpEdgeSE3[i];
+            e->computeError();
+            const float chi2 = e->chi2();
+            cout << chi2 << " ";
+        }
+        cout << endl;
+
+        std::vector<int> range(12,0);
+        cout << "(" << vpEdgeSE3PointSta.size() << ") " << "EdgeSE3PointSta chi2: " << endl;
+        for(size_t i=0, iend=vpEdgeSE3PointSta.size(); i<iend; i++)
+        {
+            g2o::EdgeSE3PointXYZ* e = vpEdgeSE3PointSta[i];
+            e->computeError();
+            const float chi2 = e->chi2();
+            {
+                if (0.0<=chi2 && chi2<0.01)
+                    range[0] = range[0] + 1;
+                else if (0.01<=chi2 && chi2<0.02)
+                    range[1] = range[1] + 1;
+                else if (0.02<=chi2 && chi2<0.04)
+                    range[2] = range[2] + 1;
+                else if (0.04<=chi2 && chi2<0.08)
+                    range[3] = range[3] + 1;
+                else if (0.08<=chi2 && chi2<0.1)
+                    range[4] = range[4] + 1;
+                else if (0.1<=chi2 && chi2<0.2)
+                    range[5] = range[5] + 1;
+                else if (0.2<=chi2 && chi2<0.4)
+                    range[6] = range[6] + 1;
+                else if (0.4<=chi2 && chi2<0.8)
+                    range[7] = range[7] + 1;
+                else if (0.8<=chi2 && chi2<1.0)
+                    range[8] = range[8] + 1;
+                else if (1.0<=chi2 && chi2<5.0)
+                    range[9] = range[9] + 1;
+                else if (5.0<=chi2 && chi2<10.0)
+                    range[10] = range[10] + 1;
+                else if (chi2>=10.0)
+                    range[11] = range[11] + 1;
+            }
+            // cout << chi2 << " ";
+        }
+        // cout << endl;
+        for (int j = 0; j < range.size(); ++j)
+            cout << range[j] << " ";
+        cout << endl;
+
+        std::vector<int> range1(12,0);
+        cout << "(" << vpEdgeLandmarkMotion.size() << ") " << "LandmarkMotionTernaryEdge chi2: " << endl;
+        for(size_t i=0, iend=vpEdgeLandmarkMotion.size(); i<iend; i++)
+        {
+            g2o::LandmarkMotionTernaryEdge* e = vpEdgeLandmarkMotion[i];
+            e->computeError();
+            const float chi2 = e->chi2();
+            {
+                if (0.0<=chi2 && chi2<0.01)
+                    range1[0] = range1[0] + 1;
+                else if (0.01<=chi2 && chi2<0.02)
+                    range1[1] = range1[1] + 1;
+                else if (0.02<=chi2 && chi2<0.04)
+                    range1[2] = range1[2] + 1;
+                else if (0.04<=chi2 && chi2<0.08)
+                    range1[3] = range1[3] + 1;
+                else if (0.08<=chi2 && chi2<0.1)
+                    range1[4] = range1[4] + 1;
+                else if (0.1<=chi2 && chi2<0.2)
+                    range1[5] = range1[5] + 1;
+                else if (0.2<=chi2 && chi2<0.4)
+                    range1[6] = range1[6] + 1;
+                else if (0.4<=chi2 && chi2<0.8)
+                    range1[7] = range1[7] + 1;
+                else if (0.8<=chi2 && chi2<1.0)
+                    range1[8] = range1[8] + 1;
+                else if (1.0<=chi2 && chi2<5.0)
+                    range1[9] = range1[9] + 1;
+                else if (5.0<=chi2 && chi2<10.0)
+                    range1[10] = range1[10] + 1;
+                else if (chi2>=10.0)
+                    range1[11] = range1[11] + 1;
+            }
+            // cout << chi2 << " ";
+        }
+        // cout << endl;
+        for (int j = 0; j < range1.size(); ++j)
+            cout << range1[j] << " ";
+        cout << endl;
+
+        std::vector<int> range2(12,0);
+        cout << "(" << vpEdgeSE3PointDyn.size() << ") " << "EdgeSE3PointDyn chi2: " << endl;
+        for(size_t i=0, iend=vpEdgeSE3PointDyn.size(); i<iend; i++)
+        {
+            g2o::EdgeSE3PointXYZ* e = vpEdgeSE3PointDyn[i];
+            e->computeError();
+            const float chi2 = e->chi2();
+            {
+                if (0.0<=chi2 && chi2<0.01)
+                    range2[0] = range2[0] + 1;
+                else if (0.01<=chi2 && chi2<0.02)
+                    range2[1] = range2[1] + 1;
+                else if (0.02<=chi2 && chi2<0.04)
+                    range2[2] = range2[2] + 1;
+                else if (0.04<=chi2 && chi2<0.08)
+                    range2[3] = range2[3] + 1;
+                else if (0.08<=chi2 && chi2<0.1)
+                    range2[4] = range2[4] + 1;
+                else if (0.1<=chi2 && chi2<0.2)
+                    range2[5] = range2[5] + 1;
+                else if (0.2<=chi2 && chi2<0.4)
+                    range2[6] = range2[6] + 1;
+                else if (0.4<=chi2 && chi2<0.8)
+                    range2[7] = range2[7] + 1;
+                else if (0.8<=chi2 && chi2<1.0)
+                    range2[8] = range2[8] + 1;
+                else if (1.0<=chi2 && chi2<5.0)
+                    range2[9] = range2[9] + 1;
+                else if (5.0<=chi2 && chi2<10.0)
+                    range2[10] = range2[10] + 1;
+                else if (chi2>=10.0)
+                    range2[11] = range2[11] + 1;
+            }
+            // cout << chi2 << " ";
+        }
+        // cout << endl;
+        for (int j = 0; j < range2.size(); ++j)
+            cout << range2[j] << " ";
+        cout << endl;
+
+        if (ALTITUDE_CONSTRAINT)
+        {
+            cout << "(" << vpEdgeSE3Altitude.size() << ") " << "vpEdgeSE3Altitude chi2: " << endl;
+            for(size_t i=0, iend=vpEdgeSE3Altitude.size(); i<iend; i++)
+            {
+                g2o::EdgeSE3Altitude* ea = vpEdgeSE3Altitude[i];
+                ea->computeError();
+                const float chi2 = ea->chi2();
+                cout << chi2 << " ";
+            }
+            cout << endl;
+        }
+
+        if (SMOOTH_CONSTRAINT)
+        {
+            cout << "(" << vpEdgeSE3Smooth.size() << ") " << "vpEdgeSE3Smooth chi2: " << endl;
+            for(size_t i=0, iend=vpEdgeSE3Smooth.size(); i<iend; i++)
+            {
+                g2o::EdgeSE3* ea = vpEdgeSE3Smooth[i];
+                ea->computeError();
+                const float chi2 = ea->chi2();
+                cout << chi2 << " ";
+            }
+            cout << endl;
+        }
+        cout << endl;
+        // **********************************************
+    }
+
+    optimizer.save("local_ba_before.g2o");
+    optimizer.optimize(100);
+    optimizer.save("local_ba_after.g2o");
+
+    if (check_after_opt)
+    {
+        // ****** check the chi2 error stats ******
+        cout << endl << "(" << vpEdgeSE3.size() << ") " << "EdgeSE3 chi2: " << endl;
+        for(size_t i=0, iend=vpEdgeSE3.size(); i<iend; i++)
+        {
+            g2o::EdgeSE3* e = vpEdgeSE3[i];
+            const float chi2 = e->chi2();
+            cout << chi2 << " ";
+        }
+        cout << endl;
+
+        std::vector<int> range(12,0);
+        cout << "(" << vpEdgeSE3PointSta.size() << ") " << "EdgeSE3PointSta chi2: " << endl;
+        for(size_t i=0, iend=vpEdgeSE3PointSta.size(); i<iend; i++)
+        {
+            g2o::EdgeSE3PointXYZ* e = vpEdgeSE3PointSta[i];
+            const float chi2 = e->chi2();
+            {
+                if (0.0<=chi2 && chi2<0.01)
+                    range[0] = range[0] + 1;
+                else if (0.01<=chi2 && chi2<0.02)
+                    range[1] = range[1] + 1;
+                else if (0.02<=chi2 && chi2<0.04)
+                    range[2] = range[2] + 1;
+                else if (0.04<=chi2 && chi2<0.08)
+                    range[3] = range[3] + 1;
+                else if (0.08<=chi2 && chi2<0.1)
+                    range[4] = range[4] + 1;
+                else if (0.1<=chi2 && chi2<0.2)
+                    range[5] = range[5] + 1;
+                else if (0.2<=chi2 && chi2<0.4)
+                    range[6] = range[6] + 1;
+                else if (0.4<=chi2 && chi2<0.8)
+                    range[7] = range[7] + 1;
+                else if (0.8<=chi2 && chi2<1.0)
+                    range[8] = range[8] + 1;
+                else if (1.0<=chi2 && chi2<5.0)
+                    range[9] = range[9] + 1;
+                else if (5.0<=chi2 && chi2<10.0)
+                    range[10] = range[10] + 1;
+                else if (chi2>=10.0)
+                    range[11] = range[11] + 1;
+            }
+            // cout << chi2 << " ";
+        }
+        for (int j = 0; j < range.size(); ++j)
+            cout << range[j] << " ";
+        cout << endl;
+
+        std::vector<int> range1(12,0);
+        cout << "(" << vpEdgeLandmarkMotion.size() << ") " << "LandmarkMotionTernaryEdge chi2: " << endl;
+        for(size_t i=0, iend=vpEdgeLandmarkMotion.size(); i<iend; i++)
+        {
+            g2o::LandmarkMotionTernaryEdge* e = vpEdgeLandmarkMotion[i];
+            const float chi2 = e->chi2();
+            {
+                if (0.0<=chi2 && chi2<0.01)
+                    range1[0] = range1[0] + 1;
+                else if (0.01<=chi2 && chi2<0.02)
+                    range1[1] = range1[1] + 1;
+                else if (0.02<=chi2 && chi2<0.04)
+                    range1[2] = range1[2] + 1;
+                else if (0.04<=chi2 && chi2<0.08)
+                    range1[3] = range1[3] + 1;
+                else if (0.08<=chi2 && chi2<0.1)
+                    range1[4] = range1[4] + 1;
+                else if (0.1<=chi2 && chi2<0.2)
+                    range1[5] = range1[5] + 1;
+                else if (0.2<=chi2 && chi2<0.4)
+                    range1[6] = range1[6] + 1;
+                else if (0.4<=chi2 && chi2<0.8)
+                    range1[7] = range1[7] + 1;
+                else if (0.8<=chi2 && chi2<1.0)
+                    range1[8] = range1[8] + 1;
+                else if (1.0<=chi2 && chi2<5.0)
+                    range1[9] = range1[9] + 1;
+                else if (5.0<=chi2 && chi2<10.0)
+                    range1[10] = range1[10] + 1;
+                else if (chi2>=10.0)
+                    range1[11] = range1[11] + 1;
+            }
+            // cout << chi2 << " ";
+        }
+        for (int j = 0; j < range1.size(); ++j)
+            cout << range1[j] << " ";
+        cout << endl;
+
+        std::vector<int> range2(12,0);
+        cout << "(" << vpEdgeSE3PointDyn.size() << ") " << "EdgeSE3PointDyn chi2: " << endl;
+        for(size_t i=0, iend=vpEdgeSE3PointDyn.size(); i<iend; i++)
+        {
+            g2o::EdgeSE3PointXYZ* e = vpEdgeSE3PointDyn[i];
+            const float chi2 = e->chi2();
+            {
+                if (0.0<=chi2 && chi2<0.01)
+                    range2[0] = range2[0] + 1;
+                else if (0.01<=chi2 && chi2<0.02)
+                    range2[1] = range2[1] + 1;
+                else if (0.02<=chi2 && chi2<0.04)
+                    range2[2] = range2[2] + 1;
+                else if (0.04<=chi2 && chi2<0.08)
+                    range2[3] = range2[3] + 1;
+                else if (0.08<=chi2 && chi2<0.1)
+                    range2[4] = range2[4] + 1;
+                else if (0.1<=chi2 && chi2<0.2)
+                    range2[5] = range2[5] + 1;
+                else if (0.2<=chi2 && chi2<0.4)
+                    range2[6] = range2[6] + 1;
+                else if (0.4<=chi2 && chi2<0.8)
+                    range2[7] = range2[7] + 1;
+                else if (0.8<=chi2 && chi2<1.0)
+                    range2[8] = range2[8] + 1;
+                else if (1.0<=chi2 && chi2<5.0)
+                    range2[9] = range2[9] + 1;
+                else if (5.0<=chi2 && chi2<10.0)
+                    range2[10] = range2[10] + 1;
+                else if (chi2>=10.0)
+                    range2[11] = range2[11] + 1;
+            }
+            // cout << chi2 << " ";
+        }
+        for (int j = 0; j < range2.size(); ++j)
+            cout << range2[j] << " ";
+        cout << endl;
+
+        if (ALTITUDE_CONSTRAINT)
+        {
+            cout << "(" << vpEdgeSE3Altitude.size() << ") " << "vpEdgeSE3Altitude chi2: " << endl;
+            for(size_t i=0, iend=vpEdgeSE3Altitude.size(); i<iend; i++)
+            {
+                g2o::EdgeSE3Altitude* ea = vpEdgeSE3Altitude[i];
+                ea->computeError();
+                const float chi2 = ea->chi2();
+                cout << chi2 << " ";
+            }
+            cout << endl;
+        }
+
+        if (SMOOTH_CONSTRAINT)
+        {
+            cout << "(" << vpEdgeSE3Smooth.size() << ") " << "vpEdgeSE3Smooth chi2: " << endl;
+            for(size_t i=0, iend=vpEdgeSE3Smooth.size(); i<iend; i++)
+            {
+                g2o::EdgeSE3* ea = vpEdgeSE3Smooth[i];
+                ea->computeError();
+                const float chi2 = ea->chi2();
+                cout << chi2 << " ";
+            }
+            cout << endl;
+        }
+        cout << endl;
+        // **********************************************
+    }
+
+    bool show_result_before_opt=true, show_result_after_opt=true;
+    if (show_result_before_opt)
+    {
+        cout << "Pose and Motion BEFORE Local BA ......" << endl;
+        // absolute trajectory error for CAMERA (RMSE)
+        cout << "=================================================" << endl;
+        cout << "CAMERA:" << endl;
+        float t_sum = 0, r_sum = 0;
+        for (int i = N-WINDOW_SIZE; i < N; ++i)
+        {
+            // cv::Mat T_lc_inv = CamPose[i]*Converter::toInvMatrix(CamPose[i-1]);
+            // cv::Mat T_lc_gt = CamPose_gt[i-1]*Converter::toInvMatrix(CamPose_gt[i]);
+            // cv::Mat ate_cam = T_lc_inv*T_lc_gt;
+            cv::Mat ate_cam = pMap->vmCameraPose[i]*Converter::toInvMatrix(pMap->vmCameraPose_GT[i]);
+
+            // translation
+            float t_ate_cam = std::sqrt(ate_cam.at<float>(0,3)*ate_cam.at<float>(0,3) + ate_cam.at<float>(1,3)*ate_cam.at<float>(1,3) + ate_cam.at<float>(2,3)*ate_cam.at<float>(2,3));
+            t_sum = t_sum + t_ate_cam;
+
+            // rotation
+            float trace_ate = 0;
+            for (int j = 0; j < 3; ++j)
+            {
+                if (ate_cam.at<float>(j,j)>1.0)
+                    trace_ate = trace_ate + 1.0-(ate_cam.at<float>(j,j)-1.0);
+                else
+                    trace_ate = trace_ate + ate_cam.at<float>(j,j);
+            }
+            float r_ate_cam = acos( (trace_ate -1.0)/2.0 )*180.0/3.1415926;
+            r_sum = r_sum + r_ate_cam;
+            cout << " t: " << t_ate_cam << " R: " << r_ate_cam << endl;
+        }
+        // t_mean = std::sqrt(t_sum/(CamPose.size()-1));
+        t_sum = t_sum/(WINDOW_SIZE-1);
+        r_sum = r_sum/(WINDOW_SIZE-1);
+        cout << "average error (Camera):" << " t: " << t_sum << " R: " << r_sum << endl;
+
+        cout << "OBJECTS:" << endl;
+        // all motion error for objects (mean error)
+        float r_rpe_sum = 0, t_rpe_sum = 0, obj_count = 0;
+        for (int i = N-WINDOW_SIZE; i < N-1; ++i)
+        {
+            if (pMap->vmRigidMotion[i].size()>1)
+            {
+                for (int j = 1; j < pMap->vmRigidMotion[i].size(); ++j)
+                {
+                    if (ObjCheck[i][j]==false)
+                        continue;
+
+                    cv::Mat rpe_obj = Converter::toInvMatrix(pMap->vmRigidMotion[i][j])*pMap->vmRigidMotion_GT[i][j];
+
+                    // translation error
+                    float t_rpe_obj = std::sqrt( rpe_obj.at<float>(0,3)*rpe_obj.at<float>(0,3) + rpe_obj.at<float>(1,3)*rpe_obj.at<float>(1,3) + rpe_obj.at<float>(2,3)*rpe_obj.at<float>(2,3) );
+                    t_rpe_sum = t_rpe_sum + t_rpe_obj;
+
+                    // rotation error
+                    float trace_rpe = 0;
+                    for (int k = 0; k < 3; ++k)
+                    {
+                        if (rpe_obj.at<float>(k,k)>1.0)
+                            trace_rpe = trace_rpe + 1.0-(rpe_obj.at<float>(k,k)-1.0);
+                        else
+                            trace_rpe = trace_rpe + rpe_obj.at<float>(k,k);
+                    }
+                    float r_rpe_obj = acos( ( trace_rpe -1.0 )/2.0 )*180.0/3.1415926;
+                    r_rpe_sum = r_rpe_sum + r_rpe_obj;
+
+                    cout << "(" << j << ")" << " t: " << t_rpe_obj << " R: " << r_rpe_obj << endl;
+                    obj_count++;
+                }
+            }
+        }
+        t_rpe_sum = t_rpe_sum/obj_count;
+        r_rpe_sum = r_rpe_sum/obj_count;
+        cout << "average error (Objects):" << " t: " << t_rpe_sum << " R: " << r_rpe_sum << endl;
+        cout << "=================================================" << endl << endl;
+    }
+
+
+    // *** save optimized motion and pose results ***
+    cout << "UPDATE POSE and MOTION ......" << endl;
+    for (int i = N-WINDOW_SIZE; i < N; ++i)
+    {
+        for (int j = 0; j < VertexID[i].size(); ++j)
+        {
+            if (j==0)  // static only
+            {
+                g2o::VertexSE3* vSE3 = static_cast<g2o::VertexSE3*>(optimizer.vertex(VertexID[i][j]));
+
+                // convert
+                double optimized[7];
+                vSE3->getEstimateData(optimized);
+                Eigen::Quaterniond q(optimized[6],optimized[3],optimized[4],optimized[5]);
+                Eigen::Matrix<double,3,3> rot = q.matrix();
+                Eigen::Matrix<double,3,1> tra;
+                tra << optimized[0],optimized[1],optimized[2];
+
+                // camera pose
+                pMap->vmCameraPose[i] = Converter::toCvSE3(rot,tra);
+
+                // camera motion
+                if (i>N-WINDOW_SIZE)
+                {
+                    pMap->vmRigidMotion[i-1][j] = Converter::toInvMatrix(pMap->vmCameraPose[i-1])*pMap->vmCameraPose[i];
+                }
+
+
+            }
+            else
+            {
+                if (VertexID[i][j]==-1)
+                    continue;
+
+                g2o::VertexSE3* vSE3 = static_cast<g2o::VertexSE3*>(optimizer.vertex(VertexID[i][j]));
+
+                // convert
+                double optimized[7];
+                vSE3->getEstimateData(optimized);
+                Eigen::Quaterniond q(optimized[6],optimized[3],optimized[4],optimized[5]);
+                Eigen::Matrix<double,3,3> rot = q.matrix();
+                Eigen::Matrix<double,3,1> tra;
+                tra << optimized[0],optimized[1],optimized[2];
+
+                // object
+                pMap->vmRigidMotion[i-1][j] = Converter::toCvSE3(rot,tra);
+            }
+        }
+    }
+
+
+    // *** save optimized 3d point results ***
+    cout << "UPDATE 3D POINTS ......" << endl << endl;
+    for (int i = N-WINDOW_SIZE; i < N; ++i)
+    {
+        // (1) static
+        for (int j = 0; j < vnFeaMakSta[i].size(); ++j)
+        {
+            if (vnFeaMakSta[i][j]!=-1)
+            {
+                g2o::VertexPointXYZ* vPoint = static_cast<g2o::VertexPointXYZ*>(optimizer.vertex(vnFeaMakSta[i][j]));
+                double optimized[3];
+                vPoint->getEstimateData(optimized);
+                Eigen::Matrix<double,3,1> tmp_3d;
+                tmp_3d << optimized[0],optimized[1],optimized[2];
+                pMap->vp3DPointSta[i][j] = Converter::toCvMat(tmp_3d);
+            }
+        }
+        // (2) dynamic
+        for (int j = 0; j < vnFeaMakDyn[i].size(); ++j)
+        {
+            if (vnFeaMakDyn[i][j]!=-1)
+            {
+                g2o::VertexPointXYZ* vPoint = static_cast<g2o::VertexPointXYZ*>(optimizer.vertex(vnFeaMakDyn[i][j]));
+                double optimized[3];
+                vPoint->getEstimateData(optimized);
+                Eigen::Matrix<double,3,1> tmp_3d;
+                tmp_3d << optimized[0],optimized[1],optimized[2];
+                pMap->vp3DPointDyn[i][j] = Converter::toCvMat(tmp_3d);
+            }
+        }
+    }
+
+    if (show_result_after_opt)
+    {
+        cout << "Pose and Motion AFTER Local BA ......" << endl;
+        // absolute trajectory error for CAMERA (RMSE)
+        cout << "=================================================" << endl;
+        cout << "CAMERA:" << endl;
+        float t_sum = 0, r_sum = 0;
+        for (int i = N-WINDOW_SIZE; i < N; ++i)
+        {
+            // cv::Mat T_lc_inv = CamPose[i]*Converter::toInvMatrix(CamPose[i-1]);
+            // cv::Mat T_lc_gt = CamPose_gt[i-1]*Converter::toInvMatrix(CamPose_gt[i]);
+            // cv::Mat ate_cam = T_lc_inv*T_lc_gt;
+            cv::Mat ate_cam = pMap->vmCameraPose[i]*Converter::toInvMatrix(pMap->vmCameraPose_GT[i]);
+
+            // translation
+            float t_ate_cam = std::sqrt(ate_cam.at<float>(0,3)*ate_cam.at<float>(0,3) + ate_cam.at<float>(1,3)*ate_cam.at<float>(1,3) + ate_cam.at<float>(2,3)*ate_cam.at<float>(2,3));
+            t_sum = t_sum + t_ate_cam;
+
+            // rotation
+            float trace_ate = 0;
+            for (int j = 0; j < 3; ++j)
+            {
+                if (ate_cam.at<float>(j,j)>1.0)
+                    trace_ate = trace_ate + 1.0-(ate_cam.at<float>(j,j)-1.0);
+                else
+                    trace_ate = trace_ate + ate_cam.at<float>(j,j);
+            }
+            float r_ate_cam = acos( (trace_ate -1.0)/2.0 )*180.0/3.1415926;
+            r_sum = r_sum + r_ate_cam;
+            cout << " t: " << t_ate_cam << " R: " << r_ate_cam << endl;
+        }
+        // t_mean = std::sqrt(t_sum/(CamPose.size()-1));
+        t_sum = t_sum/(WINDOW_SIZE-1);
+        r_sum = r_sum/(WINDOW_SIZE-1);
+        cout << "average error (Camera):" << " t: " << t_sum << " R: " << r_sum << endl;
+
+        cout << "OBJECTS:" << endl;
+        // all motion error for objects (mean error)
+        float r_rpe_sum = 0, t_rpe_sum = 0, obj_count = 0;
+        for (int i = N-WINDOW_SIZE; i < N-1; ++i)
+        {
+            if (pMap->vmRigidMotion[i].size()>1)
+            {
+                for (int j = 1; j < pMap->vmRigidMotion[i].size(); ++j)
+                {
+                    if (ObjCheck[i][j]==false)
+                        continue;
+
+                    cv::Mat rpe_obj = Converter::toInvMatrix(pMap->vmRigidMotion[i][j])*pMap->vmRigidMotion_GT[i][j];
+
+                    // translation error
+                    float t_rpe_obj = std::sqrt( rpe_obj.at<float>(0,3)*rpe_obj.at<float>(0,3) + rpe_obj.at<float>(1,3)*rpe_obj.at<float>(1,3) + rpe_obj.at<float>(2,3)*rpe_obj.at<float>(2,3) );
+                    t_rpe_sum = t_rpe_sum + t_rpe_obj;
+
+                    // rotation error
+                    float trace_rpe = 0;
+                    for (int k = 0; k < 3; ++k)
+                    {
+                        if (rpe_obj.at<float>(k,k)>1.0)
+                            trace_rpe = trace_rpe + 1.0-(rpe_obj.at<float>(k,k)-1.0);
+                        else
+                            trace_rpe = trace_rpe + rpe_obj.at<float>(k,k);
+                    }
+                    float r_rpe_obj = acos( ( trace_rpe -1.0 )/2.0 )*180.0/3.1415926;
+                    r_rpe_sum = r_rpe_sum + r_rpe_obj;
+
+                    cout << "(" << j << ")" << " t: " << t_rpe_obj << " R: " << r_rpe_obj << endl;
+                    obj_count++;
+                }
+            }
+        }
+        t_rpe_sum = t_rpe_sum/obj_count;
+        r_rpe_sum = r_rpe_sum/obj_count;
+        cout << "average error (Objects):" << " t: " << t_rpe_sum << " R: " << r_rpe_sum << endl;
+        cout << "=================================================" << endl << endl;
+    }
+
+    // =========================================================================================================
+    // ==================================== GET METRIC ERROR ===================================================
+    // =========================================================================================================
+}
+
 void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
 {
     const int N = pMap->vpFeatSta.size(); // Number of Frames
@@ -1397,7 +2553,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                 // (3) save <VERTEX_POINT_3D>
                 g2o::VertexPointXYZ *v_p = new g2o::VertexPointXYZ();
                 v_p->setId(count_unique_id);
-                cv::Mat Xw = Optimizer::Get3DinWorld(pMap->vpFeatSta[i][j],pMap->vfDepSta[i][j],Calib_K,pMap->vmCameraPose[i]);
+                cv::Mat Xw = pMap->vp3DPointSta[i][j];
                 v_p->setEstimate(Converter::toVector3d(Xw));
                 optimizer.addVertex(v_p);
                 // if (count_unique_id==2)
@@ -1465,7 +2621,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                     // (3) save <VERTEX_POINT_3D>
                     g2o::VertexPointXYZ *v_p = new g2o::VertexPointXYZ();
                     v_p->setId(count_unique_id);
-                    cv::Mat Xw = Optimizer::Get3DinWorld(pMap->vpFeatSta[i][j],pMap->vfDepSta[i][j],Calib_K,pMap->vmCameraPose[i]);
+                    cv::Mat Xw = pMap->vp3DPointSta[i][j];
                     v_p->setEstimate(Converter::toVector3d(Xw));
                     // v_p->setFixed(true);
                     optimizer.addVertex(v_p);
@@ -1530,7 +2686,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                 // (3) save <VERTEX_POINT_3D>
                 g2o::VertexPointXYZ *v_p = new g2o::VertexPointXYZ();
                 v_p->setId(count_unique_id);
-                cv::Mat Xw = Optimizer::Get3DinWorld(pMap->vpFeatDyn[i][j],pMap->vfDepDyn[i][j],Calib_K,pMap->vmCameraPose[i]);
+                cv::Mat Xw = pMap->vp3DPointDyn[i][j];
                 v_p->setEstimate(Converter::toVector3d(Xw));
                 optimizer.addVertex(v_p);
                 // (4) save <EDGE_3D>
@@ -1661,7 +2817,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                     // (3) save <VERTEX_POINT_3D>
                     g2o::VertexPointXYZ *v_p = new g2o::VertexPointXYZ();
                     v_p->setId(count_unique_id);
-                    cv::Mat Xw = Optimizer::Get3DinWorld(pMap->vpFeatDyn[i][j],pMap->vfDepDyn[i][j],Calib_K,pMap->vmCameraPose[i]);
+                    cv::Mat Xw = pMap->vp3DPointDyn[i][j];
                     v_p->setEstimate(Converter::toVector3d(Xw));
                     optimizer.addVertex(v_p);
                     // (4) save <EDGE_3D>
@@ -1690,7 +2846,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                     // (3) save <VERTEX_POINT_3D>
                     g2o::VertexPointXYZ *v_p = new g2o::VertexPointXYZ();
                     v_p->setId(count_unique_id);
-                    cv::Mat Xw = Optimizer::Get3DinWorld(pMap->vpFeatDyn[i][j],pMap->vfDepDyn[i][j],Calib_K,pMap->vmCameraPose[i]);
+                    cv::Mat Xw = pMap->vp3DPointDyn[i][j];
                     v_p->setEstimate(Converter::toVector3d(Xw));
                     optimizer.addVertex(v_p);
                     // (4) save <EDGE_3D>

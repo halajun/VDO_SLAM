@@ -173,6 +173,7 @@ public:
     // Store dense key points and depths on objects
     std::vector<cv::KeyPoint> mvObjKeys;
     std::vector<float> mvObjDepth;
+    std::vector<cv::Mat> mvObj3DPoint;
     // Correspondence for the objects
     std::vector<cv::KeyPoint> mvObjCorres;
     // Optical flow for the objects
@@ -221,6 +222,7 @@ public:
     // temporal saved
     std::vector<cv::KeyPoint> mvSiftKeysTmp;
     std::vector<float> mvSiftDepthTmp;
+    std::vector<cv::Mat> mvSift3DPointTmp;
     std::vector<int> vSemLabelTmp;
     std::vector<int> vObjLabel_gtTmp;
     int N_s_tmp;

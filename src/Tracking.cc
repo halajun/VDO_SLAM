@@ -2112,7 +2112,8 @@ void Tracking::Track()
         // (1) detected static features, corresponding depth and associations
         mpMap->vpFeatSta.push_back(mCurrentFrame.mvSiftKeysTmp);
         mpMap->vfDepSta.push_back(mCurrentFrame.mvSiftDepthTmp);
-        mpMap->vnAssoSta.push_back(mCurrentFrame.nStaInlierID); // (new added Nov 14 2019)
+        mpMap->vp3DPointSta.push_back(mCurrentFrame.mvSift3DPointTmp);  // (new added Dec 12 2019)
+        mpMap->vnAssoSta.push_back(mCurrentFrame.nStaInlierID);         // (new added Nov 14 2019)
         // ORBmatcher matcher(0.9,true);
         // mpMap->vnAssoSta.push_back(matcher.SearchByOF(mCurrentFrame.mvSiftKeys,mCurrentFrame.mvSiftKeysTmp));
 
@@ -2124,10 +2125,11 @@ void Tracking::Track()
         // mpMap->vpFeatDyn.push_back(FeatDynObj);
         // mpMap->vfDepDyn.push_back(DepDynObj);
         // mpMap->vnFeatLabel.push_back(FeatLabObj);
-        mpMap->vpFeatDyn.push_back(mCurrentFrame.mvObjKeys);     // (new added Nov 20 2019)
-        mpMap->vfDepDyn.push_back(mCurrentFrame.mvObjDepth);     // (new added Nov 20 2019)
-        mpMap->vnAssoDyn.push_back(mCurrentFrame.nDynInlierID);  // (new added Nov 20 2019)
-        mpMap->vnFeatLabel.push_back(mCurrentFrame.vObjLabel);   // (new added Nov 20 2019)
+        mpMap->vpFeatDyn.push_back(mCurrentFrame.mvObjKeys);           // (new added Nov 20 2019)
+        mpMap->vfDepDyn.push_back(mCurrentFrame.mvObjDepth);           // (new added Nov 20 2019)
+        mpMap->vp3DPointDyn.push_back(mCurrentFrame.mvObj3DPoint);     // (new added Dec 12 2019)
+        mpMap->vnAssoDyn.push_back(mCurrentFrame.nDynInlierID);        // (new added Nov 20 2019)
+        mpMap->vnFeatLabel.push_back(mCurrentFrame.vObjLabel);         // (new added Nov 20 2019)
 
         // (3) save static feature tracklets
         mpMap->TrackletSta = GetStaticTrack();
@@ -2207,16 +2209,30 @@ void Tracking::Track()
         // ---------------------------------------------------------------------------------------
     }
 
-    // ==========================================================================================
-    // ============== batch optimize on all the measurements (global optimization) ==============
-    // ==========================================================================================
+    // =================================================================================================
+    // ============== Partial batch optimize on all the measurements (local optimization) ==============
+    // =================================================================================================
+
+    int WINDOW_SIZE = 6, OVERLAP_SIZE = 1;
+    if ( (f_id-OVERLAP_SIZE+1)%(WINDOW_SIZE-OVERLAP_SIZE)==0 && f_id!=0)
+    {
+        cout << "-------------------------------------------" << endl;
+        cout << "! ! ! Partial Batch Optimization ! ! ! " << endl;
+        cout << "-------------------------------------------" << endl;
+        // Get Partial Batch Optimization
+        Optimizer::PartialBatchOptimization(mpMap,mK,WINDOW_SIZE);
+    }
+
+    // =================================================================================================
+    // ============== Full batch optimize on all the measurements (global optimization) ================
+    // =================================================================================================
 
     if (f_id==70) // bFrame2Frame f_id>=2
     {
         // Metric Error BEFORE Optimization
         GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion,mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT);
 
-        // Get Batch Optimization
+        // Get Full Batch Optimization
         Optimizer::FullBatchOptimization(mpMap,mK);
 
         // Metric Error AFTER Optimization
@@ -2252,12 +2268,34 @@ void Tracking::StereoInitialization()
     // initialize frame id
     f_id = 0;
 
+    // initialize the 3d points
+    {
+        // static
+        std::vector<cv::Mat> mv3DPointTmp;
+        for (int i = 0; i < mCurrentFrame.mvSiftKeysTmp.size(); ++i)
+        {
+            mv3DPointTmp.push_back(Optimizer::Get3DinCamera(mCurrentFrame.mvSiftKeysTmp[i], mCurrentFrame.mvSiftDepthTmp[i], mK));
+        }
+        mCurrentFrame.mvSift3DPointTmp = mv3DPointTmp;
+        // dynamic
+        std::vector<cv::Mat> mvObj3DPointTmp;
+        for (int i = 0; i < mCurrentFrame.mvObjKeys.size(); ++i)
+        {
+            mvObj3DPointTmp.push_back(Optimizer::Get3DinCamera(mCurrentFrame.mvObjKeys[i], mCurrentFrame.mvObjDepth[i], mK));
+        }
+        mCurrentFrame.mvObj3DPoint = mvObj3DPointTmp;
+        // cout << "see the size 1: " << mCurrentFrame.mvSiftKeysTmp.size() << " " << mCurrentFrame.mvSift3DPoint.size() << endl;
+        // cout << "see the size 2: " << mCurrentFrame.mvObjKeys.size() << " " << mCurrentFrame.mvObj3DPoint.size() << endl;
+    }
+
     // (1) save detected static features and corresponding depth
     mpMap->vpFeatSta.push_back(mCurrentFrame.mvSiftKeysTmp);  // modified Nov 14 2019
     mpMap->vfDepSta.push_back(mCurrentFrame.mvSiftDepthTmp);  // modified Nov 14 2019
+    mpMap->vp3DPointSta.push_back(mCurrentFrame.mvSift3DPointTmp);  // modified Dec 17 2019
     // (2) save detected dynamic object features and corresponding depth
     mpMap->vpFeatDyn.push_back(mCurrentFrame.mvObjKeys);  // modified Nov 19 2019
     mpMap->vfDepDyn.push_back(mCurrentFrame.mvObjDepth);  // modified Nov 19 2019
+    mpMap->vp3DPointDyn.push_back(mCurrentFrame.mvObj3DPoint);  // modified Dec 17 2019
     // (3) save camera pose
     mpMap->vmCameraPose.push_back(cv::Mat::eye(4,4,CV_32F));
     mpMap->vmCameraPose_RF.push_back(cv::Mat::eye(4,4,CV_32F));
@@ -5364,12 +5402,20 @@ void Tracking::RenewFrameInfo(const std::vector<int> &TM_sta)
             mvDepthTmp[i] = d;
     }
 
+    // (4) create 3d point based on key point, depth and pose
+    std::vector<cv::Mat> mv3DPointTmp(mCurrentFrame.N_s_tmp);
+    for (int i = 0; i < mCurrentFrame.N_s_tmp; ++i)
+    {
+        mv3DPointTmp[i] = Optimizer::Get3DinWorld(mvKeysTmp[i], mvDepthTmp[i], mK, InvMatrix(mCurrentFrame.mTcw));
+    }
+
     // Obtain inlier ID
     mCurrentFrame.nStaInlierID = StaInlierIDTmp;
 
     // Update
     mCurrentFrame.mvSiftKeysTmp = mvKeysTmp;
     mCurrentFrame.mvSiftDepthTmp = mvDepthTmp;
+    mCurrentFrame.mvSift3DPointTmp = mv3DPointTmp;
     mCurrentFrame.mvFlowNext = mvFlowNextTmp;
     mCurrentFrame.mvCorres = mvCorresTmp;
 
@@ -5524,10 +5570,18 @@ void Tracking::RenewFrameInfo(const std::vector<int> &TM_sta)
         }
     }
 
+    // (4) create 3d point based on key point, depth and pose
+    std::vector<cv::Mat> mvObj3DPointTmp(mvObjKeysTmp.size());
+    for (int i = 0; i < mvObjKeysTmp.size(); ++i)
+    {
+        mvObj3DPointTmp[i] = Optimizer::Get3DinWorld(mvObjKeysTmp[i], mvObjDepthTmp[i], mK, InvMatrix(mCurrentFrame.mTcw));
+    }
+
 
     // update
     mCurrentFrame.mvObjKeys = mvObjKeysTmp;
     mCurrentFrame.mvObjDepth = mvObjDepthTmp;
+    mCurrentFrame.mvObj3DPoint = mvObj3DPointTmp;
     mCurrentFrame.mvObjCorres = mvObjCorresTmp;
     mCurrentFrame.mvObjFlowNext = mvObjFlowNextTmp;
     mCurrentFrame.vSemObjLabel = vSemObjLabelTmp;

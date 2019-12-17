@@ -95,6 +95,7 @@ public:
     // static features and depths detected in image plane. (k*n)
     std::vector<std::vector<cv::KeyPoint> > vpFeatSta;
     std::vector<std::vector<float> > vfDepSta;
+    std::vector<std::vector<cv::Mat> > vp3DPointSta;
     // index of temporal matching. (k-1)*n
     std::vector<std::vector<int> > vnAssoSta;
     // feature tracklets: pair.first = frameID; pair.second = featureID;
@@ -104,6 +105,7 @@ public:
     // dynamic feature correspondences and depths detected in image plane. (k-1)*n*2
     std::vector<std::vector<cv::KeyPoint> > vpFeatDyn;
     std::vector<std::vector<float> > vfDepDyn;
+    std::vector<std::vector<cv::Mat> > vp3DPointDyn;
     // index of temporal matching. (k-1)*n
     std::vector<std::vector<int> > vnAssoDyn;
     // label indicating which object the feature (3D point) belongs to. (k-1)*n

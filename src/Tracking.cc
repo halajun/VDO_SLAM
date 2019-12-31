@@ -1290,12 +1290,12 @@ void Tracking::Track()
             mVelocity = mCurrentFrame.mTcw*LastTwc;
         }
 
-        // cv::Mat Tcw_est_inv = InvMatrix(mCurrentFrame.mTcw);
-        // cv::Mat RePoEr_cam = Tcw_est_inv*mCurrentFrame.mTcw_gt;
+        cv::Mat Tcw_est_inv = InvMatrix(mCurrentFrame.mTcw);
+        cv::Mat RePoEr_cam = Tcw_est_inv*mCurrentFrame.mTcw_gt;
         // cout << "error matrix: " << endl << RePoEr_cam << endl;
-        cv::Mat T_lc_inv = mCurrentFrame.mTcw*InvMatrix(mLastFrame.mTcw);
-        cv::Mat T_lc_gt = mLastFrame.mTcw_gt*InvMatrix(mCurrentFrame.mTcw_gt);
-        cv::Mat RePoEr_cam = T_lc_inv*T_lc_gt;
+        // cv::Mat T_lc_inv = mCurrentFrame.mTcw*InvMatrix(mLastFrame.mTcw);
+        // cv::Mat T_lc_gt = mLastFrame.mTcw_gt*InvMatrix(mCurrentFrame.mTcw_gt);
+        // cv::Mat RePoEr_cam = T_lc_inv*T_lc_gt;
 
         float t_rpe_cam = std::sqrt( RePoEr_cam.at<float>(0,3)*RePoEr_cam.at<float>(0,3) + RePoEr_cam.at<float>(1,3)*RePoEr_cam.at<float>(1,3) + RePoEr_cam.at<float>(2,3)*RePoEr_cam.at<float>(2,3) );
         float trace_rpe_cam = 0;
@@ -2213,11 +2213,11 @@ void Tracking::Track()
     // ============== Partial batch optimize on all the measurements (local optimization) ==============
     // =================================================================================================
 
-    int WINDOW_SIZE = 6, OVERLAP_SIZE = 1;
-    if ( (f_id-OVERLAP_SIZE+1)%(WINDOW_SIZE-OVERLAP_SIZE)==0 && f_id!=0)
+    int WINDOW_SIZE = 10, OVERLAP_SIZE = 1;
+    if ( (f_id-OVERLAP_SIZE+1)%(WINDOW_SIZE-OVERLAP_SIZE)==0 && f_id>=WINDOW_SIZE-1)
     {
         cout << "-------------------------------------------" << endl;
-        cout << "! ! ! Partial Batch Optimization ! ! ! " << endl;
+        cout << "! ! ! ! Partial Batch Optimization ! ! ! ! " << endl;
         cout << "-------------------------------------------" << endl;
         // Get Partial Batch Optimization
         Optimizer::PartialBatchOptimization(mpMap,mK,WINDOW_SIZE);
@@ -5666,6 +5666,7 @@ void Tracking::GetMetricError(const std::vector<cv::Mat> &CamPose, const std::ve
 {
     // absolute trajectory error for CAMERA (RMSE)
     cout << "=================================================" << endl;
+
     cout << "CAMERA:" << endl;
     float t_sum = 0, r_sum = 0;
     for (int i = 1; i < CamPose.size(); ++i)
@@ -5690,7 +5691,7 @@ void Tracking::GetMetricError(const std::vector<cv::Mat> &CamPose, const std::ve
         }
         float r_ate_cam = acos( (trace_ate -1.0)/2.0 )*180.0/3.1415926;
         r_sum = r_sum + r_ate_cam;
-        cout << " t: " << t_ate_cam << " R: " << r_ate_cam << endl;
+        // cout << " t: " << t_ate_cam << " R: " << r_ate_cam << endl;
     }
     // t_mean = std::sqrt(t_sum/(CamPose.size()-1));
     t_sum = t_sum/(CamPose.size()-1);
@@ -5724,7 +5725,7 @@ void Tracking::GetMetricError(const std::vector<cv::Mat> &CamPose, const std::ve
                 float r_rpe_obj = acos( ( trace_rpe -1.0 )/2.0 )*180.0/3.1415926;
                 r_rpe_sum = r_rpe_sum + r_rpe_obj;
 
-                cout << "(" << j-1 << ")" << " t: " << t_rpe_obj << " R: " << r_rpe_obj << endl;
+                // cout << "(" << j-1 << ")" << " t: " << t_rpe_obj << " R: " << r_rpe_obj << endl;
                 obj_count++;
             }
         }
@@ -5732,6 +5733,7 @@ void Tracking::GetMetricError(const std::vector<cv::Mat> &CamPose, const std::ve
     t_rpe_sum = t_rpe_sum/obj_count;
     r_rpe_sum = r_rpe_sum/obj_count;
     cout << "average error (Objects):" << " t: " << t_rpe_sum << " R: " << r_rpe_sum << endl;
+
     cout << "=================================================" << endl << endl;
 
 }

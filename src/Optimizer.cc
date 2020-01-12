@@ -1382,7 +1382,7 @@ void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const
     // ---------------------------------------------------------------------------------------
     // ---------=============!!!=- Main Loop for input data -=!!!=============----------------
     // ---------------------------------------------------------------------------------------
-    int count_unique_id = 1, FeaLengthThresSta = WINDOW_SIZE-2, FeaLengthThresDyn = WINDOW_SIZE-3, StaticStartFrame = 0;
+    int count_unique_id = 1, FeaLengthThresSta = WINDOW_SIZE-3, FeaLengthThresDyn = WINDOW_SIZE-3, StaticStartFrame = N-WINDOW_SIZE;
     bool ROBUST_KERNEL = true, ALTITUDE_CONSTRAINT = false, SMOOTH_CONSTRAINT = true, STATIC_ONLY = false;
     // float deltaHuberCamMot = 0.1, deltaHuberObjMot = 0.25, deltaHuber3D = 0.25;
     float deltaHuberCamMot = 0.01, deltaHuberObjMot = 0.01, deltaHuber3D = 0.01;
@@ -1399,8 +1399,9 @@ void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const
         v_se3->setEstimate(Converter::toSE3Quat(pMap->vmCameraPose[i]));
         // v_se3->setEstimate(Converter::toSE3Quat(id_temp));
         optimizer.addVertex(v_se3);
-        if (count_unique_id==1)
+        if (count_unique_id==1 && N==WINDOW_SIZE)
         {
+            cout << "the very first frame: " << N << " " << WINDOW_SIZE << endl;
             // add prior edges
             g2o::EdgeSE3Prior * pose_prior = new g2o::EdgeSE3Prior();
             pose_prior->setVertex(0, optimizer.vertex(count_unique_id));
@@ -1614,7 +1615,10 @@ void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const
 
                     g2o::VertexSE3 *m_se3 = new g2o::VertexSE3();
                     m_se3->setId(count_unique_id);
-                    m_se3->setEstimate(Converter::toSE3Quat(pMap->vmRigidMotion[i-1][j]));
+                    if (pMap->vbObjStat[i-1][j])
+                        m_se3->setEstimate(Converter::toSE3Quat(pMap->vmRigidMotion[i-1][j]));
+                    else
+                        m_se3->setEstimate(Converter::toSE3Quat(id_temp));
                     // m_se3->setEstimate(Converter::toSE3Quat(id_temp));
                     optimizer.addVertex(m_se3);
                     if (ALTITUDE_CONSTRAINT)
@@ -2490,7 +2494,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     optimizer.setAlgorithm(solver);
 
     g2o::SparseOptimizerTerminateAction* terminateAction = new g2o::SparseOptimizerTerminateAction;
-    terminateAction->setGainThreshold(1e-3);
+    terminateAction->setGainThreshold(1e-4);
     optimizer.addPostIterationAction(terminateAction);
 
     g2o::ParameterSE3Offset* cameraOffset = new g2o::ParameterSE3Offset;
@@ -2743,7 +2747,10 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
             {
                 g2o::VertexSE3 *m_se3 = new g2o::VertexSE3();
                 m_se3->setId(count_unique_id);
-                m_se3->setEstimate(Converter::toSE3Quat(pMap->vmRigidMotion[i-1][j]));
+                if (pMap->vbObjStat[i-1][j])
+                    m_se3->setEstimate(Converter::toSE3Quat(pMap->vmRigidMotion[i-1][j]));
+                else
+                    m_se3->setEstimate(Converter::toSE3Quat(IDENTITY_TMP));
                 // m_se3->setEstimate(Converter::toSE3Quat(IDENTITY_TMP));
                 optimizer.addVertex(m_se3);
                 if (ALTITUDE_CONSTRAINT)
@@ -3256,7 +3263,8 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     }
 
 
-    // *** save optimized results ***
+    // *** save optimized camera pose and object motion results ***
+    // cout << "UPDATE POSE and MOTION ......" << endl;
     for (int i = 0; i < N-1; ++i)
     {
         for (int j = 0; j < VertexID[i].size(); ++j)
@@ -3290,6 +3298,41 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
 
                 // object
                 pMap->vmRigidMotion_RF[i][j] = Converter::toCvSE3(rot,tra);
+            }
+        }
+    }
+
+    // *** save optimized 3d point results ***
+    // cout << "UPDATE 3D POINTS ......" << endl << endl;
+    // (1) static points
+    for (int i = 0; i < N; ++i)
+    {
+        for (int j = 0; j < vnFeaMakSta[i].size(); ++j)
+        {
+            if (vnFeaMakSta[i][j]!=-1)
+            {
+                g2o::VertexPointXYZ* vPoint = static_cast<g2o::VertexPointXYZ*>(optimizer.vertex(vnFeaMakSta[i][j]));
+                double optimized[3];
+                vPoint->getEstimateData(optimized);
+                Eigen::Matrix<double,3,1> tmp_3d;
+                tmp_3d << optimized[0],optimized[1],optimized[2];
+                pMap->vp3DPointSta[i][j] = Converter::toCvMat(tmp_3d);
+            }
+        }
+    }
+    // (2) dynamic points
+    for (int i = 0; i < N; ++i)
+    {
+        for (int j = 0; j < vnFeaMakDyn[i].size(); ++j)
+        {
+            if (vnFeaMakDyn[i][j]!=-1)
+            {
+                g2o::VertexPointXYZ* vPoint = static_cast<g2o::VertexPointXYZ*>(optimizer.vertex(vnFeaMakDyn[i][j]));
+                double optimized[3];
+                vPoint->getEstimateData(optimized);
+                Eigen::Matrix<double,3,1> tmp_3d;
+                tmp_3d << optimized[0],optimized[1],optimized[2];
+                pMap->vp3DPointDyn[i][j] = Converter::toCvMat(tmp_3d);
             }
         }
     }

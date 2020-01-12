@@ -100,7 +100,7 @@ int main(int argc, char **argv)
 
     // Main loop
     cv::Mat imRGB, imD, mTcw_gt; // (799,0007) (802,0009) (293,0010) (836,0020) (338,0018) (1057,0019) (339,0013)
-    for(int ni=0; ni<71; ni++) // (153,0000)(446,0001)(232,0002)(143,0003)(313,0004)(296,0005)(144,0017)(269,0006)
+    for(int ni=0; ni<446; ni++) // (153,0000)(446,0001)(232,0002)(143,0003)(313,0004)(296,0005)(144,0017)(269,0006)
     {
         cout << endl;
         cout << "=======================================================" << endl;
@@ -274,7 +274,7 @@ void LoadMask(const string &strFilenamesMask, cv::Mat &imMask)
             int tmp;
             for(int i = 0; i < imMask.cols; ++i){
                 ss >> tmp;
-                if (tmp!=0 && tmp<4){
+                if (tmp!=0){
                     imMask.at<int>(count,i) = tmp;
                     if (tmp>50)
                         tmp = tmp/2;

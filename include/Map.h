@@ -102,7 +102,7 @@ public:
     std::vector<std::vector<std::pair<int, int> > > TrackletSta;
 
 
-    // dynamic feature correspondences and depths detected in image plane. (k-1)*n*2
+    // dynamic feature correspondences and depths detected in image plane. k*n
     std::vector<std::vector<cv::KeyPoint> > vpFeatDyn;
     std::vector<std::vector<float> > vfDepDyn;
     std::vector<std::vector<cv::Mat> > vp3DPointDyn;
@@ -120,7 +120,7 @@ public:
     std::vector<cv::Mat> vmCameraPose_RF;  // refine result
     std::vector<cv::Mat> vmCameraPose_GT;  // ground truth result
     // rigid motion of camera and dynamic points. (k-1)*m
-    std::vector<std::vector<cv::Mat> > vmRigidCentre;
+    std::vector<std::vector<cv::Mat> > vmRigidCentre;  // ground truth object center
     std::vector<std::vector<cv::Mat> > vmRigidMotion;
     std::vector<std::vector<cv::Mat> > vmRigidMotion_RF;  // refine result
     std::vector<std::vector<cv::Mat> > vmRigidMotion_GT;  // ground truth result
@@ -128,6 +128,10 @@ public:
     // rigid motion label in each frame (k-1)*m
     // 0 stands for camera motion; 1,...,l stands for rigid motions.
     std::vector<std::vector<int> > vnRMLabel;
+    // object status (10 Jan 2020)
+    std::vector<std::vector<bool> > vbObjStat;
+    // object tracking times (10 Jan 2020)
+    std::vector<std::vector<int> > vnObjTraTime;
 
 
     // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

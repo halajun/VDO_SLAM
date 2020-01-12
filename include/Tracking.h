@@ -152,9 +152,15 @@ public:
     std::vector<std::vector<std::pair<int, int> > > GetStaticTrack();
     std::vector<std::vector<std::pair<int, int> > > GetDynamicTrack();
     std::vector<std::vector<std::pair<int, int> > > GetDynamicTrackNew();
+    std::vector<std::vector<int> > GetObjTrackTime(std::vector<std::vector<int> > &ObjTrackLab);
 
     void GetMetricError(const std::vector<cv::Mat> &CamPose, const std::vector<std::vector<cv::Mat> > &RigMot,
-                    const std::vector<cv::Mat> &CamPose_gt, const std::vector<std::vector<cv::Mat> > &RigMot_gt);
+                        const std::vector<cv::Mat> &CamPose_gt, const std::vector<std::vector<cv::Mat> > &RigMot_gt,
+                        const std::vector<std::vector<bool> > &ObjStat);
+    void GetVelocityError(const std::vector<std::vector<cv::Mat> > &RigMot, const std::vector<std::vector<cv::Mat> > &PointDyn,
+                          const std::vector<std::vector<int> > &FeaLab, const std::vector<std::vector<int> > &RMLab,
+                          const std::vector<std::vector<float> > &Velo_gt, const std::vector<std::vector<int> > &TmpMatch,
+                          const std::vector<std::vector<bool> > &ObjStat);
 
     void RenewFrameInfo(const std::vector<int> &TM_sta);
 
@@ -211,6 +217,9 @@ public:
 
     // save current frame ID
     int f_id;
+
+    // save the global Tracking ID
+    int max_id;
 
     // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

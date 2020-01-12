@@ -180,6 +180,8 @@ public:
     std::vector<cv::Point2f> mvObjFlowGT, mvObjFlowNext;
     // semantic object label of all the foreground features
     std::vector<int> vSemObjLabel;
+    // save the object status (false for outlier, true for inlier)  # added 10 Jan 2020 #
+    std::vector<bool> bObjStat;
 
 
 

@@ -1363,10 +1363,10 @@ void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const
 
     // === set information matrix ===
     const float sigma2_cam = 0.0001; // 0.005 0.001
-    const float sigma2_3d_sta = 80; // 50 80
+    const float sigma2_3d_sta = 16; // 50 80 16
     const float sigma2_obj_smo = 0.1; // 0.1
-    const float sigma2_obj = 100; // 0.5 1 10 20
-    const float sigma2_3d_dyn = 80; // 50 100
+    const float sigma2_obj = 20; // 0.5 1 10 20
+    const float sigma2_3d_dyn = 16; // 50 100
     const float sigma2_alti = 1;
 
     // === identity initialization ===
@@ -1382,8 +1382,8 @@ void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const
     // ---------------------------------------------------------------------------------------
     // ---------=============!!!=- Main Loop for input data -=!!!=============----------------
     // ---------------------------------------------------------------------------------------
-    int count_unique_id = 1, FeaLengthThresSta = WINDOW_SIZE-3, FeaLengthThresDyn = WINDOW_SIZE-3, StaticStartFrame = N-WINDOW_SIZE;
-    bool ROBUST_KERNEL = true, ALTITUDE_CONSTRAINT = false, SMOOTH_CONSTRAINT = true, STATIC_ONLY = false;
+    int count_unique_id = 1, FeaLengthThresSta = 3, FeaLengthThresDyn = 3, StaticStartFrame = N-WINDOW_SIZE;
+    bool ROBUST_KERNEL = true, ALTITUDE_CONSTRAINT = false, SMOOTH_CONSTRAINT = true, STATIC_ONLY = true;
     // float deltaHuberCamMot = 0.1, deltaHuberObjMot = 0.25, deltaHuber3D = 0.25;
     float deltaHuberCamMot = 0.01, deltaHuberObjMot = 0.01, deltaHuber3D = 0.01;
     int PreFrameID, CurFrameID;
@@ -1401,7 +1401,7 @@ void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const
         optimizer.addVertex(v_se3);
         if (count_unique_id==1 && N==WINDOW_SIZE)
         {
-            cout << "the very first frame: " << N << " " << WINDOW_SIZE << endl;
+            // cout << "the very first frame: " << N << " " << WINDOW_SIZE << endl;
             // add prior edges
             g2o::EdgeSE3Prior * pose_prior = new g2o::EdgeSE3Prior();
             pose_prior->setVertex(0, optimizer.vertex(count_unique_id));
@@ -2450,7 +2450,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     for (int i = 0; i < StaTracks.size(); ++i)
     {
         // filter the tracklets via threshold
-        if (StaTracks[i].size()<3) // 3 the length of track on background.
+        if (StaTracks[i].size()<8) // 3 the length of track on background.
             continue;
         valid_sta++;
         // label them
@@ -2461,7 +2461,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     for (int i = 0; i < DynTracks.size(); ++i)
     {
         // filter the tracklets via threshold
-        if (DynTracks[i].size()<3) // 3 the length of track on objects.
+        if (DynTracks[i].size()<8) // 3 the length of track on objects.
             continue;
         valid_dyn++;
         // label them
@@ -2473,7 +2473,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
 
     // cout << "Valid Static and Dynamic Tracks:((( " << valid_sta << " / " << valid_dyn << " )))" << endl << endl;
 
-    // save vertex ID in the graph
+    // save vertex ID (camera pose and object motion) in the graph
     std::vector<std::vector<int> > VertexID(N-1);
     // initialize
     for (int i = 0; i < N-1; ++i)
@@ -2502,11 +2502,11 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     optimizer.addParameter(cameraOffset);
 
     // === set information matrix ===
-    const float sigma2_cam = 0.0001; // 0.005 0.001
-    const float sigma2_3d_sta = 80; // 50 80
-    const float sigma2_obj_smo = 0.09; // 0.1
-    const float sigma2_obj = 100; // 0.5 1 10 20 50 100
-    const float sigma2_3d_dyn = 80; // 50 100
+    const float sigma2_cam = 0.0001; // 0.005 0.001 (ox:)
+    const float sigma2_3d_sta = 16; // 50 80 (ox:) 16
+    const float sigma2_obj_smo = 0.1; // 0.1 0.5 (ox:)
+    const float sigma2_obj = 20; // 0.5 1 10 20 50 100 (ox:) 20
+    const float sigma2_3d_dyn = 16; // 50 100 (ox:) 16
     const float sigma2_alti = 0.1;
 
     // === identity initialization ===
@@ -2523,7 +2523,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     // ---------=============!!!=- Main Loop for input data -=!!!=============----------------
     // ---------------------------------------------------------------------------------------
     int count_unique_id = 1;
-    bool ROBUST_KERNEL = true, ALTITUDE_CONSTRAINT = false, SMOOTH_CONSTRAINT = true;
+    bool ROBUST_KERNEL = true, ALTITUDE_CONSTRAINT = false, SMOOTH_CONSTRAINT = true, STATIC_ONLY = true;
     float deltaHuberCamMot = 0.01, deltaHuberObjMot = 0.01, deltaHuber3D = 0.01;
     int PreFrameID;
     for (int i = 0; i < N; ++i)
@@ -2700,222 +2700,225 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
 
         // cout << " (2) save static features " << endl;
 
-        // ************** save object motion, then dynamic features *************
-        if (i==0)
+        // // // ************** save object motion, then dynamic features *************
+        if (!STATIC_ONLY)
         {
-            // loop for dynamic features
-            for (int j = 0; j < vnFeaLabDyn[i].size(); ++j)
+            if (i==0)
             {
-                // check feature validation
-                if (vnFeaLabDyn[i][j]==-1)
-                    continue;
+                // loop for dynamic features
+                for (int j = 0; j < vnFeaLabDyn[i].size(); ++j)
+                {
+                    // check feature validation
+                    if (vnFeaLabDyn[i][j]==-1)
+                        continue;
 
-                // (3) save <VERTEX_POINT_3D>
-                g2o::VertexPointXYZ *v_p = new g2o::VertexPointXYZ();
-                v_p->setId(count_unique_id);
-                cv::Mat Xw = pMap->vp3DPointDyn[i][j];
-                v_p->setEstimate(Converter::toVector3d(Xw));
-                optimizer.addVertex(v_p);
-                // (4) save <EDGE_3D>
-                g2o::EdgeSE3PointXYZ * e = new g2o::EdgeSE3PointXYZ();
-                e->setVertex(0, optimizer.vertex(CurFrameID));
-                e->setVertex(1, optimizer.vertex(count_unique_id));
-                cv::Mat Xc = Optimizer::Get3DinCamera(pMap->vpFeatDyn[i][j],pMap->vfDepDyn[i][j],Calib_K);
-                e->setMeasurement(Converter::toVector3d(Xc));
-                e->information() = Eigen::Matrix3d::Identity()/sigma2_3d_dyn;
-                if (ROBUST_KERNEL){
-                    g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
-                    e->setRobustKernel(rk);
-                    e->robustKernel()->setDelta(deltaHuber3D);
+                    // (3) save <VERTEX_POINT_3D>
+                    g2o::VertexPointXYZ *v_p = new g2o::VertexPointXYZ();
+                    v_p->setId(count_unique_id);
+                    cv::Mat Xw = pMap->vp3DPointDyn[i][j];
+                    v_p->setEstimate(Converter::toVector3d(Xw));
+                    optimizer.addVertex(v_p);
+                    // (4) save <EDGE_3D>
+                    g2o::EdgeSE3PointXYZ * e = new g2o::EdgeSE3PointXYZ();
+                    e->setVertex(0, optimizer.vertex(CurFrameID));
+                    e->setVertex(1, optimizer.vertex(count_unique_id));
+                    cv::Mat Xc = Optimizer::Get3DinCamera(pMap->vpFeatDyn[i][j],pMap->vfDepDyn[i][j],Calib_K);
+                    e->setMeasurement(Converter::toVector3d(Xc));
+                    e->information() = Eigen::Matrix3d::Identity()/sigma2_3d_dyn;
+                    if (ROBUST_KERNEL){
+                        g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+                        e->setRobustKernel(rk);
+                        e->robustKernel()->setDelta(deltaHuber3D);
+                    }
+                    e->setParameterId(0, 0);
+                    optimizer.addEdge(e);
+                    vpEdgeSE3PointDyn.push_back(e);
+
+                    // update unique id
+                    vnFeaMakDyn[i][j] = count_unique_id;
+                    count_unique_id++;
                 }
-                e->setParameterId(0, 0);
-                optimizer.addEdge(e);
-                vpEdgeSE3PointDyn.push_back(e);
-
-                // update unique id
-                vnFeaMakDyn[i][j] = count_unique_id;
-                count_unique_id++;
+                // cout << "SAVE SOME DYNAMIC POINTS IN FIRST FRAME ....." << endl;
             }
-            // cout << "SAVE SOME DYNAMIC POINTS IN FIRST FRAME ....." << endl;
-        }
-        else
-        {
-            // loop for object motion, and keep the unique vertex id for saving object feature edges
-            std::vector<int> ObjUniqueID(pMap->vmRigidMotion[i-1].size()-1,-1);
-            // (5) save <VERTEX_SE3Motion>
-            for (int j = 1; j < pMap->vmRigidMotion[i-1].size(); ++j)
+            else
             {
-                g2o::VertexSE3 *m_se3 = new g2o::VertexSE3();
-                m_se3->setId(count_unique_id);
-                if (pMap->vbObjStat[i-1][j])
-                    m_se3->setEstimate(Converter::toSE3Quat(pMap->vmRigidMotion[i-1][j]));
-                else
+                // loop for object motion, and keep the unique vertex id for saving object feature edges
+                std::vector<int> ObjUniqueID(pMap->vmRigidMotion[i-1].size()-1,-1);
+                // (5) save <VERTEX_SE3Motion>
+                for (int j = 1; j < pMap->vmRigidMotion[i-1].size(); ++j)
+                {
+                    g2o::VertexSE3 *m_se3 = new g2o::VertexSE3();
+                    m_se3->setId(count_unique_id);
+                    // if (pMap->vbObjStat[i-1][j])
+                    //     m_se3->setEstimate(Converter::toSE3Quat(pMap->vmRigidMotion[i-1][j]));
+                    // else
+                    //     m_se3->setEstimate(Converter::toSE3Quat(IDENTITY_TMP));
                     m_se3->setEstimate(Converter::toSE3Quat(IDENTITY_TMP));
-                // m_se3->setEstimate(Converter::toSE3Quat(IDENTITY_TMP));
-                optimizer.addVertex(m_se3);
-                if (ALTITUDE_CONSTRAINT)
-                {
-                    g2o::EdgeSE3Altitude * ea = new g2o::EdgeSE3Altitude();
-                    ea->setVertex(0, optimizer.vertex(count_unique_id));
-                    ea->setMeasurement(0);
-                    Eigen::Matrix<double, 1, 1> altitude_information(1.0/sigma2_alti);
-                    ea->information() = altitude_information;
-                    optimizer.addEdge(ea);
-                    vpEdgeSE3Altitude.push_back(ea);
-                }
-                if (SMOOTH_CONSTRAINT && i>2)
-                {
-                    // trace back the previous id in vnRMLabel
-                    int TraceID = -1;
-                    for (int k = 0; k < pMap->vnRMLabel[i-2].size(); ++k)
+                    optimizer.addVertex(m_se3);
+                    if (ALTITUDE_CONSTRAINT)
                     {
-                        if (pMap->vnRMLabel[i-2][k]==pMap->vnRMLabel[i-1][j])
+                        g2o::EdgeSE3Altitude * ea = new g2o::EdgeSE3Altitude();
+                        ea->setVertex(0, optimizer.vertex(count_unique_id));
+                        ea->setMeasurement(0);
+                        Eigen::Matrix<double, 1, 1> altitude_information(1.0/sigma2_alti);
+                        ea->information() = altitude_information;
+                        optimizer.addEdge(ea);
+                        vpEdgeSE3Altitude.push_back(ea);
+                    }
+                    if (SMOOTH_CONSTRAINT && i>2)
+                    {
+                        // trace back the previous id in vnRMLabel
+                        int TraceID = -1;
+                        for (int k = 0; k < pMap->vnRMLabel[i-2].size(); ++k)
                         {
-                            // cout << "what is in the label: " << pMap->vnRMLabel[i-2][k] << " " << pMap->vnRMLabel[i-1][j] << " " << VertexID[i-2][k] << endl;
-                            TraceID = k;
+                            if (pMap->vnRMLabel[i-2][k]==pMap->vnRMLabel[i-1][j])
+                            {
+                                // cout << "what is in the label: " << pMap->vnRMLabel[i-2][k] << " " << pMap->vnRMLabel[i-1][j] << " " << VertexID[i-2][k] << endl;
+                                TraceID = k;
+                                break;
+                            }
+                        }
+                        // only if the back trace exist
+                        if (TraceID!=-1)
+                        {
+                            // add smooth constraint
+                            g2o::EdgeSE3 * ep = new g2o::EdgeSE3();
+                            ep->setVertex(0, optimizer.vertex(VertexID[i-2][TraceID]));
+                            ep->setVertex(1, optimizer.vertex(count_unique_id));
+                            ep->setMeasurement(Converter::toSE3Quat(cv::Mat::eye(4,4,CV_32F)));
+                            ep->information() = Eigen::MatrixXd::Identity(6, 6)/sigma2_obj_smo;
+                            if (ROBUST_KERNEL){
+                                g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+                                ep->setRobustKernel(rk);
+                                ep->robustKernel()->setDelta(deltaHuberCamMot);
+                            }
+                            optimizer.addEdge(ep);
+                            vpEdgeSE3Smooth.push_back(ep);
+                        }
+                    }
+                    ObjUniqueID[j-1]=count_unique_id;
+                    VertexID[i-1][j]=count_unique_id;
+                    count_unique_id++;
+                }
+
+                // cout << " (3) save object motion " << endl;
+
+                // // save for dynamic features
+                for (int j = 0; j < vnFeaLabDyn[i].size(); j++)
+                {
+                    // check feature validation
+                    if (vnFeaLabDyn[i][j]==-1)
+                        continue;
+
+                    // get the TrackID of current feature
+                    int TrackID = vnFeaLabDyn[i][j];
+
+                    // get the position of current feature in the tracklet
+                    int PositionID = -1;
+                    for (int k = 0; k < DynTracks[TrackID].size(); ++k)
+                    {
+                        if (DynTracks[TrackID][k].first==i && DynTracks[TrackID][k].second==j)
+                        {
+                            PositionID = k;
                             break;
                         }
                     }
-                    // only if the back trace exist
-                    if (TraceID!=-1)
+                    if (PositionID==-1){
+                        // cout << "cannot find the position of current feature in the tracklet !!!" << endl;
+                        continue;
+                    }
+
+                    // get the object position id of current feature
+                    int ObjPositionID = -1;
+                    for (int k = 1; k < pMap->vnRMLabel[i-1].size(); ++k)
                     {
-                        // add smooth constraint
-                        g2o::EdgeSE3 * ep = new g2o::EdgeSE3();
-                        ep->setVertex(0, optimizer.vertex(VertexID[i-2][TraceID]));
-                        ep->setVertex(1, optimizer.vertex(count_unique_id));
-                        ep->setMeasurement(Converter::toSE3Quat(cv::Mat::eye(4,4,CV_32F)));
-                        ep->information() = Eigen::MatrixXd::Identity(6, 6)/sigma2_obj_smo;
+                        if (pMap->vnRMLabel[i-1][k]==pMap->nObjID[TrackID]){
+                            ObjPositionID = ObjUniqueID[k-1];
+                            break;
+                        }
+                    }
+                    if (ObjPositionID==-1 && PositionID!=0){
+                        // cout << "cannot find the object association with this edge !!! WEIRD POINT !!! " << endl;
+                        continue;
+                    }
+
+                    // check if the PositionID is 0. Yes means this dynamic point is first seen by this frame,
+                    // then save both the vertex and edge, otherwise save edge only because vertex is saved before.
+                    if (PositionID==0)
+                    {
+                        // (3) save <VERTEX_POINT_3D>
+                        g2o::VertexPointXYZ *v_p = new g2o::VertexPointXYZ();
+                        v_p->setId(count_unique_id);
+                        cv::Mat Xw = pMap->vp3DPointDyn[i][j];
+                        v_p->setEstimate(Converter::toVector3d(Xw));
+                        optimizer.addVertex(v_p);
+                        // (4) save <EDGE_3D>
+                        g2o::EdgeSE3PointXYZ * e = new g2o::EdgeSE3PointXYZ();
+                        e->setVertex(0, optimizer.vertex(CurFrameID));
+                        e->setVertex(1, optimizer.vertex(count_unique_id));
+                        cv::Mat Xc = Optimizer::Get3DinCamera(pMap->vpFeatDyn[i][j],pMap->vfDepDyn[i][j],Calib_K);
+                        e->setMeasurement(Converter::toVector3d(Xc));
+                        e->information() = Eigen::Matrix3d::Identity()/sigma2_3d_dyn;
                         if (ROBUST_KERNEL){
                             g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
-                            ep->setRobustKernel(rk);
-                            ep->robustKernel()->setDelta(deltaHuberCamMot);
+                            e->setRobustKernel(rk);
+                            e->robustKernel()->setDelta(deltaHuber3D);
                         }
-                        optimizer.addEdge(ep);
-                        vpEdgeSE3Smooth.push_back(ep);
+                        e->setParameterId(0, 0);
+                        optimizer.addEdge(e);
+                        vpEdgeSE3PointDyn.push_back(e);
+
+                        // update unique id
+                        vnFeaMakDyn[i][j] = count_unique_id;
+                        count_unique_id++;
                     }
-                }
-                ObjUniqueID[j-1]=count_unique_id;
-                VertexID[i-1][j]=count_unique_id;
-                count_unique_id++;
-            }
-
-            // cout << " (3) save object motion " << endl;
-
-            // // save for dynamic features
-            for (int j = 0; j < vnFeaLabDyn[i].size(); j++)
-            {
-                // check feature validation
-                if (vnFeaLabDyn[i][j]==-1)
-                    continue;
-
-                // get the TrackID of current feature
-                int TrackID = vnFeaLabDyn[i][j];
-
-                // get the position of current feature in the tracklet
-                int PositionID = -1;
-                for (int k = 0; k < DynTracks[TrackID].size(); ++k)
-                {
-                    if (DynTracks[TrackID][k].first==i && DynTracks[TrackID][k].second==j)
+                    // if no, then only add this feature to the existing track it belongs to.
+                    else
                     {
-                        PositionID = k;
-                        break;
-                    }
-                }
-                if (PositionID==-1){
-                    // cout << "cannot find the position of current feature in the tracklet !!!" << endl;
-                    continue;
-                }
+                        // (3) save <VERTEX_POINT_3D>
+                        g2o::VertexPointXYZ *v_p = new g2o::VertexPointXYZ();
+                        v_p->setId(count_unique_id);
+                        cv::Mat Xw = pMap->vp3DPointDyn[i][j];
+                        v_p->setEstimate(Converter::toVector3d(Xw));
+                        optimizer.addVertex(v_p);
+                        // (4) save <EDGE_3D>
+                        g2o::EdgeSE3PointXYZ * e = new g2o::EdgeSE3PointXYZ();
+                        e->setVertex(0, optimizer.vertex(CurFrameID));
+                        e->setVertex(1, optimizer.vertex(count_unique_id));
+                        cv::Mat Xc = Optimizer::Get3DinCamera(pMap->vpFeatDyn[i][j],pMap->vfDepDyn[i][j],Calib_K);
+                        e->setMeasurement(Converter::toVector3d(Xc));
+                        e->information() = Eigen::Matrix3d::Identity()/sigma2_3d_dyn;
+                        if (ROBUST_KERNEL){
+                            g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+                            e->setRobustKernel(rk);
+                            e->robustKernel()->setDelta(deltaHuber3D);
+                        }
+                        e->setParameterId(0, 0);
+                        optimizer.addEdge(e);
+                        vpEdgeSE3PointDyn.push_back(e);
 
-                // get the object position id of current feature
-                int ObjPositionID = -1;
-                for (int k = 1; k < pMap->vnRMLabel[i-1].size(); ++k)
-                {
-                    if (pMap->vnRMLabel[i-1][k]==pMap->nObjID[TrackID]){
-                        ObjPositionID = ObjUniqueID[k-1];
-                        break;
-                    }
-                }
-                if (ObjPositionID==-1 && PositionID!=0){
-                    cout << "cannot find the object association with this edge !!! WEIRD POINT !!! " << endl;
-                    continue;
-                }
+                        // only in the case of dynamic and it's not the first feature in tracklet
+                        // we save the dynamic point ID association.
+                        int FeaMakTmp = vnFeaMakDyn[DynTracks[TrackID][PositionID-1].first][DynTracks[TrackID][PositionID-1].second];
+                        // (6) save <EDGE_2POINTS_SE3MOTION>
+                        g2o::LandmarkMotionTernaryEdge * em = new g2o::LandmarkMotionTernaryEdge();
+                        em->setVertex(0, optimizer.vertex(FeaMakTmp));
+                        em->setVertex(1, optimizer.vertex(count_unique_id));
+                        em->setVertex(2, optimizer.vertex(ObjPositionID));
+                        em->setMeasurement(Eigen::Vector3d(0,0,0));
+                        em->information() = Eigen::Matrix3d::Identity()/sigma2_obj;
+                        if (ROBUST_KERNEL){
+                            g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+                            em->setRobustKernel(rk);
+                            em->robustKernel()->setDelta(deltaHuberObjMot);
+                        }
+                        optimizer.addEdge(em);
+                        vpEdgeLandmarkMotion.push_back(em);
 
-                // check if the PositionID is 0. Yes means this dynamic point is first seen by this frame,
-                // then save both the vertex and edge, otherwise save edge only because vertex is saved before.
-                if (PositionID==0)
-                {
-                    // (3) save <VERTEX_POINT_3D>
-                    g2o::VertexPointXYZ *v_p = new g2o::VertexPointXYZ();
-                    v_p->setId(count_unique_id);
-                    cv::Mat Xw = pMap->vp3DPointDyn[i][j];
-                    v_p->setEstimate(Converter::toVector3d(Xw));
-                    optimizer.addVertex(v_p);
-                    // (4) save <EDGE_3D>
-                    g2o::EdgeSE3PointXYZ * e = new g2o::EdgeSE3PointXYZ();
-                    e->setVertex(0, optimizer.vertex(CurFrameID));
-                    e->setVertex(1, optimizer.vertex(count_unique_id));
-                    cv::Mat Xc = Optimizer::Get3DinCamera(pMap->vpFeatDyn[i][j],pMap->vfDepDyn[i][j],Calib_K);
-                    e->setMeasurement(Converter::toVector3d(Xc));
-                    e->information() = Eigen::Matrix3d::Identity()/sigma2_3d_dyn;
-                    if (ROBUST_KERNEL){
-                        g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
-                        e->setRobustKernel(rk);
-                        e->robustKernel()->setDelta(deltaHuber3D);
+                        // update unique id
+                        vnFeaMakDyn[i][j] = count_unique_id;
+                        count_unique_id++;
                     }
-                    e->setParameterId(0, 0);
-                    optimizer.addEdge(e);
-                    vpEdgeSE3PointDyn.push_back(e);
-
-                    // update unique id
-                    vnFeaMakDyn[i][j] = count_unique_id;
-                    count_unique_id++;
-                }
-                // if no, then only add this feature to the existing track it belongs to.
-                else
-                {
-                    // (3) save <VERTEX_POINT_3D>
-                    g2o::VertexPointXYZ *v_p = new g2o::VertexPointXYZ();
-                    v_p->setId(count_unique_id);
-                    cv::Mat Xw = pMap->vp3DPointDyn[i][j];
-                    v_p->setEstimate(Converter::toVector3d(Xw));
-                    optimizer.addVertex(v_p);
-                    // (4) save <EDGE_3D>
-                    g2o::EdgeSE3PointXYZ * e = new g2o::EdgeSE3PointXYZ();
-                    e->setVertex(0, optimizer.vertex(CurFrameID));
-                    e->setVertex(1, optimizer.vertex(count_unique_id));
-                    cv::Mat Xc = Optimizer::Get3DinCamera(pMap->vpFeatDyn[i][j],pMap->vfDepDyn[i][j],Calib_K);
-                    e->setMeasurement(Converter::toVector3d(Xc));
-                    e->information() = Eigen::Matrix3d::Identity()/sigma2_3d_dyn;
-                    if (ROBUST_KERNEL){
-                        g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
-                        e->setRobustKernel(rk);
-                        e->robustKernel()->setDelta(deltaHuber3D);
-                    }
-                    e->setParameterId(0, 0);
-                    optimizer.addEdge(e);
-                    vpEdgeSE3PointDyn.push_back(e);
-
-                    // only in the case of dynamic and it's not the first feature in tracklet
-                    // we save the dynamic point ID association.
-                    int FeaMakTmp = vnFeaMakDyn[DynTracks[TrackID][PositionID-1].first][DynTracks[TrackID][PositionID-1].second];
-                    // (6) save <EDGE_2POINTS_SE3MOTION>
-                    g2o::LandmarkMotionTernaryEdge * em = new g2o::LandmarkMotionTernaryEdge();
-                    em->setVertex(0, optimizer.vertex(FeaMakTmp));
-                    em->setVertex(1, optimizer.vertex(count_unique_id));
-                    em->setVertex(2, optimizer.vertex(ObjPositionID));
-                    em->setMeasurement(Eigen::Vector3d(0,0,0));
-                    em->information() = Eigen::Matrix3d::Identity()/sigma2_obj;
-                    if (ROBUST_KERNEL){
-                        g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
-                        em->setRobustKernel(rk);
-                        em->robustKernel()->setDelta(deltaHuberObjMot);
-                    }
-                    optimizer.addEdge(em);
-                    vpEdgeLandmarkMotion.push_back(em);
-
-                    // update unique id
-                    vnFeaMakDyn[i][j] = count_unique_id;
-                    count_unique_id++;
                 }
             }
         }
@@ -3286,18 +3289,21 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
             }
             else
             {
-                g2o::VertexSE3* vSE3 = static_cast<g2o::VertexSE3*>(optimizer.vertex(VertexID[i][j]));
+                if (!STATIC_ONLY)
+                {
+                    g2o::VertexSE3* vSE3 = static_cast<g2o::VertexSE3*>(optimizer.vertex(VertexID[i][j]));
 
-                // convert
-                double optimized[7];
-                vSE3->getEstimateData(optimized);
-                Eigen::Quaterniond q(optimized[6],optimized[3],optimized[4],optimized[5]);
-                Eigen::Matrix<double,3,3> rot = q.matrix();
-                Eigen::Matrix<double,3,1> tra;
-                tra << optimized[0],optimized[1],optimized[2];
+                    // convert
+                    double optimized[7];
+                    vSE3->getEstimateData(optimized);
+                    Eigen::Quaterniond q(optimized[6],optimized[3],optimized[4],optimized[5]);
+                    Eigen::Matrix<double,3,3> rot = q.matrix();
+                    Eigen::Matrix<double,3,1> tra;
+                    tra << optimized[0],optimized[1],optimized[2];
 
-                // object
-                pMap->vmRigidMotion_RF[i][j] = Converter::toCvSE3(rot,tra);
+                    // object
+                    pMap->vmRigidMotion_RF[i][j] = Converter::toCvSE3(rot,tra);
+                }
             }
         }
     }
@@ -3321,18 +3327,21 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
         }
     }
     // (2) dynamic points
-    for (int i = 0; i < N; ++i)
+    if (!STATIC_ONLY)
     {
-        for (int j = 0; j < vnFeaMakDyn[i].size(); ++j)
+        for (int i = 0; i < N; ++i)
         {
-            if (vnFeaMakDyn[i][j]!=-1)
+            for (int j = 0; j < vnFeaMakDyn[i].size(); ++j)
             {
-                g2o::VertexPointXYZ* vPoint = static_cast<g2o::VertexPointXYZ*>(optimizer.vertex(vnFeaMakDyn[i][j]));
-                double optimized[3];
-                vPoint->getEstimateData(optimized);
-                Eigen::Matrix<double,3,1> tmp_3d;
-                tmp_3d << optimized[0],optimized[1],optimized[2];
-                pMap->vp3DPointDyn[i][j] = Converter::toCvMat(tmp_3d);
+                if (vnFeaMakDyn[i][j]!=-1)
+                {
+                    g2o::VertexPointXYZ* vPoint = static_cast<g2o::VertexPointXYZ*>(optimizer.vertex(vnFeaMakDyn[i][j]));
+                    double optimized[3];
+                    vPoint->getEstimateData(optimized);
+                    Eigen::Matrix<double,3,1> tmp_3d;
+                    tmp_3d << optimized[0],optimized[1],optimized[2];
+                    pMap->vp3DPointDyn[i][j] = Converter::toCvMat(tmp_3d);
+                }
             }
         }
     }
@@ -3524,6 +3533,7 @@ int Optimizer::PoseOptimizationFlow2Cam(Frame *pCurFrame, Frame *pLastFrame, vec
     g2o::VertexSE3Expmap * vSE3 = new g2o::VertexSE3Expmap();
     cv::Mat Init = pCurFrame->mTcw; // initial with camera pose
     vSE3->setEstimate(Converter::toSE3Quat(Init));
+    // vSE3->setEstimate(Converter::toSE3Quat(cv::Mat::eye(4,4,CV_32F)));
     vSE3->setId(0);
     vSE3->setFixed(false);
     optimizer.addVertex(vSE3);
@@ -3693,9 +3703,9 @@ int Optimizer::PoseOptimizationFlow2Cam(Frame *pCurFrame, Frame *pLastFrame, vec
     for (int i = 0; i < N; ++i)
     {
         g2o::VertexSBAFlow* vFlow = static_cast<g2o::VertexSBAFlow*>(optimizer.vertex(i+1));
-        Eigen::Vector2d flo_error = vFlow->estimate() - flo_gt[i];
-        e_aft_sum = e_aft_sum + flo_error.norm();
-        e_bef_sum = e_bef_sum + e_bef[i];
+        // Eigen::Vector2d flo_error = vFlow->estimate() - flo_gt[i];
+        // e_aft_sum = e_aft_sum + flo_error.norm();
+        // e_bef_sum = e_bef_sum + e_bef[i];
         // cout << e_bef[i]-flo_error.norm() << endl;
         if (updateflow && vIsOutlier[i]==false)
         {

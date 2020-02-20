@@ -100,18 +100,18 @@ int main(int argc, char **argv)
 
     // Main loop
     cv::Mat imRGB, imD, mTcw_gt; // (799,0007) (802,0009) (293,0010) (836,0020) (338,0018) (1057,0019) (339,0013)
-    for(int ni=0; ni<446; ni++) // (153,0000)(446,0001)(232,0002)(143,0003)(313,0004)(296,0005)(144,0017)(269,0006)
+    for(int ni=0; ni<500; ni++) // (153,0000)(446,0001)(232,0002)(143,0003)(313,0004)(296,0005)(144,0017)(269,0006)
     {
         cout << endl;
         cout << "=======================================================" << endl;
         cout << "Processing Frame: " << ni << endl;
 
-        // Read image and depthmap from file
+        // Read imreadmage and depthmap from file
         imRGB = cv::imread(vstrFilenamesRGB[ni],CV_LOAD_IMAGE_UNCHANGED);
         imD   = cv::imread(vstrFilenamesDEP[ni],CV_LOAD_IMAGE_UNCHANGED);
-        cv::Mat imD_f;
+        cv::Mat imD_f, imD_r;
+        // cv::resize(imD, imD_r, cv::Size(1242,375)); // 1242x375
         imD.convertTo(imD_f, CV_32F);
-
 
         // load flow matrix
         cv::Mat imFlow = cv::optflow::readOpticalFlow(vstrFilenamesFLO[ni]);
@@ -148,6 +148,7 @@ int main(int argc, char **argv)
     // SLAM.SaveTrajectoryTUM("CameraTrajectory.txt");
     // SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
     // SLAM.SaveResultsICRA2020("0018/");
+    SLAM.SaveResultsIJRR2020("/Users/steed/work/code/Evaluation/ijrr2020/omd/");
 
     return 0;
 }
@@ -200,7 +201,7 @@ void LoadData(const string &strPathToSequence, vector<string> &vstrFilenamesSEM,
 
 
     // +++ ground truth pose +++
-    string strFilenamePose = strPathToSequence + "/pose_gt.txt";
+    string strFilenamePose = strPathToSequence + "/pose_gt.txt"; //  pose_gt.txt  kevin_extrinsics.txt
     // vPoseGT.resize(nTimes);
     ifstream fPose;
     fPose.open(strFilenamePose.c_str());
@@ -284,16 +285,16 @@ void LoadMask(const string &strFilenamesMask, cv::Mat &imMask)
                             imgLabel.at<cv::Vec3b>(count,i) = cv::Vec3b(0,255,255);
                             break;
                         case 1:
-                            imgLabel.at<cv::Vec3b>(count,i) = cv::Vec3b(0,0,255);
+                            imgLabel.at<cv::Vec3b>(count,i) = cv::Vec3b(0,0,255);  // red
                             break;
                         case 2:
-                            imgLabel.at<cv::Vec3b>(count,i) = cv::Vec3b(255,0,0);
+                            imgLabel.at<cv::Vec3b>(count,i) = cv::Vec3b(255,0,0);  // blue
                             break;
                         case 3:
-                            imgLabel.at<cv::Vec3b>(count,i) = cv::Vec3b(255,255,0);
+                            imgLabel.at<cv::Vec3b>(count,i) = cv::Vec3b(255,255,0); // cyan
                             break;
                         case 4:
-                            imgLabel.at<cv::Vec3b>(count,i) = cv::Vec3b(47,255,173); // greenyellow
+                            imgLabel.at<cv::Vec3b>(count,i) = cv::Vec3b(47,255,173); // green yellow
                             break;
                         case 5:
                             imgLabel.at<cv::Vec3b>(count,i) = cv::Vec3b(128, 0, 128);
@@ -448,7 +449,7 @@ void LoadMask(const string &strFilenamesMask, cv::Mat &imMask)
 
     // // Display the img_mask
     // cv::imshow("Mask for the left image", imgLabel);
-    // cv::waitKey(1);
+    // cv::waitKey(0);
 
     return;
 

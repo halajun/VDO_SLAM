@@ -16,6 +16,13 @@
 
 ./Examples/Stereo/stereo_kitti Vocabulary/ORBvoc.txt /Users/steed/work/kitti_ms/0003.yaml /Users/steed/work/kitti_ms/0003
 
+./Examples/RGB-D/rgbd_tum Vocabulary/ORBvoc.txt /Users/steed/work/omd/swinging_4_unconstrained/oxford.yaml  /Users/steed/work/omd/swinging_4_unconstrained
+
+./Examples/RGB-D/rgbd_tum Vocabulary/ORBvoc.txt /Users/steed/work/omd/swinging_4_unconstrained_stereo/oxford_2.yaml  /Users/steed/work/omd/swinging_4_unconstrained_stereo
+
+./Examples/RGB-D/rgbd_tum Vocabulary/ORBvoc.txt /Volumes/ACRV\ Samsung\ SSD\ T5/Oxford\ MultiMotion\ Dataset/primary/swinging_4_unconstrained/oxford.yaml  /Volumes/ACRV\ Samsung\ SSD\ T5/Oxford\ MultiMotion\ Dataset/primary/swinging_4_unconstrained
+
+./Examples/RGB-D/rgbd_tum Vocabulary/ORBvoc.txt /Users/steed/work/kitti_ms/0000-0013.yaml  /Users/steed/work/kitti_ms/0002
 
 
 

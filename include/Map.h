@@ -127,11 +127,21 @@ public:
     std::vector<std::vector<float> > vfAllSpeed_GT; // camera and object speeds
     // rigid motion label in each frame (k-1)*m
     // 0 stands for camera motion; 1,...,l stands for rigid motions.
-    std::vector<std::vector<int> > vnRMLabel;
+    std::vector<std::vector<int> > vnRMLabel; // tracking label
+    std::vector<std::vector<int> > vnSMLabel; // semantic label
+    std::vector<std::vector<int> > vnSMLabelGT;
     // object status (10 Jan 2020)
     std::vector<std::vector<bool> > vbObjStat;
     // object tracking times (10 Jan 2020)
     std::vector<std::vector<int> > vnObjTraTime;
+    std::vector<int> nObjTraCount;
+    std::vector<int> nObjTraCountGT;
+    std::vector<int> nObjTraSemLab;
+
+    // time analysis
+    std::vector<float> fLBA_time;
+    // (0) frame updating (1) camera estimation (2) object tracking (3) object estimation (4) map updating;
+    std::vector<std::vector<float> > vfAll_time;
 
 
     // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

@@ -104,6 +104,8 @@ public:
     cv::Mat ObtainFlowDepthObject(const int &i, const bool &addnoise);
     cv::Mat ObtainFlowDepthCamera(const int &i, const bool &addnoise);
 
+    std::vector<cv::KeyPoint> SampleKeyPoints(const int &rows, const int &cols);
+
 public:
 
     // Vocabulary used for relocalization.

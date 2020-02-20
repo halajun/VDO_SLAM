@@ -59,6 +59,8 @@
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <vector>
+#include <time.h>
+#include <iostream>
 
 #include "ORBextractor.h"
 
@@ -1056,8 +1058,15 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
     ComputePyramid(image);
 
     vector < vector<KeyPoint> > allKeypoints;
+    // clock_t s_1, e_1;
+    // double fea_det_time;
+    // s_1 = clock();
     ComputeKeyPointsOctTree(allKeypoints);
-    //ComputeKeyPointsOld(allKeypoints);
+    // e_1 = clock();
+    // fea_det_time = (double)(e_1-s_1)/CLOCKS_PER_SEC*1000;
+    // std::cout << "feature detection time: " << fea_det_time << std::endl;
+    // ComputeKeyPointsOctTree(allKeypoints);
+    // ComputeKeyPointsOld(allKeypoints);
 
     Mat descriptors;
 

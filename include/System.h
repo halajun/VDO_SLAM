@@ -119,6 +119,7 @@ public:
     // LoadMap(const string &filename);
 
     void SaveResultsICRA2020(const string &filename);
+    void SaveResultsIJRR2020(const string &filename);
 
     // Information from most recent processed frame
     // You can call this right after TrackMonocular (or stereo or RGBD)

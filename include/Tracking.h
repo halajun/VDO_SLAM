@@ -136,7 +136,8 @@ public:
 
     void TransformPointToScaledFrustum(double &pose_x, double &pose_z, const BirdEyeVizProperties &viz_props);
 
-    cv::Mat ObjPoseParsing(const std::vector<float> &vObjPose_gt);
+    cv::Mat ObjPoseParsingKT(const std::vector<float> &vObjPose_gt);
+    cv::Mat ObjPoseParsingOX(const std::vector<float> &vObjPose_gt);
 
     cv::Mat InvMatrix(const cv::Mat &T);
 
@@ -152,7 +153,8 @@ public:
     std::vector<std::vector<std::pair<int, int> > > GetStaticTrack();
     std::vector<std::vector<std::pair<int, int> > > GetDynamicTrack();
     std::vector<std::vector<std::pair<int, int> > > GetDynamicTrackNew();
-    std::vector<std::vector<int> > GetObjTrackTime(std::vector<std::vector<int> > &ObjTrackLab);
+    std::vector<std::vector<int> > GetObjTrackTime(std::vector<std::vector<int> > &ObjTrackLab, std::vector<std::vector<int> > &ObjSemanticLab,
+                                                   std::vector<std::vector<int> > &vnSMLabGT);
 
     void GetMetricError(const std::vector<cv::Mat> &CamPose, const std::vector<std::vector<cv::Mat> > &RigMot,
                         const std::vector<cv::Mat> &CamPose_gt, const std::vector<std::vector<cv::Mat> > &RigMot_gt,
@@ -203,6 +205,7 @@ public:
     // Store temperal matching feature index
     bool bFrame2Frame,bFirstFrame,bSecondFrame,bUseGT;  // ++++++ new added
     std::vector<int> TemperalMatch;  // ++++++ new added
+    std::vector<int> TemperalMatch_subset;
     std::vector<cv::KeyPoint> mvKeysLastFrame;  // ++++++ new added
     std::vector<cv::KeyPoint> mvKeysCurrentFrame;  // ++++++ new added
 
@@ -220,6 +223,19 @@ public:
 
     // save the global Tracking ID
     int max_id;
+
+    // save stopframe
+    int StopFrame;
+
+    // save local batch decision
+    bool bLocalBatch;
+    bool bGlobalBatch;
+
+    // save timing values
+    std::vector<float> all_timing;
+
+    // dataset selection
+    bool oxford;
 
     // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

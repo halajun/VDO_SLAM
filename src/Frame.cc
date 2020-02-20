@@ -63,7 +63,7 @@ Frame::Frame(const Frame &frame)
      // new added
      mTcw_gt(frame.mTcw_gt), vObjPose_gt(frame.vObjPose_gt), nSemPosi_gt(frame.nSemPosi_gt), vObjBox_gt(frame.vObjBox_gt),
      vObjLabel(frame.vObjLabel),
-     nModLabel(frame.nModLabel), nSemPosition(frame.nSemPosition), vObjMod(frame.vObjMod),
+     nModLabel(frame.nModLabel), nSemPosition(frame.nSemPosition), bObjStat(frame.bObjStat), vObjMod(frame.vObjMod),
      mvCorres(frame.mvCorres), mvObjCorres(frame.mvObjCorres),
      mvFlowNext(frame.mvFlowNext), mvObjFlowNext(frame.mvObjFlowNext)
 {
@@ -178,11 +178,17 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlo
     mvLevelSigma2 = mpORBextractorLeft->GetScaleSigmaSquares();
     mvInvLevelSigma2 = mpORBextractorLeft->GetInverseScaleSigmaSquares();
 
+    // clock_t s_1, e_1;
+    // double fea_det_time;
+    // s_1 = clock();
     // ORB extraction
     ExtractORB(0,imGray);
+    // e_1 = clock();
+    // fea_det_time = (double)(e_1-s_1)/CLOCKS_PER_SEC*1000;
+    // cout << "feature detection time: " << fea_det_time << endl;
 
     // used for adding noise
-    cv::RNG rng((unsigned)time(NULL));
+    // cv::RNG rng((unsigned)time(NULL));
 
     // ---------------------------------------------------------------------------------------
     // ++++++++++++++++++++++++++++ New added for dense object features ++++++++++++++++++++++
@@ -222,50 +228,98 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlo
     // ---------------------------------------------------------------------------------------
 
     // ---------------------------------------------------------------------------------------
-    // ++++++++++++++++++++++++++++ New added for sampled features ++++++++++++++++++++++++++++
+    // ++++++++++++++++++++++++++++ New added for sampled features +++++++++++++++++++++++++++
     // ---------------------------------------------------------------------------------------
 
-    // int fal_ma = 0, pos_ma = 0;
-    // float e_sum = 0;
-    for (int i = 0; i < mvKeys.size(); ++i)
+    clock_t s_1, e_1;
+    double fea_det_time;
+    s_1 = clock();
+    std::vector<cv::KeyPoint> mvKeysSamp = SampleKeyPoints(imGray.rows, imGray.cols);
+    e_1 = clock();
+    fea_det_time = (double)(e_1-s_1)/CLOCKS_PER_SEC*1000;
+    std::cout << "feature detection time: " << fea_det_time << std::endl;
+
+    // // ~~~ use sample features ~~~
+    for (int i = 0; i < mvKeysSamp.size(); ++i)
     {
-        // inliers
-        if (1) // i%2==0
+        int x = mvKeysSamp[i].pt.x;
+        int y = mvKeysSamp[i].pt.y;
+
+        // if (x>109 && x<213 && y>188 && y<323)
+        //     continue;
+
+        if (maskSEM.at<int>(y,x)!=0)  // new added in Jun 13 2019
+            continue;
+
+        if (imDepth.at<float>(y,x)>40 || imDepth.at<float>(y,x)<=0)  // new added in Aug 21 2019
+            continue;
+
+        float flow_xe = imFlow.at<cv::Vec2f>(y,x)[0];
+        float flow_ye = imFlow.at<cv::Vec2f>(y,x)[1];
+
+
+        if(flow_xe!=0 && flow_ye!=0)
         {
-            int x = mvKeys[i].pt.x;
-            int y = mvKeys[i].pt.y;
-
-            if (maskSEM.at<int>(y,x)!=0)  // new added in Jun 13 2019
-                continue;
-
-            if (imDepth.at<float>(y,x)>40 || imDepth.at<float>(y,x)<=0)  // new added in Aug 21 2019
-                continue;
-
-            // float flow_x = imFlow.at<cv::Vec2f>(y,x)[0];
-            // float flow_y = imFlow.at<cv::Vec2f>(y,x)[1];
-            float flow_xe = imFlow.at<cv::Vec2f>(y,x)[0];
-            float flow_ye = imFlow.at<cv::Vec2f>(y,x)[1];
-            // float x_ = flow_x-flow_xe;
-            // float y_ = flow_y-flow_ye;
-            // e_sum = e_sum + std::sqrt(x_*x_ + y_*y_);
-
-
-            if(flow_xe!=0 && flow_ye!=0)
+            if(mvKeysSamp[i].pt.x+flow_xe < imGray.cols && mvKeysSamp[i].pt.y+flow_ye < imGray.rows && mvKeysSamp[i].pt.x+flow_xe>0 && mvKeysSamp[i].pt.y+flow_ye>0)
             {
-                if(mvKeys[i].pt.x+flow_xe < imGray.cols && mvKeys[i].pt.y+flow_ye < imGray.rows && mvKeys[i].pt.x < imGray.cols && mvKeys[i].pt.y < imGray.rows)
-                {
-                    mvSiftKeysTmp.push_back(mvKeys[i]);
-                    mvCorres.push_back(cv::KeyPoint(mvKeys[i].pt.x+flow_xe,mvKeys[i].pt.y+flow_ye,0,0,0,mvKeys[i].octave,-1));
-                    mvFlowNext.push_back(cv::Point2f(flow_xe,flow_ye));
-                    // vCorSta.push_back(1);
-                    // pos_ma = pos_ma + 1;
-                }
-                // cout << "flow vector: " << flow_x << " " << flow_y << endl;
-                // cout << "key point: " << mvKeys[i].pt.x << " " << mvKeys[i].pt.y<< endl;
-                // cout << "new key: " << mvKeys[i].pt.x+flow_x << " " << mvKeys[i].pt.y+flow_y << endl;
+                mvSiftKeysTmp.push_back(mvKeysSamp[i]);
+                mvCorres.push_back(cv::KeyPoint(mvKeysSamp[i].pt.x+flow_xe,mvKeysSamp[i].pt.y+flow_ye,0,0,0,mvKeysSamp[i].octave,-1));
+                mvFlowNext.push_back(cv::Point2f(flow_xe,flow_ye));
+
             }
         }
     }
+
+    // cv::Mat img_show;
+    // cv::drawKeypoints(imGray, mvKeysSamp, img_show, cv::Scalar::all(-1), cv::DrawMatchesFlags::DEFAULT);
+    // cv::imshow("KeyPoints on Background", img_show);
+    // cv::waitKey(0);
+
+
+    // int fal_ma = 0, pos_ma = 0;
+    // float e_sum = 0;
+
+    // // // ~~~ use detected features ~~~
+    // for (int i = 0; i < mvKeys.size(); ++i)
+    // {
+    //     // inliers
+    //     if (1) // i%2==0
+    //     {
+    //         int x = mvKeys[i].pt.x;
+    //         int y = mvKeys[i].pt.y;
+
+    //         if (maskSEM.at<int>(y,x)!=0)  // new added in Jun 13 2019
+    //             continue;
+
+    //         if (imDepth.at<float>(y,x)>40 || imDepth.at<float>(y,x)<=0)  // new added in Aug 21 2019
+    //             continue;
+
+    //         // float flow_x = imFlow.at<cv::Vec2f>(y,x)[0];
+    //         // float flow_y = imFlow.at<cv::Vec2f>(y,x)[1];
+    //         float flow_xe = imFlow.at<cv::Vec2f>(y,x)[0];
+    //         float flow_ye = imFlow.at<cv::Vec2f>(y,x)[1];
+    //         // float x_ = flow_x-flow_xe;
+    //         // float y_ = flow_y-flow_ye;
+    //         // e_sum = e_sum + std::sqrt(x_*x_ + y_*y_);
+
+
+    //         if(flow_xe!=0 && flow_ye!=0)
+    //         {
+    //             if(mvKeys[i].pt.x+flow_xe < imGray.cols && mvKeys[i].pt.y+flow_ye < imGray.rows && mvKeys[i].pt.x < imGray.cols && mvKeys[i].pt.y < imGray.rows)
+    //             {
+    //                 mvSiftKeysTmp.push_back(mvKeys[i]);
+    //                 mvCorres.push_back(cv::KeyPoint(mvKeys[i].pt.x+flow_xe,mvKeys[i].pt.y+flow_ye,0,0,0,mvKeys[i].octave,-1));
+    //                 mvFlowNext.push_back(cv::Point2f(flow_xe,flow_ye));
+    //                 // vCorSta.push_back(1);
+    //                 // pos_ma = pos_ma + 1;
+    //             }
+    //             // cout << "flow vector: " << flow_x << " " << flow_y << endl;
+    //             // cout << "key point: " << mvKeys[i].pt.x << " " << mvKeys[i].pt.y<< endl;
+    //             // cout << "new key: " << mvKeys[i].pt.x+flow_x << " " << mvKeys[i].pt.y+flow_y << endl;
+    //         }
+    //     }
+    // }
+
     // cout << "the inliers and outliers number: " << pos_ma << " " << fal_ma << endl;
 
     // cout << "AVERAGE FLOW ERROR: " << e_sum/mvCorres.size() << endl;
@@ -1271,6 +1325,76 @@ cv::Mat Frame::ObtainFlowDepthCamera(const int &i, const bool &addnoise)
         cout << "found a depth value < 0 ..." << endl;
         return cv::Mat();
     }
+}
+
+std::vector<cv::KeyPoint> Frame::SampleKeyPoints(const int &rows, const int &cols)
+{
+    cv::RNG rng((unsigned)time(NULL));
+    // rows = 480, cols = 640.
+    int N = 3000;
+    int n_div = 20;
+    std::vector<cv::KeyPoint> KeySave;
+    std::vector<std::vector<cv::KeyPoint> >  KeyinGrid(n_div*n_div);
+
+    // (1) construct grid
+    int x_step = cols/n_div, y_step = rows/n_div;
+
+    // main loop
+    int key_num = 0;
+    while (key_num<N)
+    {
+        for (int i = 0; i < n_div; ++i)
+        {
+            for (int j = 0; j < n_div; ++j)
+            {
+                const float x = rng.uniform(i*x_step,(i+1)*x_step);
+                const float y = rng.uniform(j*y_step,(j+1)*y_step);
+
+                if (x>=cols || y>=rows || x<=0 || y<=0)
+                    continue;
+
+                // // check if this key point is already been used
+                // float min_dist = 1000;
+                // bool used = false;
+                // for (int k = 0; k < KeyinGrid[].size(); ++k)
+                // {
+                //     float cur_dist = std::sqrt( (KeyinGrid[].pt.x-x)*(KeyinGrid[].pt.x-x) + (KeyinGrid[].pt.y-y)*(KeyinGrid[].pt.y-y) );
+                //     if (cur_dist<min_dist)
+                //         min_dist = cur_dist;
+                //     if (min_dist<5.0)
+                //     {
+                //         used = true;
+                //         break;
+                //     }
+                // }
+
+                // if (used)
+                //     continue;
+
+                cv::KeyPoint Key_tmp = cv::KeyPoint(x,y,0,0,0,-1);
+                KeyinGrid[i*n_div+j].push_back(Key_tmp);
+                key_num = key_num + 1;
+                if (key_num>=N)
+                    break;
+            }
+            if (key_num>=N)
+                break;
+        }
+    }
+
+    // cout << "key_num: " << key_num << endl;
+
+    // save points
+    for (int i = 0; i < KeyinGrid.size(); ++i)
+    {
+        for (int j = 0; j < KeyinGrid[i].size(); ++j)
+        {
+            KeySave.push_back(KeyinGrid[i][j]);
+        }
+    }
+
+    return KeySave;
+
 }
 
 

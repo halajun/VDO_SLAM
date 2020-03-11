@@ -202,7 +202,7 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlo
         {
 
             // check ground truth motion mask
-            if (maskSEM.at<int>(i,j)!=0 && imDepth.at<float>(i,j)<25 && imDepth.at<float>(i,j)>0)
+            if (maskSEM.at<int>(i,j)!=0 && imDepth.at<float>(i,j)<35 && imDepth.at<float>(i,j)>0)
             {
                 // get flow
                 const float flow_x = imFlow.at<cv::Vec2f>(i,j)[0];
@@ -239,36 +239,36 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlo
     fea_det_time = (double)(e_1-s_1)/CLOCKS_PER_SEC*1000;
     std::cout << "feature detection time: " << fea_det_time << std::endl;
 
-    // // ~~~ use sample features ~~~
-    for (int i = 0; i < mvKeysSamp.size(); ++i)
-    {
-        int x = mvKeysSamp[i].pt.x;
-        int y = mvKeysSamp[i].pt.y;
+    // // // ~~~ use sample features ~~~
+    // for (int i = 0; i < mvKeysSamp.size(); ++i)
+    // {
+    //     int x = mvKeysSamp[i].pt.x;
+    //     int y = mvKeysSamp[i].pt.y;
 
-        // if (x>109 && x<213 && y>188 && y<323)
-        //     continue;
+    //     // if (x>109 && x<213 && y>188 && y<323)
+    //     //     continue;
 
-        if (maskSEM.at<int>(y,x)!=0)  // new added in Jun 13 2019
-            continue;
+    //     if (maskSEM.at<int>(y,x)!=0)  // new added in Jun 13 2019
+    //         continue;
 
-        if (imDepth.at<float>(y,x)>40 || imDepth.at<float>(y,x)<=0)  // new added in Aug 21 2019
-            continue;
+    //     if (imDepth.at<float>(y,x)>40 || imDepth.at<float>(y,x)<=0)  // new added in Aug 21 2019
+    //         continue;
 
-        float flow_xe = imFlow.at<cv::Vec2f>(y,x)[0];
-        float flow_ye = imFlow.at<cv::Vec2f>(y,x)[1];
+    //     float flow_xe = imFlow.at<cv::Vec2f>(y,x)[0];
+    //     float flow_ye = imFlow.at<cv::Vec2f>(y,x)[1];
 
 
-        if(flow_xe!=0 && flow_ye!=0)
-        {
-            if(mvKeysSamp[i].pt.x+flow_xe < imGray.cols && mvKeysSamp[i].pt.y+flow_ye < imGray.rows && mvKeysSamp[i].pt.x+flow_xe>0 && mvKeysSamp[i].pt.y+flow_ye>0)
-            {
-                mvSiftKeysTmp.push_back(mvKeysSamp[i]);
-                mvCorres.push_back(cv::KeyPoint(mvKeysSamp[i].pt.x+flow_xe,mvKeysSamp[i].pt.y+flow_ye,0,0,0,mvKeysSamp[i].octave,-1));
-                mvFlowNext.push_back(cv::Point2f(flow_xe,flow_ye));
+    //     if(flow_xe!=0 && flow_ye!=0)
+    //     {
+    //         if(mvKeysSamp[i].pt.x+flow_xe < imGray.cols && mvKeysSamp[i].pt.y+flow_ye < imGray.rows && mvKeysSamp[i].pt.x+flow_xe>0 && mvKeysSamp[i].pt.y+flow_ye>0)
+    //         {
+    //             mvSiftKeysTmp.push_back(mvKeysSamp[i]);
+    //             mvCorres.push_back(cv::KeyPoint(mvKeysSamp[i].pt.x+flow_xe,mvKeysSamp[i].pt.y+flow_ye,0,0,0,mvKeysSamp[i].octave,-1));
+    //             mvFlowNext.push_back(cv::Point2f(flow_xe,flow_ye));
 
-            }
-        }
-    }
+    //         }
+    //     }
+    // }
 
     // cv::Mat img_show;
     // cv::drawKeypoints(imGray, mvKeysSamp, img_show, cv::Scalar::all(-1), cv::DrawMatchesFlags::DEFAULT);
@@ -279,46 +279,46 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlo
     // int fal_ma = 0, pos_ma = 0;
     // float e_sum = 0;
 
-    // // // ~~~ use detected features ~~~
-    // for (int i = 0; i < mvKeys.size(); ++i)
-    // {
-    //     // inliers
-    //     if (1) // i%2==0
-    //     {
-    //         int x = mvKeys[i].pt.x;
-    //         int y = mvKeys[i].pt.y;
+    // // ~~~ use detected features ~~~
+    for (int i = 0; i < mvKeys.size(); ++i)
+    {
+        // inliers
+        if (1) // i%2==0
+        {
+            int x = mvKeys[i].pt.x;
+            int y = mvKeys[i].pt.y;
 
-    //         if (maskSEM.at<int>(y,x)!=0)  // new added in Jun 13 2019
-    //             continue;
+            if (maskSEM.at<int>(y,x)!=0)  // new added in Jun 13 2019
+                continue;
 
-    //         if (imDepth.at<float>(y,x)>40 || imDepth.at<float>(y,x)<=0)  // new added in Aug 21 2019
-    //             continue;
+            if (imDepth.at<float>(y,x)>40 || imDepth.at<float>(y,x)<=0)  // new added in Aug 21 2019
+                continue;
 
-    //         // float flow_x = imFlow.at<cv::Vec2f>(y,x)[0];
-    //         // float flow_y = imFlow.at<cv::Vec2f>(y,x)[1];
-    //         float flow_xe = imFlow.at<cv::Vec2f>(y,x)[0];
-    //         float flow_ye = imFlow.at<cv::Vec2f>(y,x)[1];
-    //         // float x_ = flow_x-flow_xe;
-    //         // float y_ = flow_y-flow_ye;
-    //         // e_sum = e_sum + std::sqrt(x_*x_ + y_*y_);
+            // float flow_x = imFlow.at<cv::Vec2f>(y,x)[0];
+            // float flow_y = imFlow.at<cv::Vec2f>(y,x)[1];
+            float flow_xe = imFlow.at<cv::Vec2f>(y,x)[0];
+            float flow_ye = imFlow.at<cv::Vec2f>(y,x)[1];
+            // float x_ = flow_x-flow_xe;
+            // float y_ = flow_y-flow_ye;
+            // e_sum = e_sum + std::sqrt(x_*x_ + y_*y_);
 
 
-    //         if(flow_xe!=0 && flow_ye!=0)
-    //         {
-    //             if(mvKeys[i].pt.x+flow_xe < imGray.cols && mvKeys[i].pt.y+flow_ye < imGray.rows && mvKeys[i].pt.x < imGray.cols && mvKeys[i].pt.y < imGray.rows)
-    //             {
-    //                 mvSiftKeysTmp.push_back(mvKeys[i]);
-    //                 mvCorres.push_back(cv::KeyPoint(mvKeys[i].pt.x+flow_xe,mvKeys[i].pt.y+flow_ye,0,0,0,mvKeys[i].octave,-1));
-    //                 mvFlowNext.push_back(cv::Point2f(flow_xe,flow_ye));
-    //                 // vCorSta.push_back(1);
-    //                 // pos_ma = pos_ma + 1;
-    //             }
-    //             // cout << "flow vector: " << flow_x << " " << flow_y << endl;
-    //             // cout << "key point: " << mvKeys[i].pt.x << " " << mvKeys[i].pt.y<< endl;
-    //             // cout << "new key: " << mvKeys[i].pt.x+flow_x << " " << mvKeys[i].pt.y+flow_y << endl;
-    //         }
-    //     }
-    // }
+            if(flow_xe!=0 && flow_ye!=0)
+            {
+                if(mvKeys[i].pt.x+flow_xe < imGray.cols && mvKeys[i].pt.y+flow_ye < imGray.rows && mvKeys[i].pt.x < imGray.cols && mvKeys[i].pt.y < imGray.rows)
+                {
+                    mvSiftKeysTmp.push_back(mvKeys[i]);
+                    mvCorres.push_back(cv::KeyPoint(mvKeys[i].pt.x+flow_xe,mvKeys[i].pt.y+flow_ye,0,0,0,mvKeys[i].octave,-1));
+                    mvFlowNext.push_back(cv::Point2f(flow_xe,flow_ye));
+                    // vCorSta.push_back(1);
+                    // pos_ma = pos_ma + 1;
+                }
+                // cout << "flow vector: " << flow_x << " " << flow_y << endl;
+                // cout << "key point: " << mvKeys[i].pt.x << " " << mvKeys[i].pt.y<< endl;
+                // cout << "new key: " << mvKeys[i].pt.x+flow_x << " " << mvKeys[i].pt.y+flow_y << endl;
+            }
+        }
+    }
 
     // cout << "the inliers and outliers number: " << pos_ma << " " << fal_ma << endl;
 

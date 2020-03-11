@@ -202,6 +202,7 @@ public:
 
     // Store the motion of objects
     std::vector<cv::Mat> vObjMod;
+    std::vector<cv::Mat> vObjPosePre;
     std::vector<cv::Point2f> vSpeed;
     std::vector<int> nModLabel;
     std::vector<int> nSemPosition;

@@ -2450,7 +2450,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     for (int i = 0; i < StaTracks.size(); ++i)
     {
         // filter the tracklets via threshold
-        if (StaTracks[i].size()<8) // 3 the length of track on background.
+        if (StaTracks[i].size()<3) // 3 the length of track on background.
             continue;
         valid_sta++;
         // label them
@@ -2461,7 +2461,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     for (int i = 0; i < DynTracks.size(); ++i)
     {
         // filter the tracklets via threshold
-        if (DynTracks[i].size()<8) // 3 the length of track on objects.
+        if (DynTracks[i].size()<3) // 3 the length of track on objects.
             continue;
         valid_dyn++;
         // label them
@@ -2503,10 +2503,10 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
 
     // === set information matrix ===
     const float sigma2_cam = 0.0001; // 0.005 0.001 (ox:)
-    const float sigma2_3d_sta = 16; // 50 80 (ox:) 16
-    const float sigma2_obj_smo = 0.1; // 0.1 0.5 (ox:)
-    const float sigma2_obj = 20; // 0.5 1 10 20 50 100 (ox:) 20
-    const float sigma2_3d_dyn = 16; // 50 100 (ox:) 16
+    const float sigma2_3d_sta = 80; // 50 80 (ox:) 16
+    const float sigma2_obj_smo = 0.001; // 0.1 0.5 (ox:) 0.001
+    const float sigma2_obj = 100; // 0.5 1 10 20 50 100 (ox:) 20
+    const float sigma2_3d_dyn = 80; // 50 100 (ox:) 16
     const float sigma2_alti = 0.1;
 
     // === identity initialization ===
@@ -2523,7 +2523,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     // ---------=============!!!=- Main Loop for input data -=!!!=============----------------
     // ---------------------------------------------------------------------------------------
     int count_unique_id = 1;
-    bool ROBUST_KERNEL = true, ALTITUDE_CONSTRAINT = false, SMOOTH_CONSTRAINT = true, STATIC_ONLY = true;
+    bool ROBUST_KERNEL = true, ALTITUDE_CONSTRAINT = false, SMOOTH_CONSTRAINT = true, STATIC_ONLY = false;
     float deltaHuberCamMot = 0.01, deltaHuberObjMot = 0.01, deltaHuber3D = 0.01;
     int PreFrameID;
     for (int i = 0; i < N; ++i)
@@ -3353,7 +3353,7 @@ int Optimizer::PoseOptimizationNew(Frame *pCurFrame, Frame *pLastFrame, vector<i
 {
     // cv::RNG rng((unsigned)time(NULL));
 
-    float rp_thres = std::sqrt(0.3);
+    float rp_thres = 0.01;
 
     g2o::SparseOptimizer optimizer;
     g2o::BlockSolver_6_3::LinearSolverType * linearSolver;
@@ -3741,7 +3741,8 @@ cv::Mat Optimizer::PoseOptimizationObj(Frame *pCurFrame, Frame *pLastFrame, cons
 
     // Set Frame vertex
     g2o::VertexSE3Expmap * vSE3 = new g2o::VertexSE3Expmap();
-    cv::Mat Init = cv::Mat::eye(4,4,CV_32F);
+    // cv::Mat Init = cv::Mat::eye(4,4,CV_32F);
+    cv::Mat Init = pCurFrame->mInitModel;
     // cv::Mat Init = (cv::Mat_<float>(4, 4) << 0.99938428, 0.00097664632, -0.035076648, 0.4861393, -0.00095128408, 0.99999928, 0.00073939934, -0.011283636, 0.035077468, -0.00070558861, 0.9993844, -0.47322178, 0, 0, 0, 1);
     // cv::Mat Twc = Converter::toInvMatrix(pCurFrame->mTcw_gt);
     vSE3->setEstimate(Converter::toSE3Quat(Init));
@@ -4109,8 +4110,9 @@ cv::Mat Optimizer::PoseOptimizationObjTest(Frame *pCurFrame, Frame *pLastFrame, 
     return pose;
 }
 
-cv::Mat Optimizer::PoseOptimizationObjMot(Frame *pCurFrame, Frame *pLastFrame, const vector<int> &ObjId, const cv::Point2f flo_co)
+cv::Mat Optimizer::PoseOptimizationObjMot(Frame *pCurFrame, Frame *pLastFrame, const vector<int> &ObjId, const cv::Point2f flo_co, std::vector<int> &InlierID)
 {
+    float rp_thres = 0.01;
 
     g2o::SparseOptimizer optimizer;
     // optimizer.setVerbose(true);
@@ -4176,7 +4178,7 @@ cv::Mat Optimizer::PoseOptimizationObjMot(Frame *pCurFrame, Frame *pLastFrame, c
     // cout << "PP: " << endl << PP << endl;
 
     // parameter for robust function
-    // const float deltaMono = sqrt(4);  // 5.991
+    const float deltaMono = sqrt(rp_thres);  // 5.991
 
     bool mono = 1; // monocular
     float repro_e = 0;
@@ -4234,8 +4236,8 @@ cv::Mat Optimizer::PoseOptimizationObjMot(Frame *pCurFrame, Frame *pLastFrame, c
 
     // We perform 4 optimizations, after each optimization we classify observation as inlier/outlier
     // At the next optimization, outliers are not included, but at the end they can be classified as inliers again.
-    const float chi2Mono[4]={0.09,5.991,5.991,5.991}; // {5.991,5.991,5.991,5.991} {4,4,4,4}
-    const int its[4]={100,100,100,100};
+    const float chi2Mono[4]={rp_thres,5.991,5.991,5.991}; // {5.991,5.991,5.991,5.991} {4,4,4,4}
+    const int its[4]={200,100,100,100};
 
     int nBad=0;
     cout << endl;
@@ -4304,6 +4306,17 @@ cv::Mat Optimizer::PoseOptimizationObjMot(Frame *pCurFrame, Frame *pLastFrame, c
     cout << "(OBJ)inliers number/total numbers: " << inliers << "/" << nInitialCorrespondences << endl;
     repro_e = repro_e/inliers;
     // cout << "re-projection error from the optimization: " << repro_e << endl;
+
+    // save inlier ID
+    std::vector<int> output_inlier;
+    for (int i = 0; i < vIsOutlier.size(); ++i)
+    {
+        if (vIsOutlier[i]==false)
+            output_inlier.push_back(ObjId[i]);
+        else
+            pCurFrame->vObjLabel[ObjId[i]] = -1;
+    }
+    InlierID = output_inlier;
 
     return pose; // Twp*pose*Twp_inv
 }

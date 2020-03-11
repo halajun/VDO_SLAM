@@ -168,7 +168,7 @@ cv::Mat System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, const
 
 cv::Mat System::TrackRGBD(const cv::Mat &im, cv::Mat &depthmap, const cv::Mat &flowmap, const cv::Mat &masksem,
                           const cv::Mat &mTcw_gt, const vector<vector<float> > &vObjPose_gt,
-                          const double &timestamp, cv::Mat &imTraj)
+                          const double &timestamp, cv::Mat &imTraj, const int &nImage)
 {
     if(mSensor!=RGBD)
     {
@@ -210,7 +210,7 @@ cv::Mat System::TrackRGBD(const cv::Mat &im, cv::Mat &depthmap, const cv::Mat &f
     }
     }
 
-    cv::Mat Tcw = mpTracker->GrabImageRGBD(im,depthmap,flowmap,masksem,mTcw_gt,vObjPose_gt,timestamp,imTraj);
+    cv::Mat Tcw = mpTracker->GrabImageRGBD(im,depthmap,flowmap,masksem,mTcw_gt,vObjPose_gt,timestamp,imTraj,nImage);
 
     unique_lock<mutex> lock2(mMutexState);
     mTrackingState = mpTracker->mState;
@@ -500,7 +500,7 @@ void System::SaveResultsIJRR2020(const string &filename)
     // *******************************************************************************************************
 
     ofstream save_objmot, save_objmot_gt;
-    string path_objmot = filename + "obj_mot.txt";
+    string path_objmot = filename + "obj_mot_rgbd_new.txt";
     string path_objmot_gt = filename + "obj_mot_gt.txt";
     save_objmot.open(path_objmot.c_str(),ios::trunc);
     save_objmot_gt.open(path_objmot_gt.c_str(),ios::trunc);
@@ -538,7 +538,7 @@ void System::SaveResultsIJRR2020(const string &filename)
     std::vector<cv::Mat> CamPose_ini = mpMap->vmCameraPose;
 
     ofstream save_traj_ini;
-    string path_ini = filename + "initial_rgbd.txt";
+    string path_ini = filename + "initial_rgbd_new.txt";
     // cout << path_ini << endl;
     save_traj_ini.open(path_ini.c_str(),ios::trunc);
 
@@ -557,7 +557,7 @@ void System::SaveResultsIJRR2020(const string &filename)
     std::vector<cv::Mat> CamPose_ref = mpMap->vmCameraPose_RF;
 
     ofstream save_traj_ref;
-    string path_ref = filename + "refined_rgbd.txt";
+    string path_ref = filename + "refined_rgbd_new.txt";
     save_traj_ref.open(path_ref.c_str(),ios::trunc);
 
     for (int i = 0; i < CamPose_ref.size(); ++i)

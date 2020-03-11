@@ -100,7 +100,7 @@ int main(int argc, char **argv)
 
     // Main loop
     cv::Mat imRGB, imD, mTcw_gt; // (799,0007) (802,0009) (293,0010) (836,0020) (338,0018) (1057,0019) (339,0013)
-    for(int ni=0; ni<500; ni++) // (153,0000)(446,0001)(232,0002)(143,0003)(313,0004)(296,0005)(144,0017)(269,0006)
+    for(int ni=0; ni<nImages-1; ni++) // (153,0000)(446,0001)(232,0002)(143,0003)(313,0004)(296,0005)(144,0017)(269,0006)
     {
         cout << endl;
         cout << "=======================================================" << endl;
@@ -137,7 +137,7 @@ int main(int argc, char **argv)
         }
 
         // Pass the image to the SLAM system
-        SLAM.TrackRGBD(imRGB,imD_f,imFlow,imSem,mTcw_gt,vObjPose_gt,tframe,imTraj);
+        SLAM.TrackRGBD(imRGB,imD_f,imFlow,imSem,mTcw_gt,vObjPose_gt,tframe,imTraj,nImages);
 
     }
 
@@ -148,7 +148,7 @@ int main(int argc, char **argv)
     // SLAM.SaveTrajectoryTUM("CameraTrajectory.txt");
     // SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
     // SLAM.SaveResultsICRA2020("0018/");
-    SLAM.SaveResultsIJRR2020("/Users/steed/work/code/Evaluation/ijrr2020/omd/");
+    // SLAM.SaveResultsIJRR2020("/Users/steed/work/code/Evaluation/ijrr2020/omd/");
 
     return 0;
 }

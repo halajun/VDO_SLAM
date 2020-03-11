@@ -122,6 +122,7 @@ public:
     // rigid motion of camera and dynamic points. (k-1)*m
     std::vector<std::vector<cv::Mat> > vmRigidCentre;  // ground truth object center
     std::vector<std::vector<cv::Mat> > vmRigidMotion;
+    std::vector<std::vector<cv::Mat> > vmObjPosePre; // for new metric 26 Feb 2020
     std::vector<std::vector<cv::Mat> > vmRigidMotion_RF;  // refine result
     std::vector<std::vector<cv::Mat> > vmRigidMotion_GT;  // ground truth result
     std::vector<std::vector<float> > vfAllSpeed_GT; // camera and object speeds

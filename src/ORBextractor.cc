@@ -1058,13 +1058,13 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
     ComputePyramid(image);
 
     vector < vector<KeyPoint> > allKeypoints;
-    // clock_t s_1, e_1;
-    // double fea_det_time;
-    // s_1 = clock();
+    clock_t s_1, e_1;
+    double fea_det_time;
+    s_1 = clock();
     ComputeKeyPointsOctTree(allKeypoints);
-    // e_1 = clock();
-    // fea_det_time = (double)(e_1-s_1)/CLOCKS_PER_SEC*1000;
-    // std::cout << "feature detection time: " << fea_det_time << std::endl;
+    e_1 = clock();
+    fea_det_time = (double)(e_1-s_1)/CLOCKS_PER_SEC*1000;
+    std::cout << "feature detection time: " << fea_det_time << std::endl;
     // ComputeKeyPointsOctTree(allKeypoints);
     // ComputeKeyPointsOld(allKeypoints);
 

@@ -48,7 +48,6 @@ ${PROJECT_SOURCE_DIR}
 ${PROJECT_SOURCE_DIR}/include
 ${EIGEN3_INCLUDE_DIR}
 ${Pangolin_INCLUDE_DIRS}
-/usr/local/include/opengv
 )
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
@@ -81,7 +80,6 @@ src/flow/colorcode.cpp
 src/flow/flowIO.cpp
 )
 
-message(STATUS  ${OpenGV_LIBRARIES})
 target_link_libraries(
 ${PROJECT_NAME}
 ${OpenCV_LIBS}
@@ -90,7 +88,6 @@ ${Pangolin_LIBRARIES}
 ${CSPARSE_LIBRARY}
 ${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.dylib
 ${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.dylib
-/usr/local/lib/libopengv.a
 )
 
 

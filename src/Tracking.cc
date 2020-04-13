@@ -26,12 +26,6 @@
 
 #include<opencv2/core/core.hpp>
 #include<opencv2/features2d/features2d.hpp>
-//#include<imgproc.hpp>
-
-#include <opengv/absolute_pose/methods.hpp>
-#include <opengv/absolute_pose/NoncentralAbsoluteAdapter.hpp>
-#include <opengv/sac/Ransac.hpp>
-#include <opengv/sac_problems/absolute_pose/AbsolutePoseSacProblem.hpp>
 
 #include"ORBmatcher.h"
 #include"FrameDrawer.h"
@@ -523,7 +517,7 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
     // +++++++++++++++++++++++++ For sampled features ++++++++++++++++++++++++++++++++++++++++
     // ---------------------------------------------------------------------------------------
 
-    if(bFirstFrame || bSecondFrame) // those are assigned after the first frame. so not "1st or 2nd frame".
+    if(mState!=NO_IMAGES_YET) // those are assigned after the first frame. so not "1st or 2nd frame".
     {
         cout << "Update Current Frame From Last....." << endl;
 
@@ -3015,126 +3009,6 @@ bool Tracking::TrackWithMotionModel()
 
     if(nmatches<20)
         return false;
-
-    // ************** This part carries out an initial pose estimation using P3P method *******************************************
-    // double dmatch, dinlier;
-    // {
-    //   Eigen::Matrix3d K = Eigen::Matrix3d::Zero();
-    //   K(0,0) = mCurrentFrame.fx; K(1,1) = mCurrentFrame.fy; K(0,2) = mCurrentFrame.cx; K(1,2) = mCurrentFrame.cy; K(2,2) = 1.0;
-    //   opengv::bearingVectors_t bearingVectors;
-    //   std::vector<int> camCorrespondences;
-    //   opengv::points_t points;
-    //   opengv::translations_t camOffsets;
-    //   opengv::rotations_t camRotations;
-
-    //   // prepare the 2d and 3d measurements
-    //   Eigen::Vector3d tmp;
-    //   std::vector<int> indm;
-    //   for(int i=0; i< mCurrentFrame.N; i++){
-    //     if(mCurrentFrame.mvpMapPoints[i]){
-
-    //         // just use the background points on semantically segmented background
-    //         // if(mCurrentFrame.vSemLabel[i]!=0)
-    //         //     continue;
-
-    //         // get the 3d points
-    //         cv::Mat p3d = mCurrentFrame.mvpMapPoints[i]->GetWorldPos();
-
-    //         // convert 2d measurements to bearingvectors
-    //         if(mCurrentFrame.mvuRight[i]==-1){
-    //             tmp(0,0) = mCurrentFrame.mvKeysUn[i].pt.x; tmp(1,0) = mCurrentFrame.mvKeysUn[i].pt.y; tmp(2,0) = 1.0;
-    //             bearingVectors.push_back(K.inverse()*tmp);
-    //             camCorrespondences.push_back(0);
-    //             tmp(0,0) = p3d.at<float>(0); tmp(1,0) = p3d.at<float>(1); tmp(2,0) = p3d.at<float>(2);
-    //             points.push_back(tmp);
-    //             indm.push_back(i);
-    //         }
-    //         else{
-    //             tmp(0,0) = mCurrentFrame.mvKeysUn[i].pt.x; tmp(1,0) = mCurrentFrame.mvKeysUn[i].pt.y; tmp(2,0) = 1.0;
-    //             bearingVectors.push_back(K.inverse()*tmp);
-    //             camCorrespondences.push_back(0);
-    //             tmp(0,0) = mCurrentFrame.mvKeysUn[i].pt.x; tmp(1,0) = mCurrentFrame.mvuRight[i]; tmp(2,0) = 1.0;
-    //             bearingVectors.push_back(K.inverse()*tmp);
-    //             camCorrespondences.push_back(1);
-    //             tmp(0,0) = p3d.at<float>(0); tmp(1,0) = p3d.at<float>(1); tmp(2,0) = p3d.at<float>(2);
-    //             points.push_back(tmp);
-    //             points.push_back(tmp);
-    //             indm.push_back(i);
-    //             indm.push_back(i);
-    //         }
-    //     }
-
-    //   }
-    //   // normalize
-    //   for(int i=0; i< bearingVectors.size(); i++){
-    //       bearingVectors[i] = bearingVectors[i] / bearingVectors[i].norm();
-    //   }
-
-    //   // set the 2 cameras relationship to the viewpoint. here set the left camera as the viewpoint.
-    //   camOffsets.push_back(Eigen::Vector3d::Zero());
-    //   camRotations.push_back(Eigen::Matrix3d::Identity(3,3));
-    //   Eigen::Vector3d camOffset; camOffset << mCurrentFrame.mb, 0.0, 0.0;
-    //   camOffsets.push_back(camOffset);
-    //   camRotations.push_back(Eigen::Matrix3d::Identity(3,3));
-
-    //   //create a non-central absolute adapter
-    //   opengv::absolute_pose::NoncentralAbsoluteAdapter adapter(
-    //       bearingVectors,
-    //       camCorrespondences,
-    //       points,
-    //       camOffsets,
-    //       camRotations);
-
-    //   //Create a AbsolutePoseSacProblem and Ransac
-    //   //The method is set to GP3P
-    //   opengv::sac::Ransac<opengv::sac_problems::absolute_pose::AbsolutePoseSacProblem> ransac;
-    //   std::shared_ptr<opengv::sac_problems::absolute_pose::AbsolutePoseSacProblem> absposeproblem_ptr(
-    //       new opengv::sac_problems::absolute_pose::AbsolutePoseSacProblem(adapter,opengv::sac_problems::absolute_pose::AbsolutePoseSacProblem::GP3P));
-    //   ransac.sac_model_ = absposeproblem_ptr;
-    //   ransac.threshold_ = 5e-05; // 1.0 - cos(atan(sqrt(2.0)*0.5/K(0,0)));  8e-06 9e-06 5e-05
-    //   ransac.max_iterations_ = 500;
-    //   ransac.computeModel();
-
-    //   dmatch = nmatches;
-    //   dinlier = ransac.inliers_.size();
-    //   cout << "inlier rate: " << dinlier/dmatch << " " << dinlier << endl;
-
-    //   // Only use the P3P result if the inlier rate > 45% or inlier number >80
-    //   if (dinlier/dmatch >= 0.45 || dinlier >= 60){
-
-    //       // Update the pose in current frame
-    //       opengv::transformation_t A = ransac.model_coefficients_;
-    //       Eigen::Matrix4d TwcTemperal = Eigen::Matrix4d::Identity();
-    //       TwcTemperal.topLeftCorner(3,3) = A.topLeftCorner(3,3).transpose();
-    //       TwcTemperal.block(0, 3, 3, 1) = -A.topLeftCorner(3,3).transpose()*A.block(0, 3, 3, 1);
-    //       mCurrentFrame.mTcw.at<float>(0,0)=TwcTemperal(0,0);mCurrentFrame.mTcw.at<float>(0,1)=TwcTemperal(0,1);mCurrentFrame.mTcw.at<float>(0,2)=TwcTemperal(0,2);mCurrentFrame.mTcw.at<float>(0,3)=TwcTemperal(0,3);
-    //       mCurrentFrame.mTcw.at<float>(1,0)=TwcTemperal(1,0);mCurrentFrame.mTcw.at<float>(1,1)=TwcTemperal(1,1);mCurrentFrame.mTcw.at<float>(1,2)=TwcTemperal(1,2);mCurrentFrame.mTcw.at<float>(1,3)=TwcTemperal(1,3);
-    //       mCurrentFrame.mTcw.at<float>(2,0)=TwcTemperal(2,0);mCurrentFrame.mTcw.at<float>(2,1)=TwcTemperal(2,1);mCurrentFrame.mTcw.at<float>(2,2)=TwcTemperal(2,2);mCurrentFrame.mTcw.at<float>(2,3)=TwcTemperal(2,3);
-
-    //       // Discard outliers
-    //       std::vector<int> indinout(mCurrentFrame.N,0);
-    //       for(int i =0; i<ransac.inliers_.size(); i++){
-    //         indinout[indm[ransac.inliers_[i]]] = 1;
-    //       }
-
-    //       for(int i =0; i<mCurrentFrame.N; i++){
-    //         if(mCurrentFrame.mvpMapPoints[i]){
-    //             // just use the background points on semantically segmented background
-    //             // if(mCurrentFrame.vSemLabel[i]!=0)
-    //             //     continue;
-    //             if(indinout[i]==0){
-    //                 mCurrentFrame.mvpMapPoints[i]=static_cast<MapPoint*>(NULL);
-    //                 mCurrentFrame.mvbOutlier[i]=false;
-    //                 // TemperalMatch[i]= -1;
-    //                 nmatches--;
-    //             }
-    //         }
-    //       }
-
-    //     }
-
-    // }
-
 
     // **************************************************************************************************************************
 

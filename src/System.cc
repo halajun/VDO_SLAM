@@ -33,12 +33,12 @@ namespace ORB_SLAM2
 
 System::System(const string &strSettingsFile, const eSensor sensor):mSensor(sensor)
 {
-    // output welcome message
-    cout << endl <<
-    "VDO-SLAM Copyright (C) 2019-2020 Jun Zhang, Australian National University." << endl <<
-    "This program comes with ABSOLUTELY NO WARRANTY;" << endl  <<
-    "This is free software, and you are welcome to redistribute it" << endl <<
-    "under certain conditions. See LICENSE.txt." << endl << endl;
+    // // output welcome message
+    // cout << endl <<
+    // "VDO-SLAM Copyright (C) 2019-2020 Jun Zhang, Australian National University." << endl <<
+    // "This program comes with ABSOLUTELY NO WARRANTY;" << endl  <<
+    // "This is free software, and you are welcome to redistribute it" << endl <<
+    // "under certain conditions. See LICENSE.txt." << endl << endl;
 
     cout << "Input sensor was set to: ";
 

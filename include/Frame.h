@@ -23,17 +23,15 @@
 
 #include<vector>
 
-#include "MapPoint.h"
-#include "Thirdparty/DBoW2/DBoW2/BowVector.h"
-#include "Thirdparty/DBoW2/DBoW2/FeatureVector.h"
-#include "ORBVocabulary.h"
-#include "KeyFrame.h"
 #include "ORBextractor.h"
 
 #include <opencv2/opencv.hpp>
 
 namespace ORB_SLAM2
 {
+
+using namespace std;
+
 #define FRAME_GRID_ROWS 48
 #define FRAME_GRID_COLS 64
 
@@ -48,20 +46,11 @@ public:
     // Copy constructor.
     Frame(const Frame &frame);
 
-    // Constructor for stereo cameras.
-    Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const cv::Mat &imMask, const double &timeStamp, ORBextractor* extractorLeft, ORBextractor* extractorRight, ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
-
     // Constructor for RGB-D cameras.
-    Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlow, const cv::Mat &maskSEM, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
-
-    // Constructor for Monocular cameras.
-    Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
+    Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlow, const cv::Mat &maskSEM, const double &timeStamp, ORBextractor* extractor, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
 
     // Extract ORB on the image. 0 for left image and 1 for right image.
     void ExtractORB(int flag, const cv::Mat &im);
-
-    // Compute Bag of Words representation.
-    void ComputeBoW();
 
     // Set the camera pose.
     void SetPose(cv::Mat Tcw);
@@ -79,18 +68,10 @@ public:
         return mRwc.clone();
     }
 
-    // Check if a MapPoint is in the frustum of the camera
-    // and fill variables of the MapPoint to be used by the tracking
-    bool isInFrustum(MapPoint* pMP, float viewingCosLimit);
-
     // Compute the cell of a keypoint (return false if outside the grid)
     bool PosInGrid(const cv::KeyPoint &kp, int &posX, int &posY);
 
     vector<size_t> GetFeaturesInArea(const float &x, const float  &y, const float  &r, const int minLevel=-1, const int maxLevel=-1) const;
-
-    // Search a match for each keypoint in the left image to a keypoint in the right image.
-    // If there is a match, depth is computed and the right coordinate associated to the left keypoint is stored.
-    void ComputeStereoMatches();
 
     // Associate a "right" coordinate to a keypoint if there is valid depth in the depthmap.
     void ComputeStereoFromRGBD(const cv::Mat &imDepth);
@@ -107,9 +88,6 @@ public:
     std::vector<cv::KeyPoint> SampleKeyPoints(const int &rows, const int &cols);
 
 public:
-
-    // Vocabulary used for relocalization.
-    ORBVocabulary* mpORBvocabulary;
 
     // Feature extractor. The right is used only in the stereo case.
     ORBextractor* mpORBextractorLeft, *mpORBextractorRight;
@@ -150,10 +128,6 @@ public:
     // "Monocular" keypoints have a negative value.
     std::vector<float> mvuRight;
     std::vector<float> mvDepth;
-
-    // Bag of Words Vector structures.
-    DBoW2::BowVector mBowVec;
-    DBoW2::FeatureVector mFeatVec;
 
     // ORB descriptor, each row associated to a keypoint.
     cv::Mat mDescriptors, mDescriptorsRight;
@@ -238,7 +212,6 @@ public:
     std::vector<int> nDynInlierID;
 
 
-
     // **************** Ground Truth *********************
 
     std::vector<cv::Mat> vObjPose_gt;
@@ -254,9 +227,6 @@ public:
 
     // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    // MapPoints associated to keypoints, NULL pointer if no association.
-    std::vector<MapPoint*> mvpMapPoints;
-
     // Flag to identify outlier associations.
     std::vector<bool> mvbOutlier;
 
@@ -271,9 +241,6 @@ public:
     // Current and Next Frame id.
     static long unsigned int nNextId;
     long unsigned int mnId;
-
-    // Reference Keyframe.
-    KeyFrame* mpReferenceKF;
 
     // Scale pyramid info.
     int mnScaleLevels;
@@ -310,7 +277,7 @@ private:
     cv::Mat mRcw;
     cv::Mat mtcw;
     cv::Mat mRwc;
-    cv::Mat mOw; //==mtwc
+    cv::Mat mOw; // ==mtwc
 };
 
 }// namespace ORB_SLAM

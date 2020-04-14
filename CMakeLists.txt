@@ -40,14 +40,12 @@ if(NOT OpenCV_FOUND)
 endif()
 
 find_package(Eigen3 3.1.0 REQUIRED)
-find_package(Pangolin REQUIRED)
 find_package(CSparse REQUIRED)
 
 include_directories(
 ${PROJECT_SOURCE_DIR}
 ${PROJECT_SOURCE_DIR}/include
 ${EIGEN3_INCLUDE_DIR}
-${Pangolin_INCLUDE_DIRS}
 )
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
@@ -55,23 +53,11 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
 add_library(${PROJECT_NAME} SHARED
 src/System.cc
 src/Tracking.cc
-src/LocalMapping.cc
-src/LoopClosing.cc
 src/ORBextractor.cc
-src/ORBmatcher.cc
-src/FrameDrawer.cc
 src/Converter.cc
-src/MapPoint.cc
-src/KeyFrame.cc
 src/Map.cc
-src/MapDrawer.cc
 src/Optimizer.cc
-src/PnPsolver.cc
 src/Frame.cc
-src/KeyFrameDatabase.cc
-src/Sim3Solver.cc
-src/Initializer.cc
-src/Viewer.cc
 
 src/flow/motiontocolor.cpp
 src/flow/image.cpp
@@ -84,25 +70,17 @@ target_link_libraries(
 ${PROJECT_NAME}
 ${OpenCV_LIBS}
 ${EIGEN3_LIBS}
-${Pangolin_LIBRARIES}
 ${CSPARSE_LIBRARY}
-${PROJECT_SOURCE_DIR}/Thirdparty/DBoW2/lib/libDBoW2.dylib
-${PROJECT_SOURCE_DIR}/Thirdparty/g2o/lib/libg2o.dylib
+${PROJECT_SOURCE_DIR}/dependencies/g2o/lib/libg2o.dylib
 )
 
 
-# Build examples
+# Build example
 
-#set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Stereo)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/example)
 
-#add_executable(stereo_kitti
-#Examples/Stereo/stereo_kitti.cc)
-#target_link_libraries(stereo_kitti ${PROJECT_NAME})
-
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/RGB-D)
-
-add_executable(rgbd_tum
-Examples/RGB-D/rgbd_tum.cc)
-target_link_libraries(rgbd_tum ${PROJECT_NAME})
+add_executable(vdo_slam
+example/vdo_slam.cc)
+target_link_libraries(vdo_slam ${PROJECT_NAME})
 
 

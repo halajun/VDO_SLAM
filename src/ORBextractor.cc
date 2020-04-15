@@ -1071,7 +1071,7 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
     ComputeKeyPointsOctTree(allKeypoints);
     e_1 = clock();
     fea_det_time = (double)(e_1-s_1)/CLOCKS_PER_SEC*1000;
-    std::cout << "feature detection time: " << fea_det_time << std::endl;
+    // std::cout << "feature detection time: " << fea_det_time << std::endl;
 
     Mat descriptors;
 
@@ -1105,7 +1105,13 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
 
         // Compute the descriptors
         Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);
-        computeDescriptors(workingMat, keypoints, desc, pattern);
+        clock_t s_2, e_2;
+        double fea_des_time;
+        s_2 = clock();
+        // computeDescriptors(workingMat, keypoints, desc, pattern);
+        e_2 = clock();
+        fea_des_time = (double)(e_2-s_2)/CLOCKS_PER_SEC*1000;
+        // std::cout << "compute descriptor time: " << fea_des_time << std::endl;
 
         offset += nkeypointsLevel;
 
@@ -1117,6 +1123,7 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
                  keypointEnd = keypoints.end(); keypoint != keypointEnd; ++keypoint)
                 keypoint->pt *= scale;
         }
+
         // And add the keypoints to the output
         _keypoints.insert(_keypoints.end(), keypoints.begin(), keypoints.end());
     }

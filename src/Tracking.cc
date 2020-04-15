@@ -516,7 +516,7 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
         if (f_id<5)
             cv::waitKey(0);
         else
-            cv::waitKey(1);
+            cv::waitKey(0);
 
     }
 
@@ -1960,32 +1960,30 @@ void Tracking::Initialization()
 
     // cout << "mCurrentFrame.N: " << mCurrentFrame.N << endl;
 
-    if(mCurrentFrame.N>300)
-    {
-        // Set Frame pose to the origin
-        mCurrentFrame.SetPose(cv::Mat::eye(4,4,CV_32F));  // +++++  new added +++++
-        mpMap->vmCameraPose_main.push_back(mCurrentFrame.mTcw); // added for save trajectory icra2020
-        mpMap->vmCameraPose_orb.push_back(mCurrentFrame.mTcw);  // added for save trajectory icra2020
+    // Set Frame pose to the origin
+    mCurrentFrame.SetPose(cv::Mat::eye(4,4,CV_32F));  // +++++  new added +++++
+    mpMap->vmCameraPose_main.push_back(mCurrentFrame.mTcw); // added for save trajectory icra2020
+    mpMap->vmCameraPose_orb.push_back(mCurrentFrame.mTcw);  // added for save trajectory icra2020
 
-        mCurrentFrame.mTcw_gt = cv::Mat::eye(4,4,CV_32F);
-        // mCurrentFrame.mTcw_gt = InvMatrix(mOriginInv)*mCurrentFrame.mTcw_gt;
-        // cout << "mTcw_gt: " << mCurrentFrame.mTcw_gt << endl;
-        // bFirstFrame = false;
-        // cout << "current pose: " << endl << mCurrentFrame.mTcw_gt << endl;
-        // cout << "current pose inverse: " << endl << mOriginInv << endl;
+    mCurrentFrame.mTcw_gt = cv::Mat::eye(4,4,CV_32F);
+    // mCurrentFrame.mTcw_gt = InvMatrix(mOriginInv)*mCurrentFrame.mTcw_gt;
+    // cout << "mTcw_gt: " << mCurrentFrame.mTcw_gt << endl;
+    // bFirstFrame = false;
+    // cout << "current pose: " << endl << mCurrentFrame.mTcw_gt << endl;
+    // cout << "current pose inverse: " << endl << mOriginInv << endl;
 
-        mLastFrame = Frame(mCurrentFrame);  //  important !!!
-        mLastFrame.mvObjKeys = mCurrentFrame.mvObjKeys; // new added Jul 30 2019
-        mLastFrame.mvObjDepth = mCurrentFrame.mvObjDepth;  // new added Jul 30 2019
-        mLastFrame.vSemObjLabel = mCurrentFrame.vSemObjLabel; // new added Aug 2 2019
+    mLastFrame = Frame(mCurrentFrame);  //  important !!!
+    mLastFrame.mvObjKeys = mCurrentFrame.mvObjKeys; // new added Jul 30 2019
+    mLastFrame.mvObjDepth = mCurrentFrame.mvObjDepth;  // new added Jul 30 2019
+    mLastFrame.vSemObjLabel = mCurrentFrame.vSemObjLabel; // new added Aug 2 2019
 
-        mLastFrame.mvSiftKeys = mCurrentFrame.mvSiftKeysTmp; // new added Jul 30 2019
-        mLastFrame.mvSiftDepth = mCurrentFrame.mvSiftDepthTmp;  // new added Jul 30 2019
-        mLastFrame.N_s = mCurrentFrame.N_s_tmp; // new added Nov 14 2019
-        mvKeysLastFrame = mLastFrame.mvSiftKeys; // +++ new added +++
+    mLastFrame.mvSiftKeys = mCurrentFrame.mvSiftKeysTmp; // new added Jul 30 2019
+    mLastFrame.mvSiftDepth = mCurrentFrame.mvSiftDepthTmp;  // new added Jul 30 2019
+    mLastFrame.N_s = mCurrentFrame.N_s_tmp; // new added Nov 14 2019
+    mvKeysLastFrame = mLastFrame.mvSiftKeys; // +++ new added +++
 
-        mState=OK;
-    }
+    mState=OK;
+
     cout << "Done!" << endl;
 }
 

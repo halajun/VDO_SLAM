@@ -1,22 +1,10 @@
 /**
-* This file is part of ORB-SLAM2.
+* This file is part of VDO-SLAM.
 *
-* Copyright (C) 2014-2016 Raúl Mur-Artal <raulmur at unizar dot es> (University of Zaragoza)
-* For more information see <https://github.com/raulmur/ORB_SLAM2>
+* Copyright (C) 2019-2020 Jun Zhang <jun doc zhang2 at anu dot edu doc au> (The Australian National University)
+* For more information see <https://github.com/halajun/DynamicObjectSLAM>
 *
-* ORB-SLAM2 is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* ORB-SLAM2 is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License
-* along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
-*/
+**/
 
 
 
@@ -28,12 +16,12 @@
 
 #include <unistd.h>
 
-namespace ORB_SLAM2
+namespace VDO_SLAM
 {
 
 System::System(const string &strSettingsFile, const eSensor sensor):mSensor(sensor)
 {
-    // // output welcome message
+    // // ===== output welcome message ======
     // cout << endl <<
     // "VDO-SLAM Copyright (C) 2019-2020 Jun Zhang, Australian National University." << endl <<
     // "This program comes with ABSOLUTELY NO WARRANTY;" << endl  <<
@@ -57,59 +45,13 @@ System::System(const string &strSettingsFile, const eSensor sensor):mSensor(sens
        exit(-1);
     }
 
-
-    // //Load ORB Vocabulary
-    // cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl;
-
-    // mpVocabulary = new ORBVocabulary();
-    // bool bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
-    // if(!bVocLoad)
-    // {
-    //     cerr << "Wrong path to vocabulary. " << endl;
-    //     cerr << "Falied to open at: " << strVocFile << endl;
-    //     exit(-1);
-    // }
-    // cout << "Vocabulary loaded!" << endl << endl;
-
-    // //Create KeyFrame Database
-    // mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary);
-
     //Create the Map
     mpMap = new Map();
-
-    // //Create Drawers. These are used by the Viewer
-    // mpFrameDrawer = new FrameDrawer(mpMap);
-    // mpMapDrawer = new MapDrawer(mpMap, strSettingsFile);
 
     //Initialize the Tracking thread
     //(it will live in the main thread of execution, the one that called this constructor)
     mpTracker = new Tracking(this, mpMap, strSettingsFile, mSensor);
 
-    // //Initialize the Local Mapping thread and launch
-    // mpLocalMapper = new LocalMapping(mpMap, mSensor==MONOCULAR);
-    // mptLocalMapping = new thread(&ORB_SLAM2::LocalMapping::Run,mpLocalMapper);
-
-    // //Initialize the Loop Closing thread and launch
-    // mpLoopCloser = new LoopClosing(mpMap, mpKeyFrameDatabase, mpVocabulary, mSensor!=MONOCULAR);
-    // mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run, mpLoopCloser);
-
-    // //Initialize the Viewer thread and launch
-    // if(false) // bUseViewer
-    // {
-    //     mpViewer = new Viewer(this, mpFrameDrawer,mpMapDrawer,mpTracker,strSettingsFile);
-    //     mptViewer = new thread(&Viewer::Run, mpViewer);
-    //     mpTracker->SetViewer(mpViewer);
-    // }
-
-    // //Set pointers between threads
-    // mpTracker->SetLocalMapper(mpLocalMapper);
-    // mpTracker->SetLoopClosing(mpLoopCloser);
-
-    // mpLocalMapper->SetTracker(mpTracker);
-    // mpLocalMapper->SetLoopCloser(mpLoopCloser);
-
-    // mpLoopCloser->SetTracker(mpTracker);
-    // mpLoopCloser->SetLocalMapper(mpLocalMapper);
 }
 
 
@@ -123,46 +65,8 @@ cv::Mat System::TrackRGBD(const cv::Mat &im, cv::Mat &depthmap, const cv::Mat &f
         exit(-1);
     }
 
-    // // Check mode change
-    // {
-    //     unique_lock<mutex> lock(mMutexMode);
-    //     if(mbActivateLocalizationMode)
-    //     {
-    //         mpLocalMapper->RequestStop();
-
-    //         // Wait until Local Mapping has effectively stopped
-    //         while(!mpLocalMapper->isStopped())
-    //         {
-    //             usleep(1000);
-    //         }
-
-    //         mpTracker->InformOnlyTracking(true);
-    //         mbActivateLocalizationMode = false;
-    //     }
-    //     if(mbDeactivateLocalizationMode)
-    //     {
-    //         mpTracker->InformOnlyTracking(false);
-    //         mpLocalMapper->Release();
-    //         mbDeactivateLocalizationMode = false;
-    //     }
-    // }
-
-    // // Check reset
-    // {
-    //     unique_lock<mutex> lock(mMutexReset);
-    //     if(mbReset)
-    //     {
-    //         mpTracker->Reset();
-    //         mbReset = false;
-    //     }
-    // }
-
     cv::Mat Tcw = mpTracker->GrabImageRGBD(im,depthmap,flowmap,masksem,mTcw_gt,vObjPose_gt,timestamp,imTraj,nImage);
 
-    // unique_lock<mutex> lock2(mMutexState);
-    // mTrackingState = mpTracker->mState;
-    // mTrackedMapPoints = mpTracker->mCurrentFrame.mvpMapPoints;
-    // mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
     return Tcw;
 }
 
@@ -499,4 +403,4 @@ void System::SaveResultsIJRR2020(const string &filename)
 
 
 
-} //namespace ORB_SLAM
+} //namespace VDO_SLAM

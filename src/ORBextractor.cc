@@ -1,4 +1,11 @@
 /**
+* This file is part of VDO-SLAM.
+*
+* Copyright (C) 2019-2020 Jun Zhang <jun doc zhang2 at anu dot edu doc au> (The Australian National University)
+* For more information see <https://github.com/halajun/DynamicObjectSLAM>
+*
+**/
+/**
 * This file is part of ORB-SLAM2.
 * This file is based on the file orb.cpp from the OpenCV library (see BSD license below).
 *
@@ -17,7 +24,7 @@
 *
 * You should have received a copy of the GNU General Public License
 * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
-*/
+**/
 /**
 * Software License Agreement (BSD License)
 *
@@ -68,7 +75,7 @@
 using namespace cv;
 using namespace std;
 
-namespace ORB_SLAM2
+namespace VDO_SLAM
 {
 
 const int PATCH_SIZE = 31;
@@ -1065,8 +1072,6 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
     e_1 = clock();
     fea_det_time = (double)(e_1-s_1)/CLOCKS_PER_SEC*1000;
     std::cout << "feature detection time: " << fea_det_time << std::endl;
-    // ComputeKeyPointsOctTree(allKeypoints);
-    // ComputeKeyPointsOld(allKeypoints);
 
     Mat descriptors;
 
@@ -1144,4 +1149,4 @@ void ORBextractor::ComputePyramid(cv::Mat image)
 
 }
 
-} //namespace ORB_SLAM
+} //namespace VDO_SLAM

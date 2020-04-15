@@ -31,6 +31,13 @@
 // Added EdgeSE3ProjectXYZOnlyPose (unary edge to optimize only the camera pose)
 // Added EdgeStereoSE3ProjectXYZOnlyPose (unary edge to optimize only the camera pose)
 
+// Modified by Jun Zhang (2019)
+// Added EdgeSE3ProjectFlowDepth
+// Added EdgeSE3ProjectDepth
+// Added EdgeSE3ProjectFlow
+// Added EdgeFlowDepthPrior
+// Added EdgeDepthPrior
+
 #ifndef G2O_SIX_DOF_TYPES_EXPMAP
 #define G2O_SIX_DOF_TYPES_EXPMAP
 

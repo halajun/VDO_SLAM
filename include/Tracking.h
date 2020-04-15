@@ -1,22 +1,10 @@
 /**
-* This file is part of ORB-SLAM2.
+* This file is part of VDO-SLAM.
 *
-* Copyright (C) 2014-2016 Raúl Mur-Artal <raulmur at unizar dot es> (University of Zaragoza)
-* For more information see <https://github.com/raulmur/ORB_SLAM2>
+* Copyright (C) 2019-2020 Jun Zhang <jun doc zhang2 at anu dot edu doc au> (The Australian National University)
+* For more information see <https://github.com/halajun/DynamicObjectSLAM>
 *
-* ORB-SLAM2 is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* ORB-SLAM2 is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License
-* along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
-*/
+**/
 
 
 #ifndef TRACKING_H
@@ -35,16 +23,12 @@
 
 #include <mutex>
 
-namespace ORB_SLAM2
+namespace VDO_SLAM
 {
 
 using namespace std;
 
-class Viewer;
-class FrameDrawer;
 class Map;
-class LocalMapping;
-class LoopClosing;
 class System;
 
 class Tracking
@@ -66,7 +50,16 @@ class Tracking
         }
     };
 
+    struct LessPoint2f
+    {
+        bool operator()(const cv::Point2f& lhs, const cv::Point2f& rhs) const
+        {
+            return (lhs.x == rhs.x) ? (lhs.y < rhs.y) : (lhs.x < rhs.x);
+        }
+    };
+
 public:
+
     Tracking(System* pSys, Map* pMap, const string &strSettingPath, const int sensor);
 
     // Preprocess the input and call Track(). Extract features and performs stereo matching.
@@ -199,18 +192,11 @@ protected:
     // Main tracking function. It is independent of the input sensor.
     void Track();
 
-    // Map initialization for stereo and RGB-D
-    void StereoInitialization();
-
-    // In case of performing only localization, this flag is true when there are no matches to
-    // points in the map. Still tracking will continue if there are enough matches with temporal points.
-    // In that case we are doing visual odometry. The system will try to do relocalization to recover
-    // "zero-drift" localization to the map.
-    bool mbVO;
+    // Map initialization
+    void Initialization();
 
     //ORB
     ORBextractor* mpORBextractorLeft, *mpORBextractorRight;
-    ORBextractor* mpIniORBextractor;
 
     // System
     System* mpSystem;
@@ -223,16 +209,12 @@ protected:
     cv::Mat mDistCoef;
     float mbf;
 
-    //New KeyFrame rules (according to fps)
-    int mMinFrames;
-    int mMaxFrames;
-
     // Threshold close/far points
     // Points seen as close by the stereo/RGBD sensor are considered reliable
     // and inserted from just one frame. Far points requiere a match in two keyframes.
     float mThDepth;
 
-    // For RGB-D inputs only. For some datasets (e.g. TUM) the depthmap values are scaled.
+    // The depth map scale factor.
     float mDepthMapFactor;
 
     //Current matches in frame
@@ -248,6 +230,6 @@ protected:
     bool mbRGB;
 };
 
-} //namespace ORB_SLAM
+} //namespace VDO_SLAM
 
 #endif // TRACKING_H

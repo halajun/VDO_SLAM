@@ -1,22 +1,10 @@
 /**
-* This file is part of ORB-SLAM2.
+* This file is part of VDO-SLAM.
 *
-* Copyright (C) 2014-2016 Raúl Mur-Artal <raulmur at unizar dot es> (University of Zaragoza)
-* For more information see <https://github.com/raulmur/ORB_SLAM2>
+* Copyright (C) 2019-2020 Jun Zhang <jun doc zhang2 at anu dot edu doc au> (The Australian National University)
+* For more information see <https://github.com/halajun/DynamicObjectSLAM>
 *
-* ORB-SLAM2 is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* ORB-SLAM2 is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License
-* along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
-*/
+**/
 
 
 #include "Tracking.h"
@@ -43,56 +31,19 @@
 #include <map>
 #include <random>
 
-
 using namespace std;
 
-struct LessPoint2f
-{
-    bool operator()(const cv::Point2f& lhs, const cv::Point2f& rhs) const
-    {
-        return (lhs.x == rhs.x) ? (lhs.y < rhs.y) : (lhs.x < rhs.x);
-    }
-};
-
-// std::vector<std::size_t> findDuplicateIndices(std::vector<int> const & v)
-// {
-//     std::vector<std::size_t> indices;
-//     std::map<int, std::pair<int, std::size_t>> counts;
-
-//     for (std::size_t i = 0 ; i < v.size() ; ++i)
-//     {
-//         std::size_t amount = ++counts[v[i]].first;
-//         if (amount == 1)
-//         {
-//             counts[v[i]].second = i;
-//             continue;
-//         }
-//         else if (amount == 2)
-//             indices.push_back(counts[v[i]].second);
-
-//         indices.push_back(i);
-//     }
-//     return indices;
-// }
-
-// bool sort_pair(const pair<int,float> &a,
-//               const pair<int,float> &b)
-// {
-//     return (a.second < b.second);
-// }
-
-bool sort_pair_int(const pair<int,int> &a,
+bool SortPairInt(const pair<int,int> &a,
               const pair<int,int> &b)
 {
     return (a.second > b.second);
 }
 
-namespace ORB_SLAM2
+namespace VDO_SLAM
 {
 
 Tracking::Tracking(System *pSys, Map *pMap, const string &strSettingPath, const int sensor):
-    mState(NO_IMAGES_YET), mSensor(sensor), mbVO(false), mpSystem(pSys),
-    mpMap(pMap), bSecondFrame(false)
+    mState(NO_IMAGES_YET), mSensor(sensor), mpSystem(pSys), mpMap(pMap)
 {
     // Load camera parameters from settings file
 
@@ -128,10 +79,6 @@ Tracking::Tracking(System *pSys, Map *pMap, const string &strSettingPath, const 
     if(fps==0)
         fps=30;
 
-    // Max/Min Frames to insert keyframes and to check relocalisation
-    mMinFrames = 0;
-    mMaxFrames = fps;
-
     cout << endl << "Camera Parameters: " << endl;
     cout << "- fx: " << fx << endl;
     cout << "- fy: " << fy << endl;
@@ -166,9 +113,6 @@ Tracking::Tracking(System *pSys, Map *pMap, const string &strSettingPath, const 
 
     if(sensor==System::STEREO)
         mpORBextractorRight = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
-
-    if(sensor==System::MONOCULAR)
-        mpIniORBextractor = new ORBextractor(2*nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
 
     cout << endl  << "ORB Extractor Parameters: " << endl;
     cout << "- Number of Features: " << nFeatures << endl;
@@ -733,8 +677,8 @@ void Tracking::Track()
         bFrame2Frame = false;
         bSecondFrame = false;
 
-        if(mSensor==System::STEREO || mSensor==System::RGBD)
-            StereoInitialization();
+        if(mSensor==System::RGBD)
+            Initialization();
 
         if(mState!=OK)
             return;
@@ -742,8 +686,6 @@ void Tracking::Track()
     else
     {
         bFrame2Frame = true;
-        // System is initialized. Track Frame.
-        bool bOK;
 
         // ---------------------------------------------------------------------------------------
         // ++++++++++++++++++++ Compute Sparse Scene Flow ++++++++++++++++++++++++++++++++++++++++
@@ -1182,7 +1124,7 @@ void Tracking::Track()
             std::vector<std::pair<int, int> > sorted;
             for (auto k : dups)
                 sorted.push_back(std::make_pair(k.first,k.second));
-            std::sort(sorted.begin(), sorted.end(), sort_pair_int);
+            std::sort(sorted.begin(), sorted.end(), SortPairInt);
 
             // label the object in current frame
             int New_lab = sorted[0].first;
@@ -1979,7 +1921,7 @@ void Tracking::Track()
 }
 
 
-void Tracking::StereoInitialization()
+void Tracking::Initialization()
 {
     cout << "Initialization ........" << endl;
 
@@ -3847,7 +3789,7 @@ void Tracking::UpdateMask()
         std::vector<std::pair<int, int> > sorted;
         for (auto k : dups)
             sorted.push_back(std::make_pair(k.first,k.second));
-        std::sort(sorted.begin(), sorted.end(), sort_pair_int);
+        std::sort(sorted.begin(), sorted.end(), SortPairInt);
 
         // recover the missing mask (time consuming!)
         if (sorted[0].first==0) // && sorted[0].second==LabTmp.size()
@@ -4330,4 +4272,4 @@ void Tracking::GetVelocityError(const std::vector<std::vector<cv::Mat> > &RigMot
 // ---------------------------------------------------------------------------------------
 // ---------------------------------------------------------------------------------------
 
-} //namespace ORB_SLAM
+} //namespace VDO_SLAM

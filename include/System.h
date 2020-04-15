@@ -1,22 +1,10 @@
 /**
-* This file is part of ORB-SLAM2.
+* This file is part of VDO-SLAM.
 *
-* Copyright (C) 2014-2016 Raúl Mur-Artal <raulmur at unizar dot es> (University of Zaragoza)
-* For more information see <https://github.com/raulmur/ORB_SLAM2>
+* Copyright (C) 2019-2020 Jun Zhang <jun doc zhang2 at anu dot edu doc au> (The Australian National University)
+* For more information see <https://github.com/halajun/DynamicObjectSLAM>
 *
-* ORB-SLAM2 is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* ORB-SLAM2 is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License
-* along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
-*/
+**/
 
 
 #ifndef SYSTEM_H
@@ -29,21 +17,18 @@
 #include "Tracking.h"
 #include "Map.h"
 
-namespace ORB_SLAM2
+namespace VDO_SLAM
 {
 
 using namespace std;
 
-class Viewer;
-class FrameDrawer;
 class Map;
 class Tracking;
-class LocalMapping;
-class LoopClosing;
 
 class System
 {
 public:
+
     // Input sensor
     enum eSensor{
         MONOCULAR=0,
@@ -53,7 +38,7 @@ public:
 
 public:
 
-    // Initialize the SLAM system. It launches the Local Mapping, Loop Closing and Viewer threads.
+    // Initialize the SLAM system.
     System(const string &strSettingsFile, const eSensor sensor);
 
 
@@ -74,16 +59,14 @@ private:
     // Input sensor
     eSensor mSensor;
 
-    // Map structure that stores the pointers to all KeyFrames and MapPoints.
+    // Map structure.
     Map* mpMap;
 
     // Tracker. It receives a frame and computes the associated camera pose.
-    // It also decides when to insert a new keyframe, create some new MapPoints and
-    // performs relocalization if tracking fails.
     Tracking* mpTracker;
 
 };
 
-}// namespace ORB_SLAM
+}// namespace VDO_SLAM
 
 #endif // SYSTEM_H

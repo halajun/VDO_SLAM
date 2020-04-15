@@ -1,4 +1,11 @@
 /**
+* This file is part of VDO-SLAM.
+*
+* Copyright (C) 2019-2020 Jun Zhang <jun doc zhang2 at anu dot edu doc au> (The Australian National University)
+* For more information see <https://github.com/halajun/DynamicObjectSLAM>
+*
+**/
+/**
 * This file is part of ORB-SLAM2.
 *
 * Copyright (C) 2014-2016 Raúl Mur-Artal <raulmur at unizar dot es> (University of Zaragoza)
@@ -16,7 +23,7 @@
 *
 * You should have received a copy of the GNU General Public License
 * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
-*/
+**/
 
 #ifndef ORBEXTRACTOR_H
 #define ORBEXTRACTOR_H
@@ -26,7 +33,7 @@
 #include <opencv/cv.h>
 
 
-namespace ORB_SLAM2
+namespace VDO_SLAM
 {
 
 class ExtractorNode
@@ -110,7 +117,7 @@ protected:
     std::vector<float> mvInvLevelSigma2;
 };
 
-} //namespace ORB_SLAM
+} //namespace VDO_SLAM
 
 #endif
 

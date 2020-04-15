@@ -1,4 +1,10 @@
-
+/**
+* This file is part of VDO-SLAM.
+*
+* Copyright (C) 2019-2020 Jun Zhang <jun doc zhang2 at anu dot edu doc au> (The Australian National University)
+* For more information see <https://github.com/halajun/DynamicObjectSLAM>
+*
+**/
 
 #ifndef G2O_DYNAMIC_SLAM3D
 #define G2O_DYNAMIC_SLAM3D

@@ -1,22 +1,10 @@
 /**
-* This file is part of ORB-SLAM2.
+* This file is part of VDO-SLAM.
 *
-* Copyright (C) 2014-2016 Raúl Mur-Artal <raulmur at unizar dot es> (University of Zaragoza)
-* For more information see <https://github.com/raulmur/ORB_SLAM2>
+* Copyright (C) 2019-2020 Jun Zhang <jun doc zhang2 at anu dot edu doc au> (The Australian National University)
+* For more information see <https://github.com/halajun/DynamicObjectSLAM>
 *
-* ORB-SLAM2 is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* ORB-SLAM2 is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License
-* along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
-*/
+**/
 
 
 #include<iostream>
@@ -43,7 +31,7 @@ void LoadData(const string &strPathToSequence, vector<string> &vstrFilenamesSEM,
 
 void LoadMask(const string &strFilenamesMask, cv::Mat &imMask);
 
-void FlowShow(const cv::Mat &flow2show);
+void FlowShow(const cv::Mat &mflow2show);
 
 int main(int argc, char **argv)
 {
@@ -89,7 +77,7 @@ int main(int argc, char **argv)
     }
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    ORB_SLAM2::System SLAM(argv[1],ORB_SLAM2::System::RGBD);
+    VDO_SLAM::System SLAM(argv[1],VDO_SLAM::System::RGBD);
 
     cout << endl << "---------------------" << endl;
     cout << "Start processing sequence ..." << endl;
@@ -99,8 +87,10 @@ int main(int argc, char **argv)
     cv::Mat imTraj = cv::Mat::zeros(800, 600, CV_8UC3);
 
     // Main loop
-    cv::Mat imRGB, imD, mTcw_gt; // (799,0007) (802,0009) (293,0010) (836,0020) (338,0018) (1057,0019) (339,0013)
-    for(int ni=0; ni<nImages-1; ni++) // (153,0000)(446,0001)(232,0002)(143,0003)(313,0004)(296,0005)(144,0017)(269,0006)
+    // (799,0007) (802,0009) (293,0010) (836,0020) (338,0018) (1057,0019) (339,0013)
+    // (153,0000)(446,0001)(232,0002)(143,0003)(313,0004)(296,0005)(144,0017)(269,0006)
+    cv::Mat imRGB, imD, mTcw_gt;
+    for(int ni=0; ni<nImages-1; ni++)
     {
         cout << endl;
         cout << "=======================================================" << endl;
@@ -110,7 +100,7 @@ int main(int argc, char **argv)
         imRGB = cv::imread(vstrFilenamesRGB[ni],CV_LOAD_IMAGE_UNCHANGED);
         imD   = cv::imread(vstrFilenamesDEP[ni],CV_LOAD_IMAGE_UNCHANGED);
         cv::Mat imD_f, imD_r;
-        // cv::resize(imD, imD_r, cv::Size(1242,375)); // 1242x375
+        // cv::resize(imD, imD_r, cv::Size(1242,375));
         imD.convertTo(imD_f, CV_32F);
 
         // load flow matrix
@@ -118,7 +108,7 @@ int main(int argc, char **argv)
         // FlowShow(imFlow);
 
         // load mot mask and semantic mask
-        cv::Mat imSem(imRGB.rows, imRGB.cols, CV_32SC1); // 1242x375
+        cv::Mat imSem(imRGB.rows, imRGB.cols, CV_32SC1);
         cv::Mat imMot(imRGB.rows, imRGB.cols, CV_32SC1);
         LoadMask(vstrFilenamesSEM[ni],imSem);
 
@@ -141,12 +131,7 @@ int main(int argc, char **argv)
 
     }
 
-    // Stop all threads
-    // SLAM.Shutdown();
-
     // // Save camera trajectory
-    // SLAM.SaveTrajectoryTUM("CameraTrajectory.txt");
-    // SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
     // SLAM.SaveResultsICRA2020("0018/");
     // SLAM.SaveResultsIJRR2020("/Users/steed/work/code/Evaluation/ijrr2020/omd/");
 
@@ -456,18 +441,18 @@ void LoadMask(const string &strFilenamesMask, cv::Mat &imMask)
 }
 
 
-void FlowShow(const cv::Mat &flow2show)
+void FlowShow(const cv::Mat &mflow2show)
 {
-    int rows = flow2show.rows;
-    int cols = flow2show.cols;
+    int rows = mflow2show.rows;
+    int cols = mflow2show.cols;
     {
         CFloatImage cFlow(cols, rows, 2);
 
         // Convert flow to CFLoatImage:
         for (int i = 0; i < rows; i++) {
             for (int j = 0; j < cols; j++) {
-                cFlow.Pixel(j, i, 0) = flow2show.at<cv::Vec2f>(i, j)[0];
-                cFlow.Pixel(j, i, 1) = flow2show.at<cv::Vec2f>(i, j)[1];
+                cFlow.Pixel(j, i, 0) = mflow2show.at<cv::Vec2f>(i, j)[0];
+                cFlow.Pixel(j, i, 1) = mflow2show.at<cv::Vec2f>(i, j)[1];
             }
         }
 

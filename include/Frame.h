@@ -32,7 +32,8 @@ public:
     Frame(const Frame &frame);
 
     // Constructor for RGB-D cameras.
-    Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlow, const cv::Mat &maskSEM, const double &timeStamp, ORBextractor* extractor, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
+    Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlow, const cv::Mat &maskSEM, const double &timeStamp, ORBextractor* extractor,
+          cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, const float &thDepthObj, const int &UseSampleFea);
 
     // Extract ORB on the image. 0 for left image and 1 for right image.
     void ExtractORB(int flag, const cv::Mat &im);
@@ -96,8 +97,9 @@ public:
     // Stereo baseline in meters.
     float mb;
 
-    // Threshold close/far points. Close points are inserted from 1 view.
+    // Threshold close/far points.
     float mThDepth;
+    float mThDepthObj;
 
     // Number of KeyPoints.
     int N;

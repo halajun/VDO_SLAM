@@ -1,0 +1,79 @@
+%YAML:1.0
+
+#--------------------------------------------------------------------------------------------
+# Camera Parameters.
+#--------------------------------------------------------------------------------------------
+
+# Camera calibration and distortion parameters (OpenCV)
+Camera.fx: 721.5377
+Camera.fy: 721.5377
+Camera.cx: 609.5593
+Camera.cy: 172.8540
+
+Camera.k1: 0.0
+Camera.k2: 0.0
+Camera.p1: 0.0
+Camera.p2: 0.0
+Camera.k3: 0.0
+
+Camera.width: 1242
+Camera.height: 375
+
+# Camera frames per second
+Camera.fps: 10.0
+
+# IR projector baseline times fx (aprox.)
+Camera.bf: 387.5744
+
+# Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
+Camera.RGB: 1
+
+#--------------------------------------------------------------------------------------------
+# System Parameters
+#--------------------------------------------------------------------------------------------
+
+# Switch for Dataset (1 for Oxford MultiMotion Dataset, 2 for KITTI dataset, 3...)
+ChooseData: 2
+
+# Deptmap values factor
+DepthMapFactor: 256.0
+
+# Close/Far Depth threshold
+ThDepthBG: 40.0
+ThDepthOBJ: 25.0
+
+# Max Tracking Points on Background and Object in each frame
+MaxTrackPointBG: 2000 # 1200
+MaxTrackPointOBJ: 800 # 800
+
+# Scene Flow Magnitude and Distribution Threshold
+SFMgThres: 0.12 # 0.05
+SFDsThres: 0.3 # 0.99
+
+# Window Size and Overlapping Size for Local Batch Optimization
+WINDOW_SIZE: 20
+OVERLAP_SIZE: 4
+
+# Use sampled feature or detected feature for background (1: sampled, 0: detected)
+UseSampleFeature: 0
+
+#--------------------------------------------------------------------------------------------
+# ORB Parameters (NOTE: only FAST corners are used in this system.)
+#--------------------------------------------------------------------------------------------
+
+# ORB Extractor: Number of features per image
+ORBextractor.nFeatures: 2500
+
+# ORB Extractor: Scale factor between levels in the scale pyramid
+ORBextractor.scaleFactor: 1.2
+
+# ORB Extractor: Number of levels in the scale pyramid
+ORBextractor.nLevels: 8
+
+# ORB Extractor: Fast threshold
+ORBextractor.iniThFAST: 20
+ORBextractor.minThFAST: 7
+
+
+
+

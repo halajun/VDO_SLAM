@@ -36,7 +36,7 @@ Frame::Frame()
 Frame::Frame(const Frame &frame)
     :mpORBextractorLeft(frame.mpORBextractorLeft), mpORBextractorRight(frame.mpORBextractorRight),
      mTimeStamp(frame.mTimeStamp), mK(frame.mK.clone()), mDistCoef(frame.mDistCoef.clone()),
-     mbf(frame.mbf), mb(frame.mb), mThDepth(frame.mThDepth), N(frame.N), mvKeys(frame.mvKeys),
+     mbf(frame.mbf), mb(frame.mb), mThDepth(frame.mThDepth), mThDepthObj(frame.mThDepthObj), N(frame.N), mvKeys(frame.mvKeys),
      mvKeysRight(frame.mvKeysRight), mvKeysUn(frame.mvKeysUn),  mvuRight(frame.mvuRight), mvDepth(frame.mvDepth),
      mDescriptors(frame.mDescriptors.clone()), mDescriptorsRight(frame.mDescriptorsRight.clone()),
      mvbOutlier(frame.mvbOutlier), mnId(frame.mnId), mnScaleLevels(frame.mnScaleLevels),
@@ -59,9 +59,9 @@ Frame::Frame(const Frame &frame)
 
 
 Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlow, const cv::Mat &maskSEM,
-    const double &timeStamp, ORBextractor* extractor,cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
+    const double &timeStamp, ORBextractor* extractor,cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, const float &thDepthObj, const int &UseSampleFea)
     :mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
-     mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth)
+     mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth), mThDepthObj(thDepthObj)
 {
 
     cout << "Start Constructing Frame......" << endl;
@@ -83,8 +83,6 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlo
     // ++++++++++++++++++++++++++++ New added for background features +++++++++++++++++++++++++++
     // ------------------------------------------------------------------------------------------
 
-    // // // Option I: ~~~~~~~ use detected features ~~~~~~~~~~ // // //
-
     // clock_t s_1, e_1;
     // double fea_det_time;
     // s_1 = clock();
@@ -99,69 +97,75 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlo
     if(mvKeys.empty())
         return;
 
-    for (int i = 0; i < mvKeys.size(); ++i)
+    if (UseSampleFea==0)
     {
-        int x = mvKeys[i].pt.x;
-        int y = mvKeys[i].pt.y;
+        // // // Option I: ~~~~~~~ use detected features ~~~~~~~~~~ // // //
 
-        if (maskSEM.at<int>(y,x)!=0)  // new added in Jun 13 2019
-            continue;
-
-        if (imDepth.at<float>(y,x)>mThDepth || imDepth.at<float>(y,x)<=0)  // new added in Aug 21 2019
-            continue;
-
-        float flow_xe = imFlow.at<cv::Vec2f>(y,x)[0];
-        float flow_ye = imFlow.at<cv::Vec2f>(y,x)[1];
-
-
-        if(flow_xe!=0 && flow_ye!=0)
+        for (int i = 0; i < mvKeys.size(); ++i)
         {
-            if(mvKeys[i].pt.x+flow_xe < imGray.cols && mvKeys[i].pt.y+flow_ye < imGray.rows && mvKeys[i].pt.x < imGray.cols && mvKeys[i].pt.y < imGray.rows)
+            int x = mvKeys[i].pt.x;
+            int y = mvKeys[i].pt.y;
+
+            if (maskSEM.at<int>(y,x)!=0)  // new added in Jun 13 2019
+                continue;
+
+            if (imDepth.at<float>(y,x)>mThDepth || imDepth.at<float>(y,x)<=0)  // new added in Aug 21 2019
+                continue;
+
+            float flow_xe = imFlow.at<cv::Vec2f>(y,x)[0];
+            float flow_ye = imFlow.at<cv::Vec2f>(y,x)[1];
+
+
+            if(flow_xe!=0 && flow_ye!=0)
             {
-                mvStatKeysTmp.push_back(mvKeys[i]);
-                mvCorres.push_back(cv::KeyPoint(mvKeys[i].pt.x+flow_xe,mvKeys[i].pt.y+flow_ye,0,0,0,mvKeys[i].octave,-1));
-                mvFlowNext.push_back(cv::Point2f(flow_xe,flow_ye));
+                if(mvKeys[i].pt.x+flow_xe < imGray.cols && mvKeys[i].pt.y+flow_ye < imGray.rows && mvKeys[i].pt.x < imGray.cols && mvKeys[i].pt.y < imGray.rows)
+                {
+                    mvStatKeysTmp.push_back(mvKeys[i]);
+                    mvCorres.push_back(cv::KeyPoint(mvKeys[i].pt.x+flow_xe,mvKeys[i].pt.y+flow_ye,0,0,0,mvKeys[i].octave,-1));
+                    mvFlowNext.push_back(cv::Point2f(flow_xe,flow_ye));
+                }
             }
         }
     }
+    else
+    {
+        // // // Option II: ~~~~~~~ use sampled features ~~~~~~~~~~ // // //
+
+        clock_t s_1, e_1;
+        double fea_det_time;
+        s_1 = clock();
+        std::vector<cv::KeyPoint> mvKeysSamp = SampleKeyPoints(imGray.rows, imGray.cols);
+        e_1 = clock();
+        fea_det_time = (double)(e_1-s_1)/CLOCKS_PER_SEC*1000;
+        std::cout << "feature detection time: " << fea_det_time << std::endl;
+
+        for (int i = 0; i < mvKeysSamp.size(); ++i)
+        {
+            int x = mvKeysSamp[i].pt.x;
+            int y = mvKeysSamp[i].pt.y;
+
+            if (maskSEM.at<int>(y,x)!=0)  // new added in Jun 13 2019
+                continue;
+
+            if (imDepth.at<float>(y,x)>mThDepth || imDepth.at<float>(y,x)<=0)  // new added in Aug 21 2019
+                continue;
+
+            float flow_xe = imFlow.at<cv::Vec2f>(y,x)[0];
+            float flow_ye = imFlow.at<cv::Vec2f>(y,x)[1];
 
 
-    // // // Option II: ~~~~~~~ use sampled features ~~~~~~~~~~ // // //
+            if(flow_xe!=0 && flow_ye!=0)
+            {
+                if(mvKeysSamp[i].pt.x+flow_xe < imGray.cols && mvKeysSamp[i].pt.y+flow_ye < imGray.rows && mvKeysSamp[i].pt.x+flow_xe>0 && mvKeysSamp[i].pt.y+flow_ye>0)
+                {
+                    mvStatKeysTmp.push_back(mvKeysSamp[i]);
+                    mvCorres.push_back(cv::KeyPoint(mvKeysSamp[i].pt.x+flow_xe,mvKeysSamp[i].pt.y+flow_ye,0,0,0,mvKeysSamp[i].octave,-1));
+                    mvFlowNext.push_back(cv::Point2f(flow_xe,flow_ye));
 
-    // clock_t s_1, e_1;
-    // double fea_det_time;
-    // s_1 = clock();
-    // std::vector<cv::KeyPoint> mvKeysSamp = SampleKeyPoints(imGray.rows, imGray.cols);
-    // e_1 = clock();
-    // fea_det_time = (double)(e_1-s_1)/CLOCKS_PER_SEC*1000;
-    // std::cout << "feature detection time: " << fea_det_time << std::endl;
-
-    // for (int i = 0; i < mvKeysSamp.size(); ++i)
-    // {
-    //     int x = mvKeysSamp[i].pt.x;
-    //     int y = mvKeysSamp[i].pt.y;
-
-    //     if (maskSEM.at<int>(y,x)!=0)  // new added in Jun 13 2019
-    //         continue;
-
-    //     if (imDepth.at<float>(y,x)>mThDepth || imDepth.at<float>(y,x)<=0)  // new added in Aug 21 2019
-    //         continue;
-
-    //     float flow_xe = imFlow.at<cv::Vec2f>(y,x)[0];
-    //     float flow_ye = imFlow.at<cv::Vec2f>(y,x)[1];
-
-
-    //     if(flow_xe!=0 && flow_ye!=0)
-    //     {
-    //         if(mvKeysSamp[i].pt.x+flow_xe < imGray.cols && mvKeysSamp[i].pt.y+flow_ye < imGray.rows && mvKeysSamp[i].pt.x+flow_xe>0 && mvKeysSamp[i].pt.y+flow_ye>0)
-    //         {
-    //             mvStatKeysTmp.push_back(mvKeysSamp[i]);
-    //             mvCorres.push_back(cv::KeyPoint(mvKeysSamp[i].pt.x+flow_xe,mvKeysSamp[i].pt.y+flow_ye,0,0,0,mvKeysSamp[i].octave,-1));
-    //             mvFlowNext.push_back(cv::Point2f(flow_xe,flow_ye));
-
-    //         }
-    //     }
-    // }
+                }
+            }
+        }
+    }
 
     // ---------------------------------------------------------------------------------------
     // ---------------------------------------------------------------------------------------
@@ -201,7 +205,7 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlo
         {
 
             // check ground truth motion mask
-            if (maskSEM.at<int>(i,j)!=0 && imDepth.at<float>(i,j)<35 && imDepth.at<float>(i,j)>0)
+            if (maskSEM.at<int>(i,j)!=0 && imDepth.at<float>(i,j)<mThDepthObj && imDepth.at<float>(i,j)>0)
             {
                 // get flow
                 const float flow_x = imFlow.at<cv::Vec2f>(i,j)[0];
@@ -252,7 +256,7 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlo
 
     AssignFeaturesToGrid();
 
-    cout << "Done!" << endl;
+    cout << "Constructing Frame, Done!" << endl;
 }
 
 

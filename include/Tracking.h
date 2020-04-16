@@ -114,15 +114,22 @@ public:
 
     // Tracking states
     enum eTrackingState{
-        SYSTEM_NOT_READY=-1,
         NO_IMAGES_YET=0,
         NOT_INITIALIZED=1,
         OK=2,
-        LOST=3
     };
 
     eTrackingState mState;
     eTrackingState mLastProcessedState;
+
+    // Dataset Selection
+    enum eDataState{
+        OMD=1,
+        KITTI=2,
+        VirtualKITTI=3,
+    };
+
+    eDataState mTestData;
 
     // Input sensor
     int mSensor;
@@ -163,19 +170,29 @@ public:
     // save the global Tracking ID
     int max_id;
 
-    // save stopframe
+    // save stop frame
     int StopFrame;
 
-    // save local batch decision
+    // save optimization decision
     bool bLocalBatch;
     bool bGlobalBatch;
+    // whether use joint optic-flow formulation
     bool bJoint;
+
+    // Window Size and Overlapping Size for Local Batch Optimization
+    int nWINDOW_SIZE, nOVERLAP_SIZE;
+
+    // Max Tracking Points on Background and Object in each frame
+    int nMaxTrackPointBG, nMaxTrackPointOBJ;
+
+    // Scene Flow Magnitude and Distribution Threshold
+    float fSFMgThres, fSFDsThres;
 
     // save timing values
     std::vector<float> all_timing;
 
-    // dataset selection
-    bool oxford;
+    // use sampled feature or detected feature for background
+    int nUseSampleFea;
 
     // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -203,8 +220,8 @@ protected:
 
     // Threshold close/far points
     // Points seen as close by the stereo/RGBD sensor are considered reliable
-    // and inserted from just one frame. Far points requiere a match in two keyframes.
     float mThDepth;
+    float mThDepthObj;
 
     // The depth map scale factor.
     float mDepthMapFactor;

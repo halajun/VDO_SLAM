@@ -28,14 +28,14 @@ System::System(const string &strSettingsFile, const eSensor sensor):mSensor(sens
     // "This is free software, and you are welcome to redistribute it" << endl <<
     // "under certain conditions. See LICENSE.txt." << endl << endl;
 
-    cout << "Input sensor was set to: ";
+    // cout << "Input sensor was set to: ";
 
-    if(mSensor==MONOCULAR)
-        cout << "Monocular" << endl;
-    else if(mSensor==STEREO)
-        cout << "Stereo" << endl;
-    else if(mSensor==RGBD)
-        cout << "RGB-D" << endl;
+    // if(mSensor==MONOCULAR)
+    //     cout << "Monocular" << endl;
+    // else if(mSensor==STEREO)
+    //     cout << "Stereo" << endl;
+    // else if(mSensor==RGBD)
+    //     cout << "RGB-D" << endl;
 
     // Check settings file
     cv::FileStorage fsSettings(strSettingsFile.c_str(), cv::FileStorage::READ);

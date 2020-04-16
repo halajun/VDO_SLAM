@@ -2218,8 +2218,6 @@ int Optimizer::PoseOptimizationNew(Frame *pCurFrame, Frame *pLastFrame, vector<i
     {
         // if (TemperalMatch[i]==-1)
         //     continue;
-        // if (pCurFrame->vSemLabel[i]!=0)
-        //     continue;
 
         if(mono)
         {
@@ -2227,7 +2225,7 @@ int Optimizer::PoseOptimizationNew(Frame *pCurFrame, Frame *pLastFrame, vector<i
             vIsOutlier[i] = false;
 
             Eigen::Matrix<double,2,1> obs;
-            const cv::KeyPoint &kpUn = pCurFrame->mvSiftKeys[TemperalMatch[i]]; // i
+            const cv::KeyPoint &kpUn = pCurFrame->mvStatKeys[TemperalMatch[i]]; // i
             obs << kpUn.pt.x, kpUn.pt.y;
 
             g2o::EdgeSE3ProjectXYZOnlyPose* e = new g2o::EdgeSE3ProjectXYZOnlyPose();
@@ -2246,7 +2244,7 @@ int Optimizer::PoseOptimizationNew(Frame *pCurFrame, Frame *pLastFrame, vector<i
             e->cx = pCurFrame->cx;
             e->cy = pCurFrame->cy;
 
-            cv::Mat Xw = pLastFrame->UnprojectStereoSift(TemperalMatch[i],1);
+            cv::Mat Xw = pLastFrame->UnprojectStereoStat(TemperalMatch[i],1);
             e->Xw[0] = Xw.at<float>(0);
             e->Xw[1] = Xw.at<float>(1);
             e->Xw[2] = Xw.at<float>(2);
@@ -2332,7 +2330,7 @@ int Optimizer::PoseOptimizationNew(Frame *pCurFrame, Frame *pLastFrame, vector<i
     return nInitialCorrespondences-nBad;
 }
 
-int Optimizer::PoseOptimizationFlow2Cam(Frame *pCurFrame, Frame *pLastFrame, vector<int> &TemperalMatch, const vector<Eigen::Vector2d> &flo_gt, const vector<double> &e_bef)
+int Optimizer::PoseOptimizationFlow2Cam(Frame *pCurFrame, Frame *pLastFrame, vector<int> &TemperalMatch)
 {
     float rp_thres = 0.01;
     bool updateflow = true;
@@ -2394,7 +2392,7 @@ int Optimizer::PoseOptimizationFlow2Cam(Frame *pCurFrame, Frame *pLastFrame, vec
             optimizer.addVertex(vFlo);
 
             Eigen::Matrix<double,2,1> obs_2d;
-            const cv::KeyPoint &kpUn = pLastFrame->mvSiftKeys[TemperalMatch[i]];
+            const cv::KeyPoint &kpUn = pLastFrame->mvStatKeys[TemperalMatch[i]];
             obs_2d << kpUn.pt.x, kpUn.pt.y;
 
             // Set Binary Edges
@@ -2523,24 +2521,18 @@ int Optimizer::PoseOptimizationFlow2Cam(Frame *pCurFrame, Frame *pLastFrame, vec
     // cout << "pose after update: " << endl << pose << endl;
 
     // *** Recover optimized optical flow ***
-    // cout << "flow error before and after optimized: " << endl;
-    double e_aft_sum = 0.0, e_bef_sum = 0.0;
     for (int i = 0; i < N; ++i)
     {
         g2o::VertexSBAFlow* vFlow = static_cast<g2o::VertexSBAFlow*>(optimizer.vertex(i+1));
-        // Eigen::Vector2d flo_error = vFlow->estimate() - flo_gt[i];
-        // e_aft_sum = e_aft_sum + flo_error.norm();
-        // e_bef_sum = e_bef_sum + e_bef[i];
-        // cout << e_bef[i]-flo_error.norm() << endl;
+
         if (updateflow && vIsOutlier[i]==false)
         {
             Eigen::Vector2d flow_new = vFlow->estimate();
-            pCurFrame->mvSiftKeys[TemperalMatch[i]].pt.x = pLastFrame->mvSiftKeys[TemperalMatch[i]].pt.x + flow_new(0);
-            pCurFrame->mvSiftKeys[TemperalMatch[i]].pt.y = pLastFrame->mvSiftKeys[TemperalMatch[i]].pt.y + flow_new(1);
+            pCurFrame->mvStatKeys[TemperalMatch[i]].pt.x = pLastFrame->mvStatKeys[TemperalMatch[i]].pt.x + flow_new(0);
+            pCurFrame->mvStatKeys[TemperalMatch[i]].pt.y = pLastFrame->mvStatKeys[TemperalMatch[i]].pt.y + flow_new(1);
 
         }
     }
-    // cout << "average flow error before and after: " << e_bef_sum/N << " " << e_aft_sum/N << endl;
     int inliers = nInitialCorrespondences-nBad;
     cout << "(Camera) inliers number/total numbers: " << inliers << "/" << nInitialCorrespondences << endl;
     repro_e = repro_e/inliers;
@@ -2604,7 +2596,7 @@ cv::Mat Optimizer::PoseOptimizationObj(Frame *pCurFrame, Frame *pLastFrame, cons
             vIsOutlier[i] = false;
 
             Eigen::Matrix<double,2,1> obs;
-            const cv::KeyPoint &kpUn = pCurFrame->mvSiftKeys[ObjId[i]];
+            const cv::KeyPoint &kpUn = pCurFrame->mvStatKeys[ObjId[i]];
             obs << kpUn.pt.x, kpUn.pt.y;
 
             g2o::EdgeSE3ProjectXYZOnlyPose* e = new g2o::EdgeSE3ProjectXYZOnlyPose();
@@ -2623,7 +2615,7 @@ cv::Mat Optimizer::PoseOptimizationObj(Frame *pCurFrame, Frame *pLastFrame, cons
             e->cx = pCurFrame->cx;
             e->cy = pCurFrame->cy;
 
-            cv::Mat Xw = pLastFrame->UnprojectStereoSift(TemperalMatch[ObjId[i]],1);
+            cv::Mat Xw = pLastFrame->UnprojectStereoStat(TemperalMatch[ObjId[i]],1);
             e->Xw[0] = Xw.at<float>(0);
             e->Xw[1] = Xw.at<float>(1);
             e->Xw[2] = Xw.at<float>(2);
@@ -2935,7 +2927,7 @@ cv::Mat Optimizer::PoseOptimizationObjTest(Frame *pCurFrame, Frame *pLastFrame, 
     return pose;
 }
 
-cv::Mat Optimizer::PoseOptimizationObjMot(Frame *pCurFrame, Frame *pLastFrame, const vector<int> &ObjId, const cv::Point2f flo_co, std::vector<int> &InlierID)
+cv::Mat Optimizer::PoseOptimizationObjMot(Frame *pCurFrame, Frame *pLastFrame, const vector<int> &ObjId, std::vector<int> &InlierID)
 {
     float rp_thres = 0.01;
 
@@ -3002,8 +2994,8 @@ cv::Mat Optimizer::PoseOptimizationObjMot(Frame *pCurFrame, Frame *pLastFrame, c
     PP = KK*Converter::toMatrix4d(pCurFrame->mTcw); // *Converter::toMatrix4d(Twp)
     // cout << "PP: " << endl << PP << endl;
 
-    // parameter for robust function
-    const float deltaMono = sqrt(rp_thres);  // 5.991
+    // // parameter for robust function
+    // const float deltaMono = sqrt(rp_thres);  // 5.991
 
     bool mono = 1; // monocular
     float repro_e = 0;
@@ -4129,7 +4121,7 @@ cv::Mat Optimizer::PoseOptimizationFlow(Frame *pCurFrame, Frame *pLastFrame, con
     return pose;
 }
 
-cv::Mat Optimizer::PoseOptimizationFlow2(Frame *pCurFrame, Frame *pLastFrame, const vector<int> &ObjId, const vector<Eigen::Vector2d> &flo_gt, const vector<double> &e_bef, std::vector<int> &InlierID)
+cv::Mat Optimizer::PoseOptimizationFlow2(Frame *pCurFrame, Frame *pLastFrame, const vector<int> &ObjId, std::vector<int> &InlierID)
 {
     float rp_thres = 0.01;  // 0.04 0.01
     bool updateflow = true;
@@ -4317,18 +4309,10 @@ cv::Mat Optimizer::PoseOptimizationFlow2(Frame *pCurFrame, Frame *pLastFrame, co
     cv::Mat pose = Converter::toCvMat(SE3quat_recov);
 
     // *** Recover optimized optical flow ***
-    // cout << "flow error before and after optimized: " << endl;
-    double e_aft_sum = 0.0, e_bef_sum = 0.0;
     for (int i = 0; i < N; ++i)
     {
         g2o::VertexSBAFlow* vFlow = static_cast<g2o::VertexSBAFlow*>(optimizer.vertex(i+1));
-        // Eigen::Vector2d flo_pre;
-        // flo_pre << pLastFrame->mvObjFlowNext[ObjId[i]].x, pLastFrame->mvObjFlowNext[ObjId[i]].y;
-        // Eigen::Vector2d flo_error = flo_pre - flo_gt[i];
-        Eigen::Vector2d flo_error = vFlow->estimate() - flo_gt[i];
-        e_aft_sum = e_aft_sum + flo_error.norm();
-        e_bef_sum = e_bef_sum + e_bef[i];
-        // cout << e_bef[i]-flo_error.norm() << endl;
+
         if (updateflow && vIsOutlier[i]==false)
         {
             Eigen::Vector2d flow_new = vFlow->estimate();
@@ -4337,7 +4321,6 @@ cv::Mat Optimizer::PoseOptimizationFlow2(Frame *pCurFrame, Frame *pLastFrame, co
 
         }
     }
-    // cout << "average flow error before and after: " << e_bef_sum/N << " " << e_aft_sum/N << endl;
     int inliers = nInitialCorrespondences-nBad;
     cout << "(Object) inliers number/total numbers: " << inliers << "/" << nInitialCorrespondences << endl;
     repro_e = repro_e/inliers;

@@ -63,7 +63,7 @@ public:
 
     // Backprojects a keypoint (if stereo/depth info available) into 3D world coordinates.
     cv::Mat UnprojectStereo(const int &i);
-    cv::Mat UnprojectStereoSift(const int &i, const bool &addnoise);
+    cv::Mat UnprojectStereoStat(const int &i, const bool &addnoise);
     cv::Mat UnprojectStereoObject(const int &i, const bool &addnoise);
     cv::Mat UnprojectStereoObjectCamera(const int &i, const bool &addnoise);
     cv::Mat UnprojectStereoObjectNoise(const int &i, const cv::Point2f of_error);
@@ -97,7 +97,6 @@ public:
     float mb;
 
     // Threshold close/far points. Close points are inserted from 1 view.
-    // Far points are inserted as in the monocular case from 2 views.
     float mThDepth;
 
     // Number of KeyPoints.
@@ -123,13 +122,8 @@ public:
     // Number of KeyPoints.
     int N_s;
 
-    // // keypoint neighborhood
-    std::vector<std::vector<int> > vnNeigh;
-    std::vector<std::vector<float> > vnNeighDist;
-
     // Store keypoints and descriptors
-    std::vector<cv::KeyPoint> mvSiftKeys, mvSiftKeysRight;
-    cv::Mat mSift, mSiftRight;
+    std::vector<cv::KeyPoint> mvStatKeys, mvStatKeysRight;
 
     // Store dense key points and depths on objects
     std::vector<cv::KeyPoint> mvObjKeys;
@@ -148,10 +142,7 @@ public:
 
 
     // depth for each keypoint
-    std::vector<float> mvSiftDepth;
-
-    // Store the Descriptor Index between the left and right frame in stereo matching
-    std::vector<int> vDescIndex;
+    std::vector<float> mvStatDepth;
 
     // Store the Label Index for each features: -1(outlier/unknown), 0(static), 1...n(object label).
     std::vector<int> vObjLabel;
@@ -172,11 +163,6 @@ public:
     std::vector<cv::Mat> vObjCentre3D; // 3D in the world coordinate frame
     std::vector<cv::Mat> vObjCentre2D; // 2D in the image plane
 
-    // Semantic Segment Label from Mask-RCNN: -1(background), 0...n(instance label).
-    // for ground truth semantic segment label: 0(background), 1...n(instance label)
-    // int nInsNum;
-    std::vector<int> vSemLabel;
-
     // for initializing motion
     cv::Mat mInitModel;
 
@@ -185,9 +171,9 @@ public:
     // std::vector<int> vCorSta; // the status of correspondence, -1 (outliers) 1 (has correspondence)
 
     // temporal saved
-    std::vector<cv::KeyPoint> mvSiftKeysTmp;
-    std::vector<float> mvSiftDepthTmp;
-    std::vector<cv::Mat> mvSift3DPointTmp;
+    std::vector<cv::KeyPoint> mvStatKeysTmp;
+    std::vector<float> mvStatDepthTmp;
+    std::vector<cv::Mat> mvStat3DPointTmp;
     std::vector<int> vSemLabelTmp;
     std::vector<int> vObjLabel_gtTmp;
     int N_s_tmp;
@@ -201,7 +187,6 @@ public:
 
     std::vector<cv::Mat> vObjPose_gt;
     std::vector<int> nSemPosi_gt;
-    std::vector<cv::Mat> vObjBox_gt;
     std::vector<cv::Mat> vObjMod_gt;
     std::vector<float> vObjSpeed_gt;
 

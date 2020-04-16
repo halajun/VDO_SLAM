@@ -70,8 +70,8 @@ public:
     // Sparse Scene Flow Vector
     void GetSceneFlowObj();
 
-    // Delaunay neighbor
-    cv::Mat Delaunay(const std::vector<int> &id_dynamic);
+    // Dynamic Object Tracking
+    std::vector<std::vector<int> > DynObjTracking();
 
     // For flow display on 2d plane
     void DrawLine(cv::KeyPoint &keys, cv::Point2f &flow, cv::Mat &ref_image, const cv::Scalar &color,
@@ -85,12 +85,6 @@ public:
 
     cv::Mat ObjPoseParsingKT(const std::vector<float> &vObjPose_gt);
     cv::Mat ObjPoseParsingOX(const std::vector<float> &vObjPose_gt);
-
-    cv::Mat InvMatrix(const cv::Mat &T);
-
-    cv::Mat RanSacHorn(const vector<int> &TemperalMatch, const vector<int> &ObjId);
-
-    cv::Mat Find3DAffineTransform(const vector<int> &TemperalMatch, const vector<int> &ObjId);
 
     cv::Mat GetInitModelCam(const std::vector<int> &MatchId, std::vector<int> &MatchId_sub);
     cv::Mat GetInitModelObj(const std::vector<int> &ObjId, std::vector<int> &ObjId_sub, const int objid);
@@ -150,11 +144,9 @@ public:
     cv::Mat mOriginInv;
 
     // Store temperal matching feature index
-    bool bFrame2Frame,bFirstFrame,bSecondFrame,bUseGT;  // ++++++ new added
-    std::vector<int> TemperalMatch;  // ++++++ new added
-    std::vector<int> TemperalMatch_subset;
-    std::vector<cv::KeyPoint> mvKeysLastFrame;  // ++++++ new added
-    std::vector<cv::KeyPoint> mvKeysCurrentFrame;  // ++++++ new added
+    bool bFrame2Frame,bFirstFrame;  // ++++++ new added
+    std::vector<int> TemperalMatch, TemperalMatch_subset;  // ++++++ new added
+    std::vector<cv::KeyPoint> mvKeysLastFrame, mvKeysCurrentFrame;  // ++++++ new added
 
     std::vector<cv::KeyPoint> mvTmpObjKeys;
     std::vector<float> mvTmpObjDepth;

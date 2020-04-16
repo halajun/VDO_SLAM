@@ -128,13 +128,7 @@ Tracking::Tracking(System *pSys, Map *pMap, const string &strSettingPath, const 
     }
 
     if(sensor==System::RGBD)
-    {
         mDepthMapFactor = fSettings["DepthMapFactor"];
-        if(fabs(mDepthMapFactor)<1e-5)
-            mDepthMapFactor=1;
-        else
-            mDepthMapFactor = 1.0f/mDepthMapFactor;
-    }
 
 }
 
@@ -143,13 +137,14 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
                                 const double &timestamp, cv::Mat &imTraj, const int &nImage)
 {
     // initialize some paras
-    StopFrame = nImage-2;  // nImage-2
+    StopFrame = nImage-1;
     bLocalBatch = false;
     bGlobalBatch = true;
     bJoint = 1;
     oxford = false;
     cv::RNG rng((unsigned)time(NULL));
 
+    // Initialize Global ID
     if (mState==NO_IMAGES_YET)
         f_id = 0;
 
@@ -165,15 +160,12 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
             else
             {
                 if (oxford)
-                {
-                    imD.at<float>(i,j) = imD.at<float>(i,j)/1000;
-                    // imD.at<float>(i,j) = mbf/(imD.at<float>(i,j)/256.0);
-                }
+                    imD.at<float>(i,j) = imD.at<float>(i,j)/mDepthMapFactor;
                 else
                 {
-                    // 256 for stereo depth map, 500 for mono depth map
-                    // cout << dp << " ";
-                    imD.at<float>(i,j) = mbf/(imD.at<float>(i,j)/256.0);
+                    // --- for stereo depth map ---
+                    imD.at<float>(i,j) = mbf/(imD.at<float>(i,j)/mDepthMapFactor);
+                    // --- for monocular depth map ---
                     // imD.at<float>(i,j) = imD.at<float>(i,j)/500.0;
                 }
             }
@@ -182,6 +174,7 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
 
     cv::Mat imDepth = imD;
 
+    // Transfer color image to grey image
     if(mImGray.channels()==3)
     {
         if(mbRGB)
@@ -197,12 +190,12 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
             cvtColor(mImGray,mImGray,CV_BGRA2GRAY);
     }
 
-    // save map in the tracking head (new added Nov 14 2019)
+    // Save map in the tracking head (new added Nov 14 2019)
     mDepthMap = imD;
     mFlowMap = imFlow;
     mSegMap = maskSEM;
 
-    // initialize timing vector
+    // Initialize timing vector (Output)
     all_timing.resize(5,0);
 
     // (new added Nov 21 2019)
@@ -225,32 +218,28 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
     // +++++++++++++++++++++++++ For sampled features ++++++++++++++++++++++++++++++++++++++++
     // ---------------------------------------------------------------------------------------
 
-    if(mState!=NO_IMAGES_YET) // those are assigned after the first frame. so not "1st or 2nd frame".
+    if(mState!=NO_IMAGES_YET)
     {
         cout << "Update Current Frame From Last....." << endl;
 
-        mCurrentFrame.mvSiftKeys = mLastFrame.mvCorres;
-        mCurrentFrame.N_s = mCurrentFrame.mvSiftKeys.size();
-
-        // cout << "current number of features: " << mCurrentFrame.N_s << endl;
+        mCurrentFrame.mvStatKeys = mLastFrame.mvCorres;
+        mCurrentFrame.N_s = mCurrentFrame.mvStatKeys.size();
 
         // assign the depth value to each keypoint
-        mCurrentFrame.mvSiftDepth = std::vector<float>(mCurrentFrame.N_s,-1);
+        mCurrentFrame.mvStatDepth = std::vector<float>(mCurrentFrame.N_s,-1);
         for(int i=0; i<mCurrentFrame.N_s; i++)
         {
-            const cv::KeyPoint &kp = mCurrentFrame.mvSiftKeys[i];
+            const cv::KeyPoint &kp = mCurrentFrame.mvStatKeys[i];
 
             const int v = kp.pt.y;
             const int u = kp.pt.x;
-            // cout << "u " << u << " v " << v << endl;
-            // cout <<  "image: " << mImGray.cols << " " << mImGray.rows << endl;
 
             if (u<(mImGray.cols-1) && u>0 && v<(mImGray.rows-1) && v>0)
             {
                 float d = imDepth.at<float>(v,u); // be careful with the order  !!!
 
                 if(d>0)
-                    mCurrentFrame.mvSiftDepth[i] = d;
+                    mCurrentFrame.mvStatDepth[i] = d;
             }
 
         }
@@ -279,22 +268,18 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
             }
             else
             {
-                // cout << "found a point that is out of image boundary..." << endl;
                 mCurrentFrame.mvObjDepth[i] = 0.1;
                 mCurrentFrame.vSemObjLabel[i] = 0;
             }
-            // cout << "check depth: " << " " << imDepth.at<float>(round(v),round(u)) << " " << imDepth.at<float>(v,u) << endl;
         }
 
         // **********************************************************
-
-        // cout << "Amount of Dense Features: " << mCurrentFrame.mvObjKeys.size() << endl;
         // // show image
         // cv::Mat img_show;
         // cv::drawKeypoints(mImGray, mCurrentFrame.mvObjKeys, img_show, cv::Scalar::all(-1), cv::DrawMatchesFlags::DEFAULT);
         // cv::imshow("Dense Feature Distribution 2", img_show);
         // cv::waitKey(0);
-        cout << "Done!" << endl;
+        cout << "Update Current Frame, Done!" << endl;
     }
 
     // ---------------------------------------------------------------------------------------
@@ -303,22 +288,18 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
     // // Assign pose ground truth
     if (mState==NO_IMAGES_YET)
     {
-        mCurrentFrame.mTcw_gt = InvMatrix(mTcw_gt);
+        mCurrentFrame.mTcw_gt = Converter::toInvMatrix(mTcw_gt);
         mOriginInv = mTcw_gt;
-        // mCurrentFrame.mTcw_gt = mTcw_gt;
-        // mOriginInv = InvMatrix(mTcw_gt);
     }
     else
     {
-        mCurrentFrame.mTcw_gt = InvMatrix(mTcw_gt)*mOriginInv;
-        // mCurrentFrame.mTcw_gt = mTcw_gt*mOriginInv;
+        mCurrentFrame.mTcw_gt = Converter::toInvMatrix(mTcw_gt)*mOriginInv;
     }
 
 
     // Assign object pose ground truth
     mCurrentFrame.nSemPosi_gt.resize(vObjPose_gt.size());
     mCurrentFrame.vObjPose_gt.resize(vObjPose_gt.size());
-    // mCurrentFrame.vObjBox_gt.resize(vObjPose_gt.size());
     for (int i = 0; i < vObjPose_gt.size(); ++i){
         // (1) label
         mCurrentFrame.nSemPosi_gt[i] = vObjPose_gt[i][1];
@@ -327,9 +308,6 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
             mCurrentFrame.vObjPose_gt[i] = ObjPoseParsingOX(vObjPose_gt[i]);
         else
             mCurrentFrame.vObjPose_gt[i] = ObjPoseParsingKT(vObjPose_gt[i]);
-        // // // (3) bounding box
-        // float bbox[4] = {vObjPose_gt[i][2],vObjPose_gt[i][3],vObjPose_gt[i][4],vObjPose_gt[i][5]};
-        // mCurrentFrame.vObjBox_gt[i] = cv::Mat(1, 4, CV_32F, bbox);
     }
 
     // Save temperal matches for visualization
@@ -338,45 +316,35 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
     mCurrentFrame.vObjLabel.resize(mCurrentFrame.mvObjKeys.size(),-2);
 
     // *** main ***
+    cout << "Start Tracking ......" << endl;
     Track();
+    cout << "End Tracking ......" << endl;
     // ************
 
+    // Update Global ID
     f_id = f_id + 1;
 
-
-    // // ********** show the flow vector ************* // //
-    // if (timestamp!=0 && (bFrame2Frame == true || bSecondFrame == true))
-    // {
-    //     cv::Mat flow_image = imRGB;
-    //     for (int i = 0; i < mvKeysCurrentFrame.size(); ++i) {
-    //         if(TemperalMatch[i]!=-1 && mCurrentFrame.vObjLabel[i]>=0){
-    //             if(cv::norm(mCurrentFrame.vFlow_2d[i])>=0){
-    //                 Tracking::DrawTransparentSquare(cv::Point(mvKeysCurrentFrame[i].pt.x, mvKeysCurrentFrame[i].pt.y), cv::Vec3b(0, 0, 255), 3.0, 0.5, flow_image);
-    //                 Tracking::DrawLine(mvKeysCurrentFrame[i], mCurrentFrame.vFlow_2d[i], flow_image, cv::Vec3b(255, 0, 0));
-    //             }
-    //         }
-    //     }
-    //     cv::imshow("Flow Illustration", flow_image);
-    //     cv::waitKey(0);
-    // }
+    // ---------------------------------------------------------------------------------------------
+    // ++++++++++++++++++++++++++++++++ Display Information ++++++++++++++++++++++++++++++++++++++++
+    // ---------------------------------------------------------------------------------------------
 
     // // // ************** display label on the image ***************  // //
-    if(timestamp!=0 && (bFrame2Frame == true || bSecondFrame == true))
+    if(timestamp!=0 && bFrame2Frame == true)
     {
         std::vector<cv::KeyPoint> KeyPoints_tmp(1);
         // background features
-        // for (int i = 0; i < mCurrentFrame.mvSiftKeys.size(); i=i+1)
+        // for (int i = 0; i < mCurrentFrame.mvStatKeys.size(); i=i+1)
         // {
-        //     KeyPoints_tmp[0] = mCurrentFrame.mvSiftKeys[i];
+        //     KeyPoints_tmp[0] = mCurrentFrame.mvStatKeys[i];
         //     if(maskSEM.at<int>(KeyPoints_tmp[0].pt.y,KeyPoints_tmp[0].pt.x)!=0)
         //         continue;
         //     cv::drawKeypoints(imRGB, KeyPoints_tmp, imRGB, cv::Scalar(0,0,255), 1); // red
         // }
         for (int i = 0; i < TemperalMatch_subset.size(); i=i+1)
         {
-            if (TemperalMatch_subset[i]>=mCurrentFrame.mvSiftKeys.size())
+            if (TemperalMatch_subset[i]>=mCurrentFrame.mvStatKeys.size())
                 continue;
-            KeyPoints_tmp[0] = mCurrentFrame.mvSiftKeys[TemperalMatch_subset[i]];
+            KeyPoints_tmp[0] = mCurrentFrame.mvStatKeys[TemperalMatch_subset[i]];
             if (KeyPoints_tmp[0].pt.x>=(mImGray.cols-1) || KeyPoints_tmp[0].pt.x<=0 || KeyPoints_tmp[0].pt.y>=(mImGray.rows-1) || KeyPoints_tmp[0].pt.y<=0)
                 continue;
             if(maskSEM.at<int>(KeyPoints_tmp[0].pt.y,KeyPoints_tmp[0].pt.x)!=0)
@@ -521,7 +489,7 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
     }
 
     // // ************** show bounding box with speed ***************
-    // if(timestamp!=0 && (bFrame2Frame == true || bSecondFrame == true))
+    // if(timestamp!=0 && bFrame2Frame == true)
     // {
     //     cv::Mat mImBGR(mImGray.size(), CV_8UC3);
     //     cvtColor(mImGray, mImBGR, CV_GRAY2RGB);
@@ -548,7 +516,7 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
     // // // ************** show trajectory results ***************
     // int sta_x = 300, sta_y = 120, radi = 2, thic = 5;  // (160/120/2/5)
     // float scale = 6; // 6
-    // cv::Mat CamPos = InvMatrix(mCurrentFrame.mTcw);
+    // cv::Mat CamPos = Converter::toInvMatrix(mCurrentFrame.mTcw);
     // int x = int(CamPos.at<float>(0,3)*scale) + sta_x;
     // int y = int(CamPos.at<float>(2,3)*scale) + sta_y;
     // // cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(255,0,0), thic);
@@ -614,7 +582,7 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
     // cv::waitKey(0);
 
     // // // ************** display temperal matching ***************
-    // if(timestamp!=0 && (bFrame2Frame == true || bSecondFrame == true))
+    // if(timestamp!=0 && bFrame2Frame == true)
     // {
     //     std::vector<cv::KeyPoint> PreKeys, CurKeys;
     //     std::vector<cv::DMatch> TemperalMatches;
@@ -628,8 +596,6 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
     //         // if(checkit[iL]==0)
     //         //     continue;
     //         // if(mCurrentFrame.vObjLabel[iL]<=0)
-    //         //     continue;
-    //         // if(mCurrentFrame.vSemLabel[iL]==0) // || cv::norm(mCurrentFrame.vFlow_3d[iL])>0.15
     //         //     continue;
     //         // if(cv::norm(mCurrentFrame.vFlow_3d[iL])<0.15)
     //         //     continue;
@@ -650,6 +616,9 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
     //     cv::waitKey(0);
     // }
 
+    // ---------------------------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------------------------
+
     mImGrayLast = mImGray;
     TemperalMatch.clear();
     mSegMapLast = mSegMap;   // new added Nov 21 2019
@@ -661,12 +630,8 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
 
 void Tracking::Track()
 {
-    cout << "Start Tracking......" << endl;
-
     if(mState==NO_IMAGES_YET)
-    {
         mState = NOT_INITIALIZED;
-    }
 
     mLastProcessedState=mState;
 
@@ -675,7 +640,6 @@ void Tracking::Track()
     {
         bFirstFrame = true;
         bFrame2Frame = false;
-        bSecondFrame = false;
 
         if(mSensor==System::RGBD)
             Initialization();
@@ -687,127 +651,31 @@ void Tracking::Track()
     {
         bFrame2Frame = true;
 
-        // ---------------------------------------------------------------------------------------
-        // ++++++++++++++++++++ Compute Sparse Scene Flow ++++++++++++++++++++++++++++++++++++++++
-        // ---------------------------------------------------------------------------------------
+        cout << "--------------------------------------------" << endl;
+        cout << "..........Dealing with Camera Pose.........." << endl;
+        cout << "--------------------------------------------" << endl;
 
-        // cout << "start matching......" << endl;
-        // // redo the matching to all the features using projecting matching
-        // ORBmatcher matcher(0.9,true);
-        // int num_matches = matcher.ProjMatching(mCurrentFrame,mLastFrame,TemperalMatch, bSecondFrame);
-        // int num_matches = matcher.SearchByQuad(mCurrentFrame,mLastFrame,TemperalMatch);
-
-        // // *********** for sampled features ***********
-        // int num_matches = mCurrentFrame.N_s;
+        // // *********** Update TemperalMatch ***********
         for (int i = 0; i < mCurrentFrame.N_s; ++i){
             TemperalMatch[i] = i;
         }
         // // ********************************************
 
-        // cout << "New Matching result~ ~ ~ ~ ~ ~: " << num_matches << endl;
-
-        // // calculate the re-projection error (static features)
-        // float Rpe_sum = 0, sta_num = 0;
-        // std::vector<float> flow_error(mCurrentFrame.N_s,0.0);
-        // std::vector<Eigen::Vector2d> of_gt_cam(mCurrentFrame.N_s);
-        // std::vector<int> of_range_cam(20,0);
-        // for (int i = 0; i < mCurrentFrame.N_s; ++i)
-        // {
-        //     cv::Mat x3D_p = mLastFrame.UnprojectStereoSift(TemperalMatch[i],0);
-        //     cv::Mat Tcw_gt = mCurrentFrame.mTcw_gt;
-        //     cv::Mat x3D_pc = Tcw_gt.rowRange(0,3).colRange(0,3)*x3D_p+Tcw_gt.rowRange(0,3).col(3);
-
-        //     float xc = x3D_pc.at<float>(0);
-        //     float yc = x3D_pc.at<float>(1);
-        //     float invzc = 1.0/x3D_pc.at<float>(2);
-        //     float u = mCurrentFrame.fx*xc*invzc+mCurrentFrame.cx;
-        //     float v = mCurrentFrame.fy*yc*invzc+mCurrentFrame.cy;
-        //     float u_ = mCurrentFrame.mvSiftKeys[i].pt.x - u;
-        //     float v_ = mCurrentFrame.mvSiftKeys[i].pt.y - v;
-
-        //     of_gt_cam[i](0) = u - mLastFrame.mvSiftKeys[TemperalMatch[i]].pt.x;
-        //     of_gt_cam[i](1) = v - mLastFrame.mvSiftKeys[TemperalMatch[i]].pt.y;
-
-        //     float ofe = std::sqrt(u_*u_ + v_*v_);
-        //     flow_error[i] = ofe;
-
-        //     {
-        //         if (0.0<=ofe && ofe<0.5)
-        //             of_range_cam[0] = of_range_cam[0] + 1;
-        //         else if (0.5<=ofe && ofe<1.0)
-        //             of_range_cam[1] = of_range_cam[1] + 1;
-        //         else if (1.0<=ofe && ofe<1.5)
-        //             of_range_cam[2] = of_range_cam[2] + 1;
-        //         else if (1.5<=ofe && ofe<2.0)
-        //             of_range_cam[3] = of_range_cam[3] + 1;
-        //         else if (2.0<=ofe && ofe<2.5)
-        //             of_range_cam[4] = of_range_cam[4] + 1;
-        //         else if (2.5<=ofe && ofe<3.0)
-        //             of_range_cam[5] = of_range_cam[5] + 1;
-        //         else if (3.0<=ofe && ofe<3.5)
-        //             of_range_cam[6] = of_range_cam[6] + 1;
-        //         else if (3.5<=ofe && ofe<4.0)
-        //             of_range_cam[7] = of_range_cam[7] + 1;
-        //         else if (4.0<=ofe && ofe<4.5)
-        //             of_range_cam[8] = of_range_cam[8] + 1;
-        //         else if (4.5<=ofe && ofe<5.0)
-        //             of_range_cam[9] = of_range_cam[9] + 1;
-        //         else if (5.0<=ofe && ofe<5.5)
-        //             of_range_cam[10] = of_range_cam[10] + 1;
-        //         else if (5.5<=ofe && ofe<6.0)
-        //             of_range_cam[11] = of_range_cam[11] + 1;
-        //         else if (6.0<=ofe && ofe<6.5)
-        //             of_range_cam[12] = of_range_cam[12] + 1;
-        //         else if (6.5<=ofe && ofe<7.0)
-        //             of_range_cam[13] = of_range_cam[13] + 1;
-        //         else if (7.0<=ofe && ofe<7.5)
-        //             of_range_cam[14] = of_range_cam[14] + 1;
-        //         else if (7.5<=ofe && ofe<8.0)
-        //             of_range_cam[15] = of_range_cam[15] + 1;
-        //         else if (8.0<=ofe && ofe<8.5)
-        //             of_range_cam[16] = of_range_cam[16] + 1;
-        //         else if (8.5<=ofe && ofe<9.0)
-        //             of_range_cam[17] = of_range_cam[17] + 1;
-        //         else if (9.0<=ofe && ofe<10.0)
-        //             of_range_cam[18] = of_range_cam[18] + 1;
-        //         else if (10.0<=ofe)
-        //             of_range_cam[19] = of_range_cam[19] + 1;
-        //     }
-
-        //     Rpe_sum = Rpe_sum + ofe;
-        //     sta_num = sta_num + 1.0;
-        // }
-
-        // cout << "AVG static optical flow error: " << sta_num << " " << Rpe_sum/sta_num << endl;
-
-        // cout << "background optical flow distribution: " << endl;
-        // for (int j = 0; j < of_range_cam.size(); ++j)
-        //     cout << of_range_cam[j] << " ";
-        // cout << endl;
-
         clock_t s_1_1, s_1_2, e_1_1, e_1_2;
         double cam_pos_time;
         s_1_1 = clock();
-        // Get initial estimate using PnP plus RanSac
+        // Get initial estimate using P3P plus RanSac
         cv::Mat iniTcw = GetInitModelCam(TemperalMatch,TemperalMatch_subset);
         e_1_1 = clock();
 
-        std::vector<Eigen::Vector2d> of_gt_in_cam(TemperalMatch_subset.size());
-        std::vector<double> e_bef_cam(TemperalMatch_subset.size());
-        // for (int i = 0; i < TemperalMatch_subset.size(); ++i)
-        // {
-        //     of_gt_in_cam[i] = of_gt_cam[TemperalMatch_subset[i]];
-        //     e_bef_cam[i] = flow_error[TemperalMatch_subset[i]];
-        // }
 
         s_1_2 = clock();
-        // cout << "the ground truth pose (inv): " << endl << InvMatrix(mCurrentFrame.mTcw_gt) << endl;
         // cout << "the ground truth pose: " << endl << mCurrentFrame.mTcw_gt << endl;
         // cout << "initial pose: " << endl << iniTcw << endl;
         // // compute the pose with new matching
         mCurrentFrame.SetPose(iniTcw);
         if (bJoint)
-            Optimizer::PoseOptimizationFlow2Cam(&mCurrentFrame, &mLastFrame, TemperalMatch_subset, of_gt_in_cam, e_bef_cam);
+            Optimizer::PoseOptimizationFlow2Cam(&mCurrentFrame, &mLastFrame, TemperalMatch_subset);
         else
             Optimizer::PoseOptimizationNew(&mCurrentFrame, &mLastFrame, TemperalMatch_subset);
         // cout << "pose after update: " << endl << mCurrentFrame.mTcw << endl;
@@ -825,11 +693,13 @@ void Tracking::Track()
             mVelocity = mCurrentFrame.mTcw*LastTwc;
         }
 
-        // cv::Mat Tcw_est_inv = InvMatrix(mCurrentFrame.mTcw);
+        // ----------- compute camera pose error ----------
+
+        // cv::Mat Tcw_est_inv = Converter::toInvMatrix(mCurrentFrame.mTcw);
         // cv::Mat RePoEr_cam = Tcw_est_inv*mCurrentFrame.mTcw_gt;
         // cout << "error matrix: " << endl << RePoEr_cam << endl;
-        cv::Mat T_lc_inv = mCurrentFrame.mTcw*InvMatrix(mLastFrame.mTcw);
-        cv::Mat T_lc_gt = mLastFrame.mTcw_gt*InvMatrix(mCurrentFrame.mTcw_gt);
+        cv::Mat T_lc_inv = mCurrentFrame.mTcw*Converter::toInvMatrix(mLastFrame.mTcw);
+        cv::Mat T_lc_gt = mLastFrame.mTcw_gt*Converter::toInvMatrix(mCurrentFrame.mTcw_gt);
         cv::Mat RePoEr_cam = T_lc_inv*T_lc_gt;
 
         float t_rpe_cam = std::sqrt( RePoEr_cam.at<float>(0,3)*RePoEr_cam.at<float>(0,3) + RePoEr_cam.at<float>(1,3)*RePoEr_cam.at<float>(1,3) + RePoEr_cam.at<float>(2,3)*RePoEr_cam.at<float>(2,3) );
@@ -846,351 +716,40 @@ void Tracking::Track()
 
         cout << "the relative pose error of estimated camera pose, " << "t: " << t_rpe_cam <<  " R: " << r_rpe_cam << endl;
 
-        // float t_gt_cam = std::sqrt( T_lc_gt.at<float>(0,3)*T_lc_gt.at<float>(0,3) + T_lc_gt.at<float>(1,3)*T_lc_gt.at<float>(1,3) + T_lc_gt.at<float>(2,3)*T_lc_gt.at<float>(2,3) );
-        // cout << "the relative pose error of estimated camera pose, " << "t: " << (t_rpe_cam/t_gt_cam)*100 << "%" << " R: " << r_rpe_cam/t_gt_cam << "deg/m" << endl;
-        // mpMap->vvCamMotErr_2.push_back(cv::Point2f(t_rpe_cam/t_gt_cam,r_rpe_cam/t_gt_cam));
-
-        mpMap->vvCamMotErr_1.push_back(cv::Point2f(t_rpe_cam,r_rpe_cam));
-        mpMap->vmCameraPose_main.push_back(InvMatrix(mCurrentFrame.mTcw));
-
-        // // // image show the matching
-        // std::vector<cv::KeyPoint> PreKeys(TemperalMatch_subset.size()), CurKeys(TemperalMatch_subset.size());
-        // std::vector<cv::DMatch> TMes;
-        // int count_ =0;
-        // for (int i = 0; i < TemperalMatch_subset.size(); i=i+3)
-        // {
-        //     // save key points for visualization
-        //     PreKeys[i]=mLastFrame.mvSiftKeys[TemperalMatch_subset[i]];
-        //     CurKeys[i]=mCurrentFrame.mvSiftKeys[TemperalMatch_subset[i]];
-        //     cv::DMatch aaa = cv::DMatch(count_,count_,0);
-        //     TMes.push_back(aaa);
-        //     count_ = count_ + 1;
-        // }
-        // cv::Mat img_matches;
-        // drawMatches(mImGrayLast, PreKeys, mImGray, CurKeys,
-        //             TMes, img_matches, cv::Scalar::all(-1), cv::Scalar::all(-1),
-        //             vector<char>(), cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
-        // cv::resize(img_matches, img_matches, cv::Size(img_matches.cols/1.2, img_matches.rows/1.2));
-        // cv::namedWindow("temperal matches", cv::WINDOW_NORMAL);
-        // cv::imshow("temperal matches", img_matches);
-        // cv::waitKey(0);
-
         // // **** show the picked points ****
         // std::vector<cv::KeyPoint> PickKeys;
         // for (int j = 0; j < TemperalMatch_subset.size(); ++j){
-        //     PickKeys.push_back(mCurrentFrame.mvSiftKeys[TemperalMatch_subset[j]]);
+        //     PickKeys.push_back(mCurrentFrame.mvStatKeys[TemperalMatch_subset[j]]);
         // }
         // cv::drawKeypoints(mImGray, PickKeys, mImGray, cv::Scalar::all(-1), cv::DrawMatchesFlags::DEFAULT);
         // cv::imshow("KeyPoints and Grid on Background", mImGray);
         // cv::waitKey(0);
 
-        // // -----------------------------------------------------------------------------------------------
-        // // -----------------------------------------------------------------------------------------------
-        // // -----------------------------------------------------------------------------------------------
+        // -------------------------------------------------
 
         cout << "--------------------------------------------" << endl;
         cout << "..........Dealing with Objects Now.........." << endl;
         cout << "--------------------------------------------" << endl;
 
-        clock_t s_2, e_2;
-        double obj_tra_time;
-        s_2 = clock();
-
-        // // === compute sparse scene flow to the found matches ===
-        // // GetSceneFlowSift(TemperalMatch);
-        // // GetSceneFlow(TemperalMatch);
+        // // ====== compute sparse scene flow to the found matches =======
         GetSceneFlowObj();
 
         // // ---------------------------------------------------------------------------------------
-        // // ++++++++++++++++++++++++++ Separate object with semantic prior ++++++++++++++++++++++++
+        // // ++++++++++++++++++++++++++++++++ Dynamic Object Tracking ++++++++++++++++++++++++++++++
         // // ---------------------------------------------------------------------------------------
 
-        cout << "Object Labeling......" << endl;
+        cout << "Object Tracking ......" << endl;
 
-        // find the unique labels in semantic label
-        auto UniLab = mCurrentFrame.vSemObjLabel;
-        std::sort(UniLab.begin(), UniLab.end());
-        UniLab.erase(std::unique( UniLab.begin(), UniLab.end() ), UniLab.end() );
+        std::vector<std::vector<int> > ObjIdNew = DynObjTracking();
 
-        cout << "UniqueLabel: ";
-        for (int i = 0; i < UniLab.size(); ++i)
-            cout  << UniLab[i] << " ";
-        cout << endl;
-
-        // collect the predicted labels and semantic labels in vector
-        std::vector<std::vector<int> > Posi(UniLab.size());
-        for (int i = 0; i < mCurrentFrame.vSemObjLabel.size(); ++i)
-        {
-            // skip outliers
-            if (mCurrentFrame.vObjLabel[i]==-1)
-                continue;
-
-            // if (mCurrentFrame.vSemObjLabel[i]==0)
-            //     continue;
-
-            // // skip outliers
-            // if (mCurrentFrame.vSemObjLabel[i]==89)
-            //     continue;
-
-            // save object label
-            for (int j = 0; j < UniLab.size(); ++j)
-            {
-                if(mCurrentFrame.vSemObjLabel[i]==UniLab[j]){
-                    Posi[j].push_back(i);
-                    break;
-                }
-            }
-        }
-
-        // // save objects only from Posi() -> ObjId()
-        std::vector<std::vector<int> > ObjId;
-        std::vector<int> sem_posi; // semantic label position for the objects
-        int shrin_thr_row, shrin_thr_col;
-        if (oxford)
-        {
-            shrin_thr_row = 0;
-            shrin_thr_col = 0;
-        }
-        else
-        {
-            shrin_thr_row = 10; // 25
-            shrin_thr_col = 10; // 50
-        }
-        for (int i = 0; i < Posi.size(); ++i)
-        {
-            // shrink the image to get rid of object parts on the boundary
-            float count = 0, count_thres=0.5;
-            for (int j = 0; j < Posi[i].size(); ++j)
-            {
-                const float u = mCurrentFrame.mvObjKeys[Posi[i][j]].pt.x;
-                const float v = mCurrentFrame.mvObjKeys[Posi[i][j]].pt.y;
-                if ( v<shrin_thr_row || v>(mImGray.rows-shrin_thr_row) || u<shrin_thr_col || u>(mImGray.cols-shrin_thr_col) )
-                    count = count + 1;
-            }
-            if (count/Posi[i].size()>count_thres)
-            {
-                // cout << "Most part of this object is on the image boundary......" << endl;
-                for (int k = 0; k < Posi[i].size(); ++k)
-                    mCurrentFrame.vObjLabel[Posi[i][k]] = -1;
-                continue;
-            }
-            else
-            {
-                ObjId.push_back(Posi[i]);
-                sem_posi.push_back(UniLab[i]);
-            }
-        }
-
-        // // check scene flow distribution of each object
-        // // and keep the dynamic object
-        float sf_thres, sf_percent; // 0.12 0.3
-        if (oxford)
-        {
-            sf_thres=0.05;
-            sf_percent=0.99;
-        }
-        else
-        {
-            sf_thres=0.05; // 0.12
-            sf_percent=0.99; // 0.3
-        }
-        std::vector<std::vector<int> > ObjIdNew;
-        std::vector<int> SemPosNew, obj_dis_tres(sem_posi.size(),0);
-        for (int i = 0; i < ObjId.size(); ++i)
-        {
-
-            float obj_center_depth = 0, sf_min=100, sf_max=0, sf_mean=0, sf_count=0;
-            std::vector<int> sf_range(10,0);
-            for (int j = 0; j < ObjId[i].size(); ++j)
-            {
-                obj_center_depth = obj_center_depth + mCurrentFrame.mvObjDepth[ObjId[i][j]];
-                // const float sf_norm = cv::norm(mCurrentFrame.vFlow_3d[ObjId[i][j]]);
-                float sf_norm = std::sqrt(mCurrentFrame.vFlow_3d[ObjId[i][j]].x*mCurrentFrame.vFlow_3d[ObjId[i][j]].x + mCurrentFrame.vFlow_3d[ObjId[i][j]].z*mCurrentFrame.vFlow_3d[ObjId[i][j]].z);
-                if (sf_norm<sf_thres)
-                    sf_count = sf_count+1;
-                if(sf_norm<sf_min)
-                    sf_min = sf_norm;
-                if(sf_norm>sf_max)
-                    sf_max = sf_norm;
-                sf_mean = sf_mean + sf_norm;
-                {
-                    if (0.0<=sf_norm && sf_norm<0.05)
-                        sf_range[0] = sf_range[0] + 1;
-                    else if (0.05<=sf_norm && sf_norm<0.1)
-                        sf_range[1] = sf_range[1] + 1;
-                    else if (0.1<=sf_norm && sf_norm<0.2)
-                        sf_range[2] = sf_range[2] + 1;
-                    else if (0.2<=sf_norm && sf_norm<0.4)
-                        sf_range[3] = sf_range[3] + 1;
-                    else if (0.4<=sf_norm && sf_norm<0.8)
-                        sf_range[4] = sf_range[4] + 1;
-                    else if (0.8<=sf_norm && sf_norm<1.6)
-                        sf_range[5] = sf_range[5] + 1;
-                    else if (1.6<=sf_norm && sf_norm<3.2)
-                        sf_range[6] = sf_range[6] + 1;
-                    else if (3.2<=sf_norm && sf_norm<6.4)
-                        sf_range[7] = sf_range[7] + 1;
-                    else if (6.4<=sf_norm && sf_norm<12.8)
-                        sf_range[8] = sf_range[8] + 1;
-                    else if (12.8<=sf_norm && sf_norm<25.6)
-                        sf_range[9] = sf_range[9] + 1;
-                }
-            }
-
-            // cout << "object center depth: " << obj_center_depth/ObjId[i].size() << endl;
-            // cout << "object proportion over whole image: " << ObjId[i].size()*2.0*2.0/465750.0*100 << "%" << endl;
-            // cout << "scene flow distribution:"  << endl;
-            // for (int j = 0; j < sf_range.size(); ++j)
-            //     cout << sf_range[j] << " ";
-            // cout << endl;
-            // cout << "scene flow statistics: " << sf_count << " " << sf_min << " " << sf_max << " " << sf_mean/ObjId[i].size() << endl;
-
-            if (sf_count/ObjId[i].size()>sf_percent)
-            {
-                // label this object as static background
-                for (int k = 0; k < ObjId[i].size(); ++k)
-                    mCurrentFrame.vObjLabel[ObjId[i][k]] = 0;
-                continue;
-            }
-            else if (obj_center_depth/ObjId[i].size()>35.0 || ObjId[i].size()<150)
-            {
-                obj_dis_tres[i]=-1;
-                cout << "object " << sem_posi[i] <<" is too far away or too small! " << obj_center_depth/ObjId[i].size() << endl;
-                // label this object as far away object
-                for (int k = 0; k < ObjId[i].size(); ++k)
-                    mCurrentFrame.vObjLabel[ObjId[i][k]] = -1;
-                continue;
-            }
-            else
-            {
-                // cout << "get new objects!" << endl;
-                ObjIdNew.push_back(ObjId[i]);
-                SemPosNew.push_back(sem_posi[i]);
-            }
-        }
-
-        mpMap->vTotObjNum.push_back(ObjId.size());
-
-        // add ground truth tracks
-        std::vector<int> nSemPosi_gt_tmp = mCurrentFrame.nSemPosi_gt;
-        for (int i = 0; i < sem_posi.size(); ++i)
-        {
-            for (int j = 0; j < nSemPosi_gt_tmp.size(); ++j)
-            {
-                if (sem_posi[i]==nSemPosi_gt_tmp[j] && obj_dis_tres[i]==-1)
-                {
-                    nSemPosi_gt_tmp[j]=-1;
-                }
-            }
-        }
-
-        mpMap->vnSMLabelGT.push_back(nSemPosi_gt_tmp);
-
-
-        // *************************************************************
-
-        // // *** To show the points on object ***
-        // for (int i = 0; i < ObjIdNew.size(); ++i)
-        // {
-        //     // **** show the picked points ****
-        //     std::vector<cv::KeyPoint> PickKeys;
-        //     for (int j = 0; j < ObjIdNew[i].size(); ++j){
-        //         PickKeys.push_back(mCurrentFrame.mvObjKeys[ObjIdNew[i][j]]);
-        //     }
-        //     cv::drawKeypoints(mImGray, PickKeys, mImGray, cv::Scalar::all(-1), cv::DrawMatchesFlags::DEFAULT);
-        //     cv::imshow("KeyPoints and Grid on Background", mImGray);
-        //     cv::waitKey(0);
-        // }
-
-        // relabel the objects that associate with the objects in last frame
-        if (f_id==1)
-            max_id = 1;
-
-        // save current label id
-        std::vector<int> LabId(ObjIdNew.size());
-        for (int i = 0; i < ObjIdNew.size(); ++i)
-        {
-            // save semantic labels in last frame
-            std::vector<int> Lb_last;
-            for (int k = 0; k < ObjIdNew[i].size(); ++k)
-                Lb_last.push_back(mLastFrame.vSemObjLabel[ObjIdNew[i][k]]);
-
-            // find label that appears most in Lb_last()
-            // (1) count duplicates
-            std::map<int, int> dups;
-            for(int k : Lb_last)
-                ++dups[k];
-            // (2) and sort them by descending order
-            std::vector<std::pair<int, int> > sorted;
-            for (auto k : dups)
-                sorted.push_back(std::make_pair(k.first,k.second));
-            std::sort(sorted.begin(), sorted.end(), SortPairInt);
-
-            // label the object in current frame
-            int New_lab = sorted[0].first;
-            // cout << " what is in the new label: " << New_lab << endl;
-            if (max_id==1)
-            {
-                LabId[i] = max_id;
-                for (int k = 0; k < ObjIdNew[i].size(); ++k)
-                    mCurrentFrame.vObjLabel[ObjIdNew[i][k]] = max_id;
-                max_id = max_id + 1;
-            }
-            else
-            {
-                bool exist = false;
-                for (int k = 0; k < mLastFrame.nSemPosition.size(); ++k)
-                {
-                    if (mLastFrame.nSemPosition[k]==New_lab && mLastFrame.bObjStat[k]) // && mLastFrame.bObjStat[k]
-                    {
-                        LabId[i] = mLastFrame.nModLabel[k];
-                        for (int k = 0; k < ObjIdNew[i].size(); ++k)
-                            mCurrentFrame.vObjLabel[ObjIdNew[i][k]] = LabId[i];
-                        exist = true;
-                        break;
-                    }
-                }
-                if (exist==false)
-                {
-                    LabId[i] = max_id;
-                    for (int k = 0; k < ObjIdNew[i].size(); ++k)
-                        mCurrentFrame.vObjLabel[ObjIdNew[i][k]] = max_id;
-                    max_id = max_id + 1;
-                }
-            }
-
-        }
-
-        // // assign the model label in current frame
-        mCurrentFrame.nModLabel = LabId;
-        mCurrentFrame.nSemPosition = SemPosNew;
-
-        e_2 = clock();
-        obj_tra_time = (double)(e_2-s_2)/CLOCKS_PER_SEC*1000;
-        all_timing[2] = obj_tra_time;
-        cout << "dynamic object tracking time: " << obj_tra_time << endl;
-
-        cout << "Current Max_id: ("<< max_id << ") motion label: ";
-        for (int i = 0; i < LabId.size(); ++i)
-            cout <<  LabId[i] << " ";
-        cout << endl << "Done!" << endl;
+        cout << endl << "Object Tracking, Done!" << endl;
 
         // // ---------------------------------------------------------------------------------------
-        // // ++++++++++++++++++++++++++ Motion Estimation for each object ++++++++++++++++++++++++++
+        // // ++++++++++++++++++++++++++++++ Object Motion Estimation +++++++++++++++++++++++++++++++
         // // ---------------------------------------------------------------------------------------
-
-        // // string filename = "of_dist.txt";
-        // // ofstream save_distr;
-        // // save_distr.open(filename.c_str(),ios::trunc);
 
         clock_t s_3_1, s_3_2, e_3_1, e_3_2;
         double obj_mot_time = 0, t_con = 0;
-
-        // some results to be saved
-        std::vector<int> vObjMotID;
-        std::vector<cv::Point2f> vObjMotErr_1;
-        std::vector<cv::Point2f> vObjMotErr_2;
-        std::vector<cv::Point2f> vObjMotErr_3;
 
         mCurrentFrame.bObjStat.resize(ObjIdNew.size(),true);
         mCurrentFrame.vObjMod.resize(ObjIdNew.size());
@@ -1203,17 +762,16 @@ void Tracking::Track()
         mCurrentFrame.vnObjID.resize(ObjIdNew.size());
         mCurrentFrame.vnObjInlierID.resize(ObjIdNew.size());
         repro_e.resize(ObjIdNew.size(),0.0);
-        cv::Mat Last_Twc_gt = InvMatrix(mLastFrame.mTcw_gt); // inverse of camera pose
-        cv::Mat Curr_Twc_gt = InvMatrix(mCurrentFrame.mTcw_gt); // inverse of camera pose
+        cv::Mat Last_Twc_gt = Converter::toInvMatrix(mLastFrame.mTcw_gt);
+        cv::Mat Curr_Twc_gt = Converter::toInvMatrix(mCurrentFrame.mTcw_gt);
+        // main loop
         for (int i = 0; i < ObjIdNew.size(); ++i)
         {
-            // *****************************************************************************
-            // cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << endl;
-
-            // get the ground truth object motion
-            cv::Mat L_p, L_c, L_w_p, L_w_c, H_p_c, H_p_c_body; // previous and current and world
+            // Get the ground truth object motion
+            cv::Mat L_p, L_c, L_w_p, L_w_c, H_p_c, H_p_c_body;
             bool bCheckGT1 = false, bCheckGT2 = false;
-            for (int k = 0; k < mLastFrame.nSemPosi_gt.size(); ++k){
+            for (int k = 0; k < mLastFrame.nSemPosi_gt.size(); ++k)
+            {
                 if (mLastFrame.nSemPosi_gt[k]==mCurrentFrame.nSemPosition[i]){
                     // cout << "it is " << mLastFrame.nSemPosi_gt[k] << "!" << endl;
                     if (oxford)
@@ -1231,7 +789,8 @@ void Tracking::Track()
                     break;
                 }
             }
-            for (int k = 0; k < mCurrentFrame.nSemPosi_gt.size(); ++k){
+            for (int k = 0; k < mCurrentFrame.nSemPosi_gt.size(); ++k)
+            {
                 if (mCurrentFrame.nSemPosi_gt[k]==mCurrentFrame.nSemPosition[i]){
                     // cout << "it is " << mCurrentFrame.nSemPosi_gt[k] << "!" << endl;
                     if (oxford)
@@ -1263,246 +822,39 @@ void Tracking::Track()
                 continue;
             }
 
-            cv::Mat L_w_p_inv = InvMatrix(L_w_p);
+            cv::Mat L_w_p_inv = Converter::toInvMatrix(L_w_p);
             H_p_c = L_w_c*L_w_p_inv;
             H_p_c_body = L_w_p_inv*L_w_c; // for new metric (26 Feb 2020).
             mCurrentFrame.vObjMod_gt[i] = H_p_c_body;
-            mCurrentFrame.vObjCentre3D[i] = L_w_p.rowRange(0,3).col(3);
+            // mCurrentFrame.vObjCentre3D[i] = L_w_p.rowRange(0,3).col(3);
             mCurrentFrame.vObjPosePre[i] = L_w_p; // for new metric (26 Feb 2020).
 
             // cout << "ground truth motion of object No. " << mCurrentFrame.nSemPosition[i] << " :" << endl;
             // cout << H_p_c << endl;
 
-            // *****************************************************************************
+            // ***************************************************************************************
 
-            std::vector<cv::KeyPoint> PreKeys, CurKeys;
-            std::vector<cv::DMatch> TMes;
-            std::vector<int> ObjIdTest, of_range(20,0),of_range_x(20,0),of_range_y(20,0);
-            std::vector<cv::Point2f> of_dis(mCurrentFrame.mvObjKeys.size());
-            std::vector<Eigen::Vector2d> of_gt(mCurrentFrame.mvObjKeys.size());
-            cv::Mat ObjCen3D = (cv::Mat_<float>(3,1) << 0.f, 0.f, 0.f);
-            // std::vector<float> point_dis(mCurrentFrame.mvObjKeys.size());
-            float avg_of = 0, avg_of_x = 0, avg_of_y = 0;
-            int x_max=0,y_max=0,x_min=2000,y_min=2000;
-
+            cv::Mat ObjCentre3D_pre = (cv::Mat_<float>(3,1) << 0.f, 0.f, 0.f);
             for (int j = 0; j < ObjIdNew[i].size(); ++j)
             {
-                // save object centroid
-                cv::Mat x3D_c = mCurrentFrame.UnprojectStereoObject(ObjIdNew[i][j],0);
-                ObjCen3D = ObjCen3D + x3D_c;
-
-                float x = mCurrentFrame.mvObjKeys[ObjIdNew[i][j]].pt.x;
-                float y = mCurrentFrame.mvObjKeys[ObjIdNew[i][j]].pt.y;
-
-                CurKeys.push_back(mCurrentFrame.mvObjKeys[ObjIdNew[i][j]]);
-
-                // *** get the correspondence using ground truth camera pose and object motion. ***
-                // (0) move 3D via object motion
+                // save object centroid in current frame
                 cv::Mat x3D_p = mLastFrame.UnprojectStereoObject(ObjIdNew[i][j],0);
-                const cv::Mat R = H_p_c.rowRange(0,3).colRange(0,3);
-                const cv::Mat t = H_p_c.rowRange(0,3).col(3);
-                cv::Mat x3D_c_est = R*x3D_p+t;
-
-                // get the 2D projection
-                // (1) transfer 3d from world to current frame.
-                const cv::Mat R_c = mCurrentFrame.mTcw_gt.rowRange(0,3).colRange(0,3);
-                const cv::Mat t_c = mCurrentFrame.mTcw_gt.rowRange(0,3).col(3);
-                cv::Mat x3D_c_est_cam = R_c*x3D_c_est+t_c;
-                // (2) project 3d into current image plane
-                const float xc = x3D_c_est_cam.at<float>(0);
-                const float yc = x3D_c_est_cam.at<float>(1);
-                const float invzc = 1.0/x3D_c_est_cam.at<float>(2);
-                const float u = mCurrentFrame.fx*xc*invzc+mCurrentFrame.cx;
-                const float v = mCurrentFrame.fy*yc*invzc+mCurrentFrame.cy;
-
-                // save the boundary
-                if (x>x_max)
-                    x_max = x;
-                if (x<x_min)
-                    x_min = x;
-                if (y>y_max)
-                    y_max = y;
-                if (y<y_min)
-                    y_min = y;
-
-                // // // *** Get ground true correspondence *** // //
-                // mCurrentFrame.mvObjKeys[ObjIdNew[i][j]].pt.x = u;
-                // mCurrentFrame.mvObjKeys[ObjIdNew[i][j]].pt.y = v;
-
-                // // // *** Get ground optical flow *** // //
-                // mLastFrame.mvObjFlowNext[ObjIdNew[i][j]].x = u - mLastFrame.mvObjKeys[ObjIdNew[i][j]].pt.x;
-                // mLastFrame.mvObjFlowNext[ObjIdNew[i][j]].y = v - mLastFrame.mvObjKeys[ObjIdNew[i][j]].pt.y;
-
-                const float u_ = x - u;
-                const float v_ = y - v;
-                const float ofe = std::sqrt(u_*u_ + v_*v_);
-                of_dis[ObjIdNew[i][j]].x = std::abs(u_);
-                of_dis[ObjIdNew[i][j]].y = std::abs(v_);
-                of_gt[ObjIdNew[i][j]](0) = u - mLastFrame.mvObjKeys[ObjIdNew[i][j]].pt.x;
-                of_gt[ObjIdNew[i][j]](1) = v - mLastFrame.mvObjKeys[ObjIdNew[i][j]].pt.y;
-
-                // // Statistics of flow normalization
-                {
-                    if (0.0<=ofe && ofe<0.1)
-                        of_range[0] = of_range[0] + 1;
-                    else if (0.1<=ofe && ofe<0.2)
-                        of_range[1] = of_range[1] + 1;
-                    else if (0.2<=ofe && ofe<0.3)
-                        of_range[2] = of_range[2] + 1;
-                    else if (0.3<=ofe && ofe<0.4)
-                        of_range[3] = of_range[3] + 1;
-                    else if (0.4<=ofe && ofe<0.5)
-                        of_range[4] = of_range[4] + 1;
-                    else if (0.5<=ofe && ofe<0.6)
-                        of_range[5] = of_range[5] + 1;
-                    else if (0.6<=ofe && ofe<0.7)
-                        of_range[6] = of_range[6] + 1;
-                    else if (0.7<=ofe && ofe<0.8)
-                        of_range[7] = of_range[7] + 1;
-                    else if (0.8<=ofe && ofe<0.9)
-                        of_range[8] = of_range[8] + 1;
-                    else if (0.9<=ofe && ofe<1.0)
-                        of_range[9] = of_range[9] + 1;
-                    else if (1.0<=ofe && ofe<1.1)
-                        of_range[10] = of_range[10] + 1;
-                    else if (1.1<=ofe && ofe<1.2)
-                        of_range[11] = of_range[11] + 1;
-                    else if (1.2<=ofe && ofe<1.3)
-                        of_range[12] = of_range[12] + 1;
-                    else if (1.3<=ofe && ofe<1.4)
-                        of_range[13] = of_range[13] + 1;
-                    else if (1.4<=ofe && ofe<1.5)
-                        of_range[14] = of_range[14] + 1;
-                    else if (1.5<=ofe && ofe<1.6)
-                        of_range[15] = of_range[15] + 1;
-                    else if (1.6<=ofe && ofe<1.7)
-                        of_range[16] = of_range[16] + 1;
-                    else if (1.7<=ofe && ofe<1.8)
-                        of_range[17] = of_range[17] + 1;
-                    else if (1.8<=ofe && ofe<1.9)
-                        of_range[18] = of_range[18] + 1;
-                    else if (1.9<=ofe)
-                        of_range[19] = of_range[19] + 1;
-                }
-                // // Statistics of flow x
-                // {
-                //     if (0.0<=std::abs(u_) && std::abs(u_)<0.1)
-                //         of_range_x[0] = of_range_x[0] + 1;
-                //     else if (0.1<=std::abs(u_) && std::abs(u_)<0.2)
-                //         of_range_x[1] = of_range_x[1] + 1;
-                //     else if (0.2<=std::abs(u_) && std::abs(u_)<0.3)
-                //         of_range_x[2] = of_range_x[2] + 1;
-                //     else if (0.3<=std::abs(u_) && std::abs(u_)<0.4)
-                //         of_range_x[3] = of_range_x[3] + 1;
-                //     else if (0.4<=std::abs(u_) && std::abs(u_)<0.5)
-                //         of_range_x[4] = of_range_x[4] + 1;
-                //     else if (0.5<=std::abs(u_) && std::abs(u_)<0.6)
-                //         of_range_x[5] = of_range_x[5] + 1;
-                //     else if (0.6<=std::abs(u_) && std::abs(u_)<0.7)
-                //         of_range_x[6] = of_range_x[6] + 1;
-                //     else if (0.7<=std::abs(u_) && std::abs(u_)<0.8)
-                //         of_range_x[7] = of_range_x[7] + 1;
-                //     else if (0.8<=std::abs(u_) && std::abs(u_)<0.9)
-                //         of_range_x[8] = of_range_x[8] + 1;
-                //     else if (0.9<=std::abs(u_) && std::abs(u_)<1.0)
-                //         of_range_x[9] = of_range_x[9] + 1;
-                //     else if (1.0<=std::abs(u_) && std::abs(u_)<1.1)
-                //         of_range_x[10] = of_range_x[10] + 1;
-                //     else if (1.1<=std::abs(u_) && std::abs(u_)<1.2)
-                //         of_range_x[11] = of_range_x[11] + 1;
-                //     else if (1.2<=std::abs(u_) && std::abs(u_)<1.3)
-                //         of_range_x[12] = of_range_x[12] + 1;
-                //     else if (1.3<=std::abs(u_) && std::abs(u_)<1.4)
-                //         of_range_x[13] = of_range_x[13] + 1;
-                //     else if (1.4<=std::abs(u_) && std::abs(u_)<1.5)
-                //         of_range_x[14] = of_range_x[14] + 1;
-                //     else if (1.5<=std::abs(u_) && std::abs(u_)<1.6)
-                //         of_range_x[15] = of_range_x[15] + 1;
-                //     else if (1.6<=std::abs(u_) && std::abs(u_)<1.7)
-                //         of_range_x[16] = of_range_x[16] + 1;
-                //     else if (1.7<=std::abs(u_) && std::abs(u_)<1.8)
-                //         of_range_x[17] = of_range_x[17] + 1;
-                //     else if (1.8<=std::abs(u_) && std::abs(u_)<1.9)
-                //         of_range_x[18] = of_range_x[18] + 1;
-                //     else if (1.9<=std::abs(u_) && std::abs(u_)<2.0)
-                //         of_range_x[19] = of_range_x[19] + 1;
-                // }
-                // // Statistics of flow y
-                // {
-                //     if (0.0<=std::abs(v_) && std::abs(v_)<0.025)
-                //         of_range_y[0] = of_range_y[0] + 1;
-                //     else if (0.025<=std::abs(v_) && std::abs(v_)<0.05)
-                //         of_range_y[1] = of_range_y[1] + 1;
-                //     else if (0.05<=std::abs(v_) && std::abs(v_)<0.075)
-                //         of_range_y[2] = of_range_y[2] + 1;
-                //     else if (0.075<=std::abs(v_) && std::abs(v_)<0.1)
-                //         of_range_y[3] = of_range_y[3] + 1;
-                //     else if (0.1<=std::abs(v_) && std::abs(v_)<0.125)
-                //         of_range_y[4] = of_range_y[4] + 1;
-                //     else if (0.125<=std::abs(v_) && std::abs(v_)<0.15)
-                //         of_range_y[5] = of_range_y[5] + 1;
-                //     else if (0.15<=std::abs(v_) && std::abs(v_)<0.175)
-                //         of_range_y[6] = of_range_y[6] + 1;
-                //     else if (0.175<=std::abs(v_) && std::abs(v_)<0.2)
-                //         of_range_y[7] = of_range_y[7] + 1;
-                //     else if (0.2<=std::abs(v_) && std::abs(v_)<0.225)
-                //         of_range_y[8] = of_range_y[8] + 1;
-                //     else if (0.225<=std::abs(v_) && std::abs(v_)<0.25)
-                //         of_range_y[9] = of_range_y[9] + 1;
-                //     else if (0.25<=std::abs(v_) && std::abs(v_)<0.275)
-                //         of_range_y[10] = of_range_y[10] + 1;
-                //     else if (0.275<=std::abs(v_) && std::abs(v_)<0.3)
-                //         of_range_y[11] = of_range_y[11] + 1;
-                //     else if (0.3<=std::abs(v_) && std::abs(v_)<0.325)
-                //         of_range_y[12] = of_range_y[12] + 1;
-                //     else if (0.325<=std::abs(v_) && std::abs(v_)<0.35)
-                //         of_range_y[13] = of_range_y[13] + 1;
-                //     else if (0.35<=std::abs(v_) && std::abs(v_)<0.375)
-                //         of_range_y[14] = of_range_y[14] + 1;
-                //     else if (0.375<=std::abs(v_) && std::abs(v_)<0.4)
-                //         of_range_y[15] = of_range_y[15] + 1;
-                //     else if (0.4<=std::abs(v_) && std::abs(v_)<0.425)
-                //         of_range_y[16] = of_range_y[16] + 1;
-                //     else if (0.425<=std::abs(v_) && std::abs(v_)<0.45)
-                //         of_range_y[17] = of_range_y[17] + 1;
-                //     else if (0.45<=std::abs(v_) && std::abs(v_)<0.475)
-                //         of_range_y[18] = of_range_y[18] + 1;
-                //     else if (0.475<=std::abs(v_) && std::abs(v_)<0.5)
-                //         of_range_y[19] = of_range_y[19] + 1;
-                // }
-
-                // get point distance between gt and est
-                // cv::Mat x3D_p_noise = mLastFrame.UnprojectStereoObjectNoise(ObjIdNew[i][j],of_dis[ObjIdNew[i][j]]);
-                // cv::Mat x3D_c_est_noise = R*x3D_p_noise+t;
-                // point_dis[ObjIdNew[i][j]] = std::sqrt( (x3D_c_est.at<float>(0)-x3D_c_est_noise.at<float>(0))*(x3D_c_est.at<float>(0)-x3D_c_est_noise.at<float>(0)) + (x3D_c_est.at<float>(1)-x3D_c_est_noise.at<float>(1))*(x3D_c_est.at<float>(1)-x3D_c_est_noise.at<float>(1)) + (x3D_c_est.at<float>(2)-x3D_c_est_noise.at<float>(2))*(x3D_c_est.at<float>(2)-x3D_c_est_noise.at<float>(2)) );
-
-                // save index of the input for optimization
-                ObjIdTest.push_back(ObjIdNew[i][j]);
-                avg_of = avg_of + ofe;
-                avg_of_x = avg_of_x + std::abs(u_);
-                avg_of_y = avg_of_y + std::abs(v_);
+                ObjCentre3D_pre = ObjCentre3D_pre + x3D_p;
 
             }
-            // mCurrentFrame.vObjCentre3D[i] = ObjCen3D/ObjIdNew[i].size();
-            // cout << "average optical flow error: " << avg_of/ObjIdTest.size() << "/" << avg_of_x/ObjIdTest.size() << "/" << avg_of_y/ObjIdTest.size() << "/" << ObjIdTest.size() << endl;
+            ObjCentre3D_pre = ObjCentre3D_pre/ObjIdNew[i].size();
+            mCurrentFrame.vObjCentre3D[i] = ObjCentre3D_pre;
 
-            mCurrentFrame.vnObjID[i] = ObjIdTest;
-
-            // cout << "object optical flow distribution: " << endl;
-            // for (int j = 0; j < of_range.size(); ++j)
-            //     cout << of_range[j] << " ";
-            // cout << endl;
-
-            cv::Point2f flo_mea(0.0,0.0), flo_cov(0.0,0.0);
 
             s_3_1 = clock();
-            // ******* Get initial model and inlier set using PnP RanSac ********
-            // ******************************************************************
-            std::vector<int> ObjIdTest_in; //  = ObjIdTest
+
+            // ******* Get initial model and inlier set using P3P RanSac ********
+            std::vector<int> ObjIdTest = ObjIdNew[i];
+            mCurrentFrame.vnObjID[i] = ObjIdTest;
+            std::vector<int> ObjIdTest_in;
             mCurrentFrame.mInitModel = GetInitModelObj(ObjIdTest,ObjIdTest_in,i);
-            // cv::Mat H_tmp = InvMatrix(mCurrentFrame.mTcw_gt)*mCurrentFrame.mInitModel;
+            // cv::Mat H_tmp = Converter::toInvMatrix(mCurrentFrame.mTcw_gt)*mCurrentFrame.mInitModel;
             // cout << "Initial motion estimation: " << endl << H_tmp << endl;
-            // cout << "Initial motion estimation: " << endl << mInitModel << endl;
             e_3_1 = clock();
 
             if (ObjIdTest_in.size()<60)
@@ -1519,45 +871,19 @@ void Tracking::Track()
 
             // cout << "number of pick points: " << ObjIdTest_in.size() << "/" << ObjIdTest.size() << "/" << mCurrentFrame.mvObjKeys.size() << endl;
 
-            // flo_mea = flo_mea/(float)ObjIdTest_in.size();
-            // float point_error_mean = 0;
-            cv::Mat ObjCentre3D_pre = (cv::Mat_<float>(3,1) << 0.f, 0.f, 0.f);
-            std::vector<Eigen::Vector2d> of_gt_in(ObjIdTest_in.size());
-            std::vector<double> e_bef(ObjIdTest_in.size());
-            for (int j = 0; j < ObjIdTest_in.size(); ++j)
-            {
-
-                // compute object center 3D
-                cv::Mat x3D_p = mLastFrame.UnprojectStereoObject(ObjIdTest_in[j],0);
-                ObjCentre3D_pre = ObjCentre3D_pre + x3D_p;
-                // point_error_mean = point_error_mean + point_dis[ObjIdTest_in[j]];
-                // const float tmp_x = (of_dis[ObjIdTest_in[j]].x - flo_mea.x)*(of_dis[ObjIdTest_in[j]].x - flo_mea.x);
-                // const float tmp_y = (of_dis[ObjIdTest_in[j]].y - flo_mea.y)*(of_dis[ObjIdTest_in[j]].y - flo_mea.y);
-                e_bef[j] = std::sqrt((of_dis[ObjIdTest_in[j]].x*of_dis[ObjIdTest_in[j]].x) + (of_dis[ObjIdTest_in[j]].y*of_dis[ObjIdTest_in[j]].y));
-                // flo_cov.x = flo_cov.x + tmp_x;
-                // flo_cov.y = flo_cov.y + tmp_y;
-                of_gt_in[j] = of_gt[ObjIdTest_in[j]];
-            }
-            ObjCentre3D_pre = ObjCentre3D_pre/ObjIdTest_in.size();
-            // flo_cov = flo_cov/(float)ObjIdTest_in.size();
-            // point_error_mean = point_error_mean/(float)ObjIdTest_in.size();
-            // cout << "mean 3D point error: " << point_error_mean << endl;
-            // cout << "mean and variance: " << flo_mea.x << " " << flo_mea.y << " " << flo_cov.x << " " << flo_cov.y << endl;
-
             // // **** show the picked points ****
             // std::vector<cv::KeyPoint> PickKeys;
             // for (int j = 0; j < ObjIdTest_in.size(); ++j){
-            //     // PickKeys.push_back(mCurrentFrame.mvSiftKeys[ObjIdTest[j]]);
+            //     // PickKeys.push_back(mCurrentFrame.mvStatKeys[ObjIdTest[j]]);
             //     PickKeys.push_back(mCurrentFrame.mvObjKeys[ObjIdTest_in[j]]);
             // }
             // cv::drawKeypoints(mImGray, PickKeys, mImGray, cv::Scalar::all(-1), cv::DrawMatchesFlags::DEFAULT);
             // cv::imshow("KeyPoints and Grid on Vehicle", mImGray);
             // cv::waitKey(0);
 
-
-            // ********************************************************************************
-
             // // // // image show the matching on each object
+            // std::vector<cv::KeyPoint> PreKeys, CurKeys;
+            // std::vector<cv::DMatch> TMes;
             // for (int j = 0; j < ObjIdTest.size(); ++j)
             // {
             //     // save key points for visualization
@@ -1576,6 +902,7 @@ void Tracking::Track()
             // cv::imshow("temperal matches", img_matches);
             // cv::waitKey(0);
 
+            // ***************************************************************************************
 
             s_3_2 = clock();
             // // save object motion and label
@@ -1593,11 +920,11 @@ void Tracking::Track()
             // cv::Mat Obj_X_tmp = Optimizer::PoseOptimizationFlow2RanSac(&mCurrentFrame,&mLastFrame,ObjIdTest_in,of_gt_in,e_bef);
             if (bJoint)
             {
-                cv::Mat Obj_X_tmp = Optimizer::PoseOptimizationFlow2(&mCurrentFrame,&mLastFrame,ObjIdTest_in,of_gt_in,e_bef,InlierID);
-                mCurrentFrame.vObjMod[i] = InvMatrix(mCurrentFrame.mTcw)*Obj_X_tmp;
+                cv::Mat Obj_X_tmp = Optimizer::PoseOptimizationFlow2(&mCurrentFrame,&mLastFrame,ObjIdTest_in,InlierID);
+                mCurrentFrame.vObjMod[i] = Converter::toInvMatrix(mCurrentFrame.mTcw)*Obj_X_tmp;
             }
             else
-                mCurrentFrame.vObjMod[i] = Optimizer::PoseOptimizationObjMot(&mCurrentFrame,&mLastFrame,ObjIdTest_in,flo_cov,InlierID);
+                mCurrentFrame.vObjMod[i] = Optimizer::PoseOptimizationObjMot(&mCurrentFrame,&mLastFrame,ObjIdTest_in,InlierID);
             e_3_2 = clock();
             t_con = t_con + 1;
             obj_mot_time = obj_mot_time + (double)(e_3_1-s_3_1)/CLOCKS_PER_SEC*1000 + (double)(e_3_2-s_3_2)/CLOCKS_PER_SEC*1000;
@@ -1609,55 +936,46 @@ void Tracking::Track()
 
             // ***********************************************************************************************
 
-            // // ***** get the ground truth object speed here *****
-            cv::Mat sp_gt_v;
+            // // ***** get the ground truth object speed here ***** (use version 1 here)
+            cv::Mat sp_gt_v, sp_gt_v2;
             sp_gt_v = H_p_c.rowRange(0,3).col(3) - (cv::Mat::eye(3,3,CV_32F)-H_p_c.rowRange(0,3).colRange(0,3))*ObjCentre3D_pre; // L_w_p.rowRange(0,3).col(3) or ObjCentre3D_pre
-            float sp_gt_norm = std::sqrt( sp_gt_v.at<float>(0)*sp_gt_v.at<float>(0) + sp_gt_v.at<float>(1)*sp_gt_v.at<float>(1) + sp_gt_v.at<float>(2)*sp_gt_v.at<float>(2) );
-            // mCurrentFrame.vObjSpeed_gt[i] = sp_gt_norm*36;
-            cv::Mat sp_gt_v2;
             sp_gt_v2 = L_w_p.rowRange(0,3).col(3) - L_w_c.rowRange(0,3).col(3);
-            mCurrentFrame.vObjSpeed_gt[i] = std::sqrt( sp_gt_v2.at<float>(0)*sp_gt_v2.at<float>(0) + sp_gt_v2.at<float>(1)*sp_gt_v2.at<float>(1) + sp_gt_v2.at<float>(2)*sp_gt_v2.at<float>(2) )*36;
+            float sp_gt_norm = std::sqrt( sp_gt_v.at<float>(0)*sp_gt_v.at<float>(0) + sp_gt_v.at<float>(1)*sp_gt_v.at<float>(1) + sp_gt_v.at<float>(2)*sp_gt_v.at<float>(2) )*36;
+            float sp_gt_norm2 = std::sqrt( sp_gt_v2.at<float>(0)*sp_gt_v2.at<float>(0) + sp_gt_v2.at<float>(1)*sp_gt_v2.at<float>(1) + sp_gt_v2.at<float>(2)*sp_gt_v2.at<float>(2) )*36;
+            mCurrentFrame.vObjSpeed_gt[i] = sp_gt_norm;
 
             // // ***** calculate the estimated object speed *****
             cv::Mat sp_est_v;
             sp_est_v = mCurrentFrame.vObjMod[i].rowRange(0,3).col(3) - (cv::Mat::eye(3,3,CV_32F)-mCurrentFrame.vObjMod[i].rowRange(0,3).colRange(0,3))*ObjCentre3D_pre;
-            float sp_est_norm = std::sqrt( sp_est_v.at<float>(0)*sp_est_v.at<float>(0) + sp_est_v.at<float>(1)*sp_est_v.at<float>(1) + sp_est_v.at<float>(2)*sp_est_v.at<float>(2) );
+            float sp_est_norm = std::sqrt( sp_est_v.at<float>(0)*sp_est_v.at<float>(0) + sp_est_v.at<float>(1)*sp_est_v.at<float>(1) + sp_est_v.at<float>(2)*sp_est_v.at<float>(2) )*36;
 
-            cout << "estimated and ground truth object speed: " << sp_est_norm*36 << "km/h " << sp_gt_norm*36 << "km/h" << endl;
-            // // **** final speed error ****
-            // cv::Mat sp_dis = sp_gt_v - sp_est_v;
-            // float sp_dis_norm = std::sqrt( sp_dis.at<float>(0)*sp_dis.at<float>(0) + sp_dis.at<float>(1)*sp_dis.at<float>(1) + sp_dis.at<float>(2)*sp_dis.at<float>(2) );
-            float sp_dis_norm = std::abs(sp_est_norm-sp_gt_norm);
+            cout << "estimated and ground truth object speed: " << sp_est_norm << "km/h " << sp_gt_norm << "km/h " << sp_gt_norm2 << "km/h"  << endl;
 
             mCurrentFrame.vSpeed[i].x = sp_est_norm*36;
             mCurrentFrame.vSpeed[i].y = sp_gt_norm*36;
 
 
             // // ************** calculate the relative pose error *****************
-            // // ******************************************************************
 
-            // Errors are measured in percent (for translation) and in degrees per meter (for rotation)
-
-            // (1) old proposed metric
-            // cv::Mat ObjMot_inv = InvMatrix(mCurrentFrame.vObjMod[i]);
+            // (1) metric
+            // cv::Mat ObjMot_inv = Converter::toInvMatrix(mCurrentFrame.vObjMod[i]);
             // cv::Mat RePoEr = ObjMot_inv*H_p_c;
 
-            // (2) Mina's proposed metric
+            // (2) metric
             // cv::Mat L_w_c_est = mCurrentFrame.vObjMod[i]*L_w_p;
-            // cv::Mat L_w_c_est_inv = InvMatrix(L_w_c_est);
+            // cv::Mat L_w_c_est_inv = Converter::toInvMatrix(L_w_c_est);
             // cv::Mat RePoEr = L_w_c_est_inv*L_w_c;
 
-            // (3) Viorela's proposed metric
+            // (3) metric
             cv::Mat H_p_c_body_est = L_w_p_inv*mCurrentFrame.vObjMod[i]*L_w_p;
-            cv::Mat RePoEr = InvMatrix(H_p_c_body_est)*H_p_c_body;
+            cv::Mat RePoEr = Converter::toInvMatrix(H_p_c_body_est)*H_p_c_body;
 
             // (4) Metric on body-fixed
             // cv::Mat H_p_c_body = L_w_p_inv*L_w_c;
-            // cv::Mat H_p_c_body_est_inv = InvMatrix(mCurrentFrame.vObjMod[i]);
+            // cv::Mat H_p_c_body_est_inv = Converter::toInvMatrix(mCurrentFrame.vObjMod[i]);
             // cv::Mat RePoEr = H_p_c_body_est_inv*H_p_c_body;
 
             float t_rpe = std::sqrt( RePoEr.at<float>(0,3)*RePoEr.at<float>(0,3) + RePoEr.at<float>(1,3)*RePoEr.at<float>(1,3) + RePoEr.at<float>(2,3)*RePoEr.at<float>(2,3) );
-            // float trace_rpe = RePoEr.at<float>(0,0) + RePoEr.at<float>(1,1) + RePoEr.at<float>(2,2);
             float trace_rpe = 0;
             for (int i = 0; i < 3; ++i)
             {
@@ -1667,25 +985,11 @@ void Tracking::Track()
                     trace_rpe = trace_rpe + RePoEr.at<float>(i,i);
             }
             float r_rpe = acos( ( trace_rpe -1.0 )/2.0 )*180.0/3.1415926;
-
-            float t_gt = std::sqrt( H_p_c.at<float>(0,3)*H_p_c.at<float>(0,3) + H_p_c.at<float>(1,3)*H_p_c.at<float>(1,3) + H_p_c.at<float>(2,3)*H_p_c.at<float>(2,3) );
-            // float t_gt = std::sqrt( H_p_c_body.at<float>(0,3)*H_p_c_body.at<float>(0,3) + H_p_c_body.at<float>(1,3)*H_p_c_body.at<float>(1,3) + H_p_c_body.at<float>(2,3)*H_p_c_body.at<float>(2,3) );
-            // float trace_gt = L_w_c.at<float>(0,0) + L_w_c.at<float>(1,1) + L_w_c.at<float>(2,2);
-            // float r_gt = acos( ( trace_gt -1.0 )/2.0 )*180.0/3.1415926;
-
-            // cout << "the relative pose error of the object, " << "t: " << (t_rpe/t_gt)*100 << "%" << " R: " << r_rpe/t_gt << "deg/m" << endl;
             cout << "the relative pose error of the object, " << "t: " << t_rpe <<  " R: " << r_rpe << endl;
-            // cout << "the object speed error, " << "s: " << sp_dis_norm/sp_gt_norm*100 << "%" << endl;
 
-            vObjMotID.push_back(mCurrentFrame.nSemPosition[i]);
-            vObjMotErr_1.push_back(cv::Point2f(t_rpe,r_rpe));
-            vObjMotErr_2.push_back(cv::Point2f(t_rpe/t_gt,r_rpe/t_gt));
-            vObjMotErr_3.push_back(cv::Point2f(sp_dis_norm/sp_gt_norm,sp_gt_norm*36));
-
-
-            // // **************************************************************************
             // *****************************************************************************
         }
+
         if (t_con!=0)
         {
             obj_mot_time = obj_mot_time/t_con;
@@ -1695,70 +999,53 @@ void Tracking::Track()
         else
             all_timing[3] = 0;
 
+        // ****** Renew Current frame information *******
 
         clock_t s_4, e_4;
         double map_upd_time;
         s_4 = clock();
-        // ****** Renew Current frame information *******
         RenewFrameInfo(TemperalMatch_subset);
         e_4 = clock();
         map_upd_time = (double)(e_4-s_4)/CLOCKS_PER_SEC*1000;
         all_timing[4] = map_upd_time;
         cout << "map updating time: " << map_upd_time << endl;
 
+        // **********************************************
+
         // Save timing analysis to the map
         mpMap->vfAll_time.push_back(all_timing);
 
-        cout << "Assign To Lastframe......" << endl;
+        cout << "Assign To Lastframe ......" << endl;
 
         // // ====== Update from current to last frames ======
-        mvKeysLastFrame = mLastFrame.mvSiftKeys;  // new added (1st Dec)  mvSiftKeys <-> mvKeys
-        mvKeysCurrentFrame = mCurrentFrame.mvSiftKeys; // new added (12th Sep)
+        mvKeysLastFrame = mLastFrame.mvStatKeys;  // new added (1st Dec)  mvStatKeys <-> mvKeys
+        mvKeysCurrentFrame = mCurrentFrame.mvStatKeys; // new added (12th Sep)
 
         mLastFrame = Frame(mCurrentFrame);  // this is very important!!!
-        // mLastFrame.mvObjKeys = mvTmpObjKeys;  // new added Jul 30 2019
-        // mLastFrame.mvObjDepth = mvTmpObjDepth;  // new added Jul 30 2019
-        // mLastFrame.vSemObjLabel = mvTmpSemObjLabel; // new added Aug 2 2019
         mLastFrame.mvObjKeys = mCurrentFrame.mvObjKeys;  // new added Nov 19 2019
         mLastFrame.mvObjDepth = mCurrentFrame.mvObjDepth;  // new added Nov 19 2019
         mLastFrame.vSemObjLabel = mCurrentFrame.vSemObjLabel; // new added Nov 19 2019
 
-        mLastFrame.mvSiftKeys = mCurrentFrame.mvSiftKeysTmp; // new added Jul 30 2019
-        mLastFrame.mvSiftDepth = mCurrentFrame.mvSiftDepthTmp;  // new added Jul 30 2019
+        mLastFrame.mvStatKeys = mCurrentFrame.mvStatKeysTmp; // new added Jul 30 2019
+        mLastFrame.mvStatDepth = mCurrentFrame.mvStatDepthTmp;  // new added Jul 30 2019
 
-        cout << "Done!" << endl;
+        // // ================================================
 
-        // *****************************************************************
-        // ********* save some stuffs for showing object results. **********
-        // *****************************************************************
-
-        mpMap->vvObjMotID.push_back(vObjMotID);
-        mpMap->vvObjMotErr_1.push_back(vObjMotErr_1);
-        mpMap->vvObjMotErr_2.push_back(vObjMotErr_2);
-        mpMap->vvObjMotErr_3.push_back(vObjMotErr_3);
+        cout << "Assign To Lastframe, Done!" << endl;
 
         // **********************************************************
         // ********* save some stuffs for graph structure. **********
         // **********************************************************
 
-        cout << "Save Graph Structure......" << endl;
+        cout << "Save Graph Structure ......" << endl;
 
         // (1) detected static features, corresponding depth and associations
-        mpMap->vpFeatSta.push_back(mCurrentFrame.mvSiftKeysTmp);
-        mpMap->vfDepSta.push_back(mCurrentFrame.mvSiftDepthTmp);
-        mpMap->vp3DPointSta.push_back(mCurrentFrame.mvSift3DPointTmp);  // (new added Dec 12 2019)
+        mpMap->vpFeatSta.push_back(mCurrentFrame.mvStatKeysTmp);
+        mpMap->vfDepSta.push_back(mCurrentFrame.mvStatDepthTmp);
+        mpMap->vp3DPointSta.push_back(mCurrentFrame.mvStat3DPointTmp);  // (new added Dec 12 2019)
         mpMap->vnAssoSta.push_back(mCurrentFrame.nStaInlierID);         // (new added Nov 14 2019)
-        // ORBmatcher matcher(0.9,true);
-        // mpMap->vnAssoSta.push_back(matcher.SearchByOF(mCurrentFrame.mvSiftKeys,mCurrentFrame.mvSiftKeysTmp));
 
         // (2) detected dynamic object features, corresponding depth and associations
-        // std::vector<cv::KeyPoint> FeatDynObj;
-        // std::vector<float> DepDynObj;
-        // std::vector<int> FeatLabObj;
-        // StackObjInfo(FeatDynObj,DepDynObj,FeatLabObj);
-        // mpMap->vpFeatDyn.push_back(FeatDynObj);
-        // mpMap->vfDepDyn.push_back(DepDynObj);
-        // mpMap->vnFeatLabel.push_back(FeatLabObj);
         mpMap->vpFeatDyn.push_back(mCurrentFrame.mvObjKeys);           // (new added Nov 20 2019)
         mpMap->vfDepDyn.push_back(mCurrentFrame.mvObjDepth);           // (new added Nov 20 2019)
         mpMap->vp3DPointDyn.push_back(mCurrentFrame.mvObj3DPoint);     // (new added Dec 12 2019)
@@ -1770,12 +1057,11 @@ void Tracking::Track()
             // (3) save static feature tracklets
             mpMap->TrackletSta = GetStaticTrack();
             // (4) save dynamic feature tracklets
-            // mpMap->TrackletDyn = GetDynamicTrack();
             mpMap->TrackletDyn = GetDynamicTrackNew();  // (new added Nov 20 2019)
         }
 
         // (5) camera pose
-        cv::Mat CameraPoseTmp = InvMatrix(mCurrentFrame.mTcw);
+        cv::Mat CameraPoseTmp = Converter::toInvMatrix(mCurrentFrame.mTcw);
         mpMap->vmCameraPose.push_back(CameraPoseTmp);
         mpMap->vmCameraPose_RF.push_back(CameraPoseTmp);
         // (6) Rigid motions and label, including camera (label=0) and objects (label>0)
@@ -1783,7 +1069,7 @@ void Tracking::Track()
         std::vector<int> Mot_Lab_Tmp, Sem_Lab_Tmp;
         std::vector<bool> Obj_Stat_Tmp;
         // (6.1) Save Camera Motion and Label
-        cv::Mat CameraMotionTmp = InvMatrix(mVelocity);
+        cv::Mat CameraMotionTmp = Converter::toInvMatrix(mVelocity);
         Mot_Tmp.push_back(CameraMotionTmp);
         ObjPose_Tmp.push_back(CameraMotionTmp);
         Mot_Lab_Tmp.push_back(0);
@@ -1812,16 +1098,16 @@ void Tracking::Track()
         if (max_id>1)
             mpMap->vnObjTraTime = GetObjTrackTime(mpMap->vnRMLabel,mpMap->vnSMLabel, mpMap->vnSMLabelGT);
 
-        // -------------------- Ground Truth ---------------------
+        // ---------------------------- Ground Truth --------------------------------
 
         // (7) Ground Truth Camera Pose
-        cv::Mat CameraPoseTmpGT = InvMatrix(mCurrentFrame.mTcw_gt);
+        cv::Mat CameraPoseTmpGT = Converter::toInvMatrix(mCurrentFrame.mTcw_gt);
         mpMap->vmCameraPose_GT.push_back(CameraPoseTmpGT);
 
         // (8) Ground Truth Rigid Motions
         std::vector<cv::Mat> Mot_Tmp_gt;
         // (8.1) Save Camera Motion
-        cv::Mat CameraMotionTmp_gt = mLastFrame.mTcw_gt*InvMatrix(mCurrentFrame.mTcw_gt);
+        cv::Mat CameraMotionTmp_gt = mLastFrame.mTcw_gt*Converter::toInvMatrix(mCurrentFrame.mTcw_gt);
         Mot_Tmp_gt.push_back(CameraMotionTmp_gt);
         // (8.2) Save Object Motions
         for (int i = 0; i < mCurrentFrame.vObjMod_gt.size(); ++i)
@@ -1862,12 +1148,7 @@ void Tracking::Track()
         // (10.3) Save to The Map
         mpMap->vmRigidCentre.push_back(Centre_Tmp);
 
-        cout << "Done!" << endl;
-
-
-        // ---------------------------------------------------------------------------------------
-        // ---------------------------------------------------------------------------------------
-        // ---------------------------------------------------------------------------------------
+        cout << "Save Graph Structure, Done!" << endl;
     }
 
     // =================================================================================================
@@ -1917,7 +1198,6 @@ void Tracking::Track()
     }
 
     mState = OK;
-
 }
 
 
@@ -1929,11 +1209,11 @@ void Tracking::Initialization()
     {
         // static
         std::vector<cv::Mat> mv3DPointTmp;
-        for (int i = 0; i < mCurrentFrame.mvSiftKeysTmp.size(); ++i)
+        for (int i = 0; i < mCurrentFrame.mvStatKeysTmp.size(); ++i)
         {
-            mv3DPointTmp.push_back(Optimizer::Get3DinCamera(mCurrentFrame.mvSiftKeysTmp[i], mCurrentFrame.mvSiftDepthTmp[i], mK));
+            mv3DPointTmp.push_back(Optimizer::Get3DinCamera(mCurrentFrame.mvStatKeysTmp[i], mCurrentFrame.mvStatDepthTmp[i], mK));
         }
-        mCurrentFrame.mvSift3DPointTmp = mv3DPointTmp;
+        mCurrentFrame.mvStat3DPointTmp = mv3DPointTmp;
         // dynamic
         std::vector<cv::Mat> mvObj3DPointTmp;
         for (int i = 0; i < mCurrentFrame.mvObjKeys.size(); ++i)
@@ -1941,14 +1221,14 @@ void Tracking::Initialization()
             mvObj3DPointTmp.push_back(Optimizer::Get3DinCamera(mCurrentFrame.mvObjKeys[i], mCurrentFrame.mvObjDepth[i], mK));
         }
         mCurrentFrame.mvObj3DPoint = mvObj3DPointTmp;
-        // cout << "see the size 1: " << mCurrentFrame.mvSiftKeysTmp.size() << " " << mCurrentFrame.mvSift3DPoint.size() << endl;
+        // cout << "see the size 1: " << mCurrentFrame.mvStatKeysTmp.size() << " " << mCurrentFrame.mvSift3DPoint.size() << endl;
         // cout << "see the size 2: " << mCurrentFrame.mvObjKeys.size() << " " << mCurrentFrame.mvObj3DPoint.size() << endl;
     }
 
     // (1) save detected static features and corresponding depth
-    mpMap->vpFeatSta.push_back(mCurrentFrame.mvSiftKeysTmp);  // modified Nov 14 2019
-    mpMap->vfDepSta.push_back(mCurrentFrame.mvSiftDepthTmp);  // modified Nov 14 2019
-    mpMap->vp3DPointSta.push_back(mCurrentFrame.mvSift3DPointTmp);  // modified Dec 17 2019
+    mpMap->vpFeatSta.push_back(mCurrentFrame.mvStatKeysTmp);  // modified Nov 14 2019
+    mpMap->vfDepSta.push_back(mCurrentFrame.mvStatDepthTmp);  // modified Nov 14 2019
+    mpMap->vp3DPointSta.push_back(mCurrentFrame.mvStat3DPointTmp);  // modified Dec 17 2019
     // (2) save detected dynamic object features and corresponding depth
     mpMap->vpFeatDyn.push_back(mCurrentFrame.mvObjKeys);  // modified Nov 19 2019
     mpMap->vfDepDyn.push_back(mCurrentFrame.mvObjDepth);  // modified Nov 19 2019
@@ -1962,11 +1242,8 @@ void Tracking::Initialization()
 
     // Set Frame pose to the origin
     mCurrentFrame.SetPose(cv::Mat::eye(4,4,CV_32F));  // +++++  new added +++++
-    mpMap->vmCameraPose_main.push_back(mCurrentFrame.mTcw); // added for save trajectory icra2020
-    mpMap->vmCameraPose_orb.push_back(mCurrentFrame.mTcw);  // added for save trajectory icra2020
-
     mCurrentFrame.mTcw_gt = cv::Mat::eye(4,4,CV_32F);
-    // mCurrentFrame.mTcw_gt = InvMatrix(mOriginInv)*mCurrentFrame.mTcw_gt;
+    // mCurrentFrame.mTcw_gt = Converter::toInvMatrix(mOriginInv)*mCurrentFrame.mTcw_gt;
     // cout << "mTcw_gt: " << mCurrentFrame.mTcw_gt << endl;
     // bFirstFrame = false;
     // cout << "current pose: " << endl << mCurrentFrame.mTcw_gt << endl;
@@ -1977,20 +1254,15 @@ void Tracking::Initialization()
     mLastFrame.mvObjDepth = mCurrentFrame.mvObjDepth;  // new added Jul 30 2019
     mLastFrame.vSemObjLabel = mCurrentFrame.vSemObjLabel; // new added Aug 2 2019
 
-    mLastFrame.mvSiftKeys = mCurrentFrame.mvSiftKeysTmp; // new added Jul 30 2019
-    mLastFrame.mvSiftDepth = mCurrentFrame.mvSiftDepthTmp;  // new added Jul 30 2019
+    mLastFrame.mvStatKeys = mCurrentFrame.mvStatKeysTmp; // new added Jul 30 2019
+    mLastFrame.mvStatDepth = mCurrentFrame.mvStatDepthTmp;  // new added Jul 30 2019
     mLastFrame.N_s = mCurrentFrame.N_s_tmp; // new added Nov 14 2019
-    mvKeysLastFrame = mLastFrame.mvSiftKeys; // +++ new added +++
+    mvKeysLastFrame = mLastFrame.mvStatKeys; // +++ new added +++
 
     mState=OK;
 
     cout << "Done!" << endl;
 }
-
-
-// ---------------------------------------------------------------------------------------
-// ++++++++++++++++++++++++++++++++++++++ New added ++++++++++++++++++++++++++++++++++++++
-// ---------------------------------------------------------------------------------------
 
 void Tracking::GetSceneFlowObj()
 {
@@ -2080,6 +1352,259 @@ void Tracking::GetSceneFlowObj()
     // cv::waitKey(0);
 }
 
+std::vector<std::vector<int> > Tracking::DynObjTracking()
+{
+    clock_t s_2, e_2;
+    double obj_tra_time;
+    s_2 = clock();
+
+    // Find the unique labels in semantic label
+    auto UniLab = mCurrentFrame.vSemObjLabel;
+    std::sort(UniLab.begin(), UniLab.end());
+    UniLab.erase(std::unique( UniLab.begin(), UniLab.end() ), UniLab.end() );
+
+    cout << "Unique Semantic Label: ";
+    for (int i = 0; i < UniLab.size(); ++i)
+        cout  << UniLab[i] << " ";
+    cout << endl;
+
+    // Collect the predicted labels and semantic labels in vector
+    std::vector<std::vector<int> > Posi(UniLab.size());
+    for (int i = 0; i < mCurrentFrame.vSemObjLabel.size(); ++i)
+    {
+        // skip outliers
+        if (mCurrentFrame.vObjLabel[i]==-1)
+            continue;
+
+        // save object label
+        for (int j = 0; j < UniLab.size(); ++j)
+        {
+            if(mCurrentFrame.vSemObjLabel[i]==UniLab[j]){
+                Posi[j].push_back(i);
+                break;
+            }
+        }
+    }
+
+    // // Save objects only from Posi() -> ObjId()
+    std::vector<std::vector<int> > ObjId;
+    std::vector<int> sem_posi; // semantic label position for the objects
+    int shrin_thr_row=0, shrin_thr_col=0;
+    if (!oxford)
+    {
+        shrin_thr_row = 25;
+        shrin_thr_col = 50;
+    }
+    for (int i = 0; i < Posi.size(); ++i)
+    {
+        // shrink the image to get rid of object parts on the boundary
+        float count = 0, count_thres=0.5;
+        for (int j = 0; j < Posi[i].size(); ++j)
+        {
+            const float u = mCurrentFrame.mvObjKeys[Posi[i][j]].pt.x;
+            const float v = mCurrentFrame.mvObjKeys[Posi[i][j]].pt.y;
+            if ( v<shrin_thr_row || v>(mImGray.rows-shrin_thr_row) || u<shrin_thr_col || u>(mImGray.cols-shrin_thr_col) )
+                count = count + 1;
+        }
+        if (count/Posi[i].size()>count_thres)
+        {
+            // cout << "Most part of this object is on the image boundary......" << endl;
+            for (int k = 0; k < Posi[i].size(); ++k)
+                mCurrentFrame.vObjLabel[Posi[i][k]] = -1;
+            continue;
+        }
+        else
+        {
+            ObjId.push_back(Posi[i]);
+            sem_posi.push_back(UniLab[i]);
+        }
+    }
+
+    // // Check scene flow distribution of each object and keep the dynamic object
+    float sf_thres=0.05, sf_percent=0.99; // 0.12 0.3
+    if (!oxford)
+    {
+        sf_thres=0.12;
+        sf_percent=0.3;
+    }
+    std::vector<std::vector<int> > ObjIdNew;
+    std::vector<int> SemPosNew, obj_dis_tres(sem_posi.size(),0);
+    for (int i = 0; i < ObjId.size(); ++i)
+    {
+
+        float obj_center_depth = 0, sf_min=100, sf_max=0, sf_mean=0, sf_count=0;
+        std::vector<int> sf_range(10,0);
+        for (int j = 0; j < ObjId[i].size(); ++j)
+        {
+            obj_center_depth = obj_center_depth + mCurrentFrame.mvObjDepth[ObjId[i][j]];
+            // const float sf_norm = cv::norm(mCurrentFrame.vFlow_3d[ObjId[i][j]]);
+            float sf_norm = std::sqrt(mCurrentFrame.vFlow_3d[ObjId[i][j]].x*mCurrentFrame.vFlow_3d[ObjId[i][j]].x + mCurrentFrame.vFlow_3d[ObjId[i][j]].z*mCurrentFrame.vFlow_3d[ObjId[i][j]].z);
+            if (sf_norm<sf_thres)
+                sf_count = sf_count+1;
+            if(sf_norm<sf_min)
+                sf_min = sf_norm;
+            if(sf_norm>sf_max)
+                sf_max = sf_norm;
+            sf_mean = sf_mean + sf_norm;
+            {
+                if (0.0<=sf_norm && sf_norm<0.05)
+                    sf_range[0] = sf_range[0] + 1;
+                else if (0.05<=sf_norm && sf_norm<0.1)
+                    sf_range[1] = sf_range[1] + 1;
+                else if (0.1<=sf_norm && sf_norm<0.2)
+                    sf_range[2] = sf_range[2] + 1;
+                else if (0.2<=sf_norm && sf_norm<0.4)
+                    sf_range[3] = sf_range[3] + 1;
+                else if (0.4<=sf_norm && sf_norm<0.8)
+                    sf_range[4] = sf_range[4] + 1;
+                else if (0.8<=sf_norm && sf_norm<1.6)
+                    sf_range[5] = sf_range[5] + 1;
+                else if (1.6<=sf_norm && sf_norm<3.2)
+                    sf_range[6] = sf_range[6] + 1;
+                else if (3.2<=sf_norm && sf_norm<6.4)
+                    sf_range[7] = sf_range[7] + 1;
+                else if (6.4<=sf_norm && sf_norm<12.8)
+                    sf_range[8] = sf_range[8] + 1;
+                else if (12.8<=sf_norm && sf_norm<25.6)
+                    sf_range[9] = sf_range[9] + 1;
+            }
+        }
+
+        // cout << "scene flow distribution:"  << endl;
+        // for (int j = 0; j < sf_range.size(); ++j)
+        //     cout << sf_range[j] << " ";
+        // cout << endl;
+
+        if (sf_count/ObjId[i].size()>sf_percent)
+        {
+            // label this object as static background
+            for (int k = 0; k < ObjId[i].size(); ++k)
+                mCurrentFrame.vObjLabel[ObjId[i][k]] = 0;
+            continue;
+        }
+        else if (obj_center_depth/ObjId[i].size()>35.0 || ObjId[i].size()<150)
+        {
+            obj_dis_tres[i]=-1;
+            cout << "object " << sem_posi[i] <<" is too far away or too small! " << obj_center_depth/ObjId[i].size() << endl;
+            // label this object as far away object
+            for (int k = 0; k < ObjId[i].size(); ++k)
+                mCurrentFrame.vObjLabel[ObjId[i][k]] = -1;
+            continue;
+        }
+        else
+        {
+            // cout << "get new objects!" << endl;
+            ObjIdNew.push_back(ObjId[i]);
+            SemPosNew.push_back(sem_posi[i]);
+        }
+    }
+
+    // add ground truth tracks
+    std::vector<int> nSemPosi_gt_tmp = mCurrentFrame.nSemPosi_gt;
+    for (int i = 0; i < sem_posi.size(); ++i)
+    {
+        for (int j = 0; j < nSemPosi_gt_tmp.size(); ++j)
+        {
+            if (sem_posi[i]==nSemPosi_gt_tmp[j] && obj_dis_tres[i]==-1)
+            {
+                nSemPosi_gt_tmp[j]=-1;
+            }
+        }
+    }
+
+    mpMap->vnSMLabelGT.push_back(nSemPosi_gt_tmp);
+
+
+    // // *** show the points on object ***
+    // for (int i = 0; i < ObjIdNew.size(); ++i)
+    // {
+    //     // **** show the picked points ****
+    //     std::vector<cv::KeyPoint> PickKeys;
+    //     for (int j = 0; j < ObjIdNew[i].size(); ++j){
+    //         PickKeys.push_back(mCurrentFrame.mvObjKeys[ObjIdNew[i][j]]);
+    //     }
+    //     cv::drawKeypoints(mImGray, PickKeys, mImGray, cv::Scalar::all(-1), cv::DrawMatchesFlags::DEFAULT);
+    //     cv::imshow("KeyPoints and Grid on Background", mImGray);
+    //     cv::waitKey(0);
+    // }
+
+    // Relabel the objects that associate with the objects in last frame
+
+    // initialize global object id
+    if (f_id==1)
+        max_id = 1;
+
+    // save current label id
+    std::vector<int> LabId(ObjIdNew.size());
+    for (int i = 0; i < ObjIdNew.size(); ++i)
+    {
+        // save semantic labels in last frame
+        std::vector<int> Lb_last;
+        for (int k = 0; k < ObjIdNew[i].size(); ++k)
+            Lb_last.push_back(mLastFrame.vSemObjLabel[ObjIdNew[i][k]]);
+
+        // find label that appears most in Lb_last()
+        // (1) count duplicates
+        std::map<int, int> dups;
+        for(int k : Lb_last)
+            ++dups[k];
+        // (2) and sort them by descending order
+        std::vector<std::pair<int, int> > sorted;
+        for (auto k : dups)
+            sorted.push_back(std::make_pair(k.first,k.second));
+        std::sort(sorted.begin(), sorted.end(), SortPairInt);
+
+        // label the object in current frame
+        int New_lab = sorted[0].first;
+        // cout << " what is in the new label: " << New_lab << endl;
+        if (max_id==1)
+        {
+            LabId[i] = max_id;
+            for (int k = 0; k < ObjIdNew[i].size(); ++k)
+                mCurrentFrame.vObjLabel[ObjIdNew[i][k]] = max_id;
+            max_id = max_id + 1;
+        }
+        else
+        {
+            bool exist = false;
+            for (int k = 0; k < mLastFrame.nSemPosition.size(); ++k)
+            {
+                if (mLastFrame.nSemPosition[k]==New_lab && mLastFrame.bObjStat[k])
+                {
+                    LabId[i] = mLastFrame.nModLabel[k];
+                    for (int k = 0; k < ObjIdNew[i].size(); ++k)
+                        mCurrentFrame.vObjLabel[ObjIdNew[i][k]] = LabId[i];
+                    exist = true;
+                    break;
+                }
+            }
+            if (exist==false)
+            {
+                LabId[i] = max_id;
+                for (int k = 0; k < ObjIdNew[i].size(); ++k)
+                    mCurrentFrame.vObjLabel[ObjIdNew[i][k]] = max_id;
+                max_id = max_id + 1;
+            }
+        }
+
+    }
+
+    // // assign the model label in current frame
+    mCurrentFrame.nModLabel = LabId;
+    mCurrentFrame.nSemPosition = SemPosNew;
+
+    e_2 = clock();
+    obj_tra_time = (double)(e_2-s_2)/CLOCKS_PER_SEC*1000;
+    all_timing[2] = obj_tra_time;
+    cout << "dynamic object tracking time: " << obj_tra_time << endl;
+
+    cout << "Current Max_id: ("<< max_id << ") motion label: ";
+    for (int i = 0; i < LabId.size(); ++i)
+        cout <<  LabId[i] << " ";
+
+
+    return ObjIdNew;
+}
 
 cv::Mat Tracking::GetInitModelCam(const std::vector<int> &MatchId, std::vector<int> &MatchId_sub)
 {
@@ -2092,11 +1617,11 @@ cv::Mat Tracking::GetInitModelCam(const std::vector<int> &MatchId, std::vector<i
     for (int i = 0; i < N; ++i)
     {
         cv::Point2f tmp_2d;
-        tmp_2d.x = mCurrentFrame.mvSiftKeys[MatchId[i]].pt.x;
-        tmp_2d.y = mCurrentFrame.mvSiftKeys[MatchId[i]].pt.y;
+        tmp_2d.x = mCurrentFrame.mvStatKeys[MatchId[i]].pt.x;
+        tmp_2d.y = mCurrentFrame.mvStatKeys[MatchId[i]].pt.y;
         cur_2d[i] = tmp_2d;
         cv::Point3f tmp_3d;
-        cv::Mat x3D_p = mLastFrame.UnprojectStereoSift(MatchId[i],0);
+        cv::Mat x3D_p = mLastFrame.UnprojectStereoStat(MatchId[i],0);
         tmp_3d.x = x3D_p.at<float>(0);
         tmp_3d.y = x3D_p.at<float>(1);
         tmp_3d.z = x3D_p.at<float>(2);
@@ -2316,68 +1841,6 @@ cv::Mat Tracking::GetInitModelObj(const std::vector<int> &ObjId, std::vector<int
     }
 
     return output;
-}
-
-cv::Mat Tracking::Delaunay(const std::vector<int> &id_dynamic)
-{
-    /// Return the Delaunay triangulation, under the form of an adjacency matrix
-    /// points is a Nx2 mat containing the coordinates (x, y) of the points
-    const int r_min = 0, c_min = 0, r_max = mCurrentFrame.mnMaxY, c_max = mCurrentFrame.mnMaxX;
-    std::map<cv::Point2f, int, LessPoint2f> mappts;
-    cv::Mat1b adj(id_dynamic.size(), id_dynamic.size(), uchar(0));
-
-    /// Create subdiv and insert the points to it
-    // cv::Subdiv2D subdiv(cv::Rect(r_min, c_min, r_max+std::fabs(r_min), c_max+std::fabs(c_min)));
-    cv::Subdiv2D subdiv(cv::Rect(r_min, c_min, c_max, r_max));
-    for (int p = 0; p < id_dynamic.size(); p++)
-    {
-        float xp = mCurrentFrame.mvSiftKeys[id_dynamic[p]].pt.x;
-        float yp = mCurrentFrame.mvSiftKeys[id_dynamic[p]].pt.y;
-
-        if(xp<0)
-            xp=0;
-        if(yp<0)
-            yp=0;
-
-        cv::Point2f fp(xp, yp);
-
-        // cout << "the subdiv dimensions: " << xp << " " << yp << endl;
-
-        // Don't add duplicates
-        if (mappts.count(fp) == 0)
-        {
-            // Save point and index
-            mappts[fp] = p;
-            subdiv.insert(fp);
-        }
-    }
-
-    /// Get the number of edges
-    std::vector<cv::Vec4f> edgeList;
-    subdiv.getEdgeList(edgeList);
-    int nE = edgeList.size();
-
-    /// Check adjacency
-    for (int i = 0; i < nE; i++)
-    {
-        cv::Vec4f e = edgeList[i];
-        cv::Point2f pt0(e[0], e[1]);
-        cv::Point2f pt1(e[2], e[3]);
-
-        if (mappts.count(pt0) == 0 || mappts.count(pt1) == 0) {
-            continue;  // Not a valid point
-        }
-
-        int idx0 = mappts[pt0];
-        int idx1 = mappts[pt1];
-
-        // Symmetric matrix
-        adj(idx0, idx1) = 1;
-        adj(idx1, idx0) = 1;
-
-    }
-
-    return adj;
 }
 
 void Tracking::DrawLine(cv::KeyPoint &keys, cv::Point2f &flow, cv::Mat &ref_image, const cv::Scalar &color, int thickness, int line_type, const cv::Point2i &offset)
@@ -2709,210 +2172,10 @@ cv::Mat Tracking::ObjPoseParsingOX(const std::vector<float> &vObjPose_gt)
 
     // cout << "OBJ Pose: " << endl << Pose << endl;
 
-    return InvMatrix(mOriginInv)*Pose;
+    return Converter::toInvMatrix(mOriginInv)*Pose;
 
 }
 
-cv::Mat Tracking::InvMatrix(const cv::Mat &T)
-{
-    cv::Mat T_inv = cv::Mat::eye(4,4,CV_32F);
-
-    const cv::Mat R = T.rowRange(0,3).colRange(0,3);
-    const cv::Mat t = T.rowRange(0,3).col(3);
-    cv::Mat t_inv = -R.t()*t;
-    cv::Mat R_inv = R.t();
-
-    cv::Mat tmp_R = T_inv.rowRange(0,3).colRange(0,3);
-    R_inv.copyTo(tmp_R);
-    cv::Mat tmp_t = T_inv.rowRange(0,3).col(3);
-    t_inv.copyTo(tmp_t);
-
-    return T_inv;
-}
-
-cv::Mat Tracking::RanSacHorn(const vector<int> &TemperalMatch, const vector<int> &ObjId)
-{
-    cv::RNG rng((unsigned)time(NULL));
-
-    // initialize the parameters for ransac
-    double thres = 0.15;  // p = 0.98, e = 0.7,
-    int s = 3, iter_num = 500;
-    //int iter_num = (int)log(1-p)/log(1-pow(1-e,s));
-    cout << "iterations times: " << iter_num << endl;
-
-    // get the corresponding 3d points
-    int nPointNum = ObjId.size();
-    Eigen::Matrix3Xd T_in(3,nPointNum), M_out(3,nPointNum);
-
-    for(int i=0; i< nPointNum; i++){
-
-        cv::Mat x3D_p = mLastFrame.UnprojectStereoSift(TemperalMatch[ObjId[i]],0);
-        cv::Mat x3D_c = mCurrentFrame.UnprojectStereoSift(ObjId[i],0);
-
-        T_in(0,i) = x3D_p.at<float>(0); T_in(1,i) = x3D_p.at<float>(1); T_in(2,i) = x3D_p.at<float>(2);
-        M_out(0,i) = x3D_c.at<float>(0); M_out(1,i) = x3D_c.at<float>(1); M_out(2,i) = x3D_c.at<float>(2);
-
-    }
-
-    cout << "features in frame k-1" << endl;
-    for (int i = 0; i < nPointNum; ++i)
-    {
-        float xp = mLastFrame.mvSiftKeys[TemperalMatch[ObjId[i]]].pt.x;
-        float yp = mLastFrame.mvSiftKeys[TemperalMatch[ObjId[i]]].pt.y;
-        cout << xp << " " << yp << endl;
-    }
-    cout << "correspondences in frame k" << endl;
-    for (int i = 0; i < nPointNum; ++i)
-    {
-        float x = mCurrentFrame.mvSiftKeys[ObjId[i]].pt.x;
-        float y = mCurrentFrame.mvSiftKeys[ObjId[i]].pt.y;
-        cout << x << " " << y << endl;
-    }
-
-
-    // main loop for the ransac
-    int count = 0, candidate, inlier_num = 0;
-    vector<int> inlier_idx;
-    Eigen::Matrix3Xd T_in_s(3,s), M_out_s(3,s);
-    while (count<iter_num){
-
-        // random sample s candidate points
-        for(int i=0; i< s; i++){
-            candidate = rng.uniform(0, nPointNum-1);
-            T_in_s(0,i) = T_in(0,candidate); T_in_s(1,i) = T_in(1,candidate); T_in_s(2,i) = T_in(2,candidate);
-            M_out_s(0,i) = M_out(0,candidate); M_out_s(1,i) = M_out(1,candidate); M_out_s(2,i) = M_out(2,candidate);
-        }
-
-        // fit a model to the candidate points
-        Eigen::Matrix4d A = Eigen::umeyama (T_in_s, M_out_s, false);
-
-
-        // find the model with most inliers
-        vector<int> inlier_tmp;
-        for(int i=0; i< nPointNum; i++){
-            if((A.topLeftCorner(3, 3)*T_in.col(i)+A.block(0, 3, 3, 1)-M_out.col(i)).norm()<thres){
-                inlier_tmp.push_back(i);
-            }
-        }
-        if((int)inlier_tmp.size()>inlier_num){
-            //inlier_idx.assign(inlier_tmp.begin(),inlier_tmp.end());
-            inlier_idx = inlier_tmp;
-            inlier_num = (int)inlier_tmp.size();
-        }
-
-        count++;
-
-    }
-
-    // estimate the model using the most inliers found
-    cout << "inliers number: " << inlier_num << "/" << nPointNum << endl;
-
-    Eigen::Matrix3Xd T_in_m(3,inlier_num), M_out_m(3,inlier_num);
-    for(int i=0; i< inlier_num; i++){
-        T_in_m(0,i) = T_in(0,inlier_idx[i]);   T_in_m(1,i) = T_in(1,inlier_idx[i]);   T_in_m(2,i) = T_in(2,inlier_idx[i]);
-        M_out_m(0,i) = M_out(0,inlier_idx[i]); M_out_m(1,i) = M_out(1,inlier_idx[i]); M_out_m(2,i) = M_out(2,inlier_idx[i]);
-    }
-    Eigen::Matrix4d A = Eigen::umeyama (T_in_m, M_out_m, false);
-
-    cv::Mat Pose = cv::Mat::eye(4,4,CV_32F);
-
-    Pose.at<float>(0,0) = A(0,0); Pose.at<float>(0,1) = A(0,1); Pose.at<float>(0,2) = A(0,2); Pose.at<float>(0,3) = A(0,3);
-    Pose.at<float>(1,0) = A(1,0); Pose.at<float>(1,1) = A(1,1); Pose.at<float>(1,2) = A(1,2); Pose.at<float>(1,3) = A(1,3);
-    Pose.at<float>(2,0) = A(2,0); Pose.at<float>(1,2) = A(2,1); Pose.at<float>(2,2) = A(2,2); Pose.at<float>(2,3) = A(2,3);
-
-    return Pose;
-
-}
-
-// Given two sets of 3D points, find the rotation + translation + scale
-// which best maps the first set to the second.
-// Source: http://en.wikipedia.org/wiki/Kabsch_algorithm
-cv::Mat Tracking::Find3DAffineTransform(const vector<int> &TemperalMatch, const vector<int> &ObjId)
-{
-
-    // Default output
-    Eigen::Affine3d A;
-    A.linear() = Eigen::Matrix3d::Identity(3, 3);
-    A.translation() = Eigen::Vector3d::Zero();
-
-    // Get input
-    int nPointNum = ObjId.size();
-    Eigen::Matrix3Xd in(3,nPointNum), out(3,nPointNum);
-
-    for(int i=0; i< nPointNum; i++){
-
-        cv::Mat x3D_p = mLastFrame.UnprojectStereoSift(TemperalMatch[ObjId[i]],0);
-        cv::Mat x3D_c = mCurrentFrame.UnprojectStereoSift(ObjId[i],0);
-
-        in(0,i) = x3D_p.at<float>(0); in(1,i) = x3D_p.at<float>(1); in(2,i) = x3D_p.at<float>(2);
-        out(0,i) = x3D_c.at<float>(0); out(1,i) = x3D_c.at<float>(1); out(2,i) = x3D_c.at<float>(2);
-
-    }
-
-    cout << "points in k-1 frame: " << endl;
-    for(int i=0; i< nPointNum; i++)
-        cout << in(0,i) << " " << in(1,i) << " " << in(2,i) << endl;
-    cout << "points in k frame: " << endl;
-    for(int i=0; i< nPointNum; i++)
-        cout << out(0,i) << " " << out(1,i) << " " << out(2,i) << endl;
-
-
-    if (in.cols() != out.cols())
-        throw "Find3DAffineTransform(): input data mis-match";
-
-    // First find the scale, by finding the ratio of sums of some distances,
-    // then bring the datasets to the same scale.
-    double scale = 0, dist_in = 0, dist_out = 0;
-    for (int col = 0; col < in.cols()-1; col++) {
-        dist_in  += (in.col(col+1) - in.col(col)).norm();
-        dist_out += (out.col(col+1) - out.col(col)).norm();
-    }
-
-    //double scale = dist_out/dist_in;
-    scale = dist_out/dist_in;
-    out /= scale;
-
-    // Find the centroids then shift to the origin
-    Eigen::Vector3d in_ctr = Eigen::Vector3d::Zero();
-    Eigen::Vector3d out_ctr = Eigen::Vector3d::Zero();
-    for (int col = 0; col < in.cols(); col++) {
-        in_ctr  += in.col(col);
-        out_ctr += out.col(col);
-    }
-    in_ctr /= in.cols();
-    out_ctr /= out.cols();
-    for (int col = 0; col < in.cols(); col++) {
-        in.col(col)  -= in_ctr;
-        out.col(col) -= out_ctr;
-    }
-
-    // SVD
-    Eigen::MatrixXd Cov = in * out.transpose();
-    Eigen::JacobiSVD<Eigen::MatrixXd> svd(Cov, Eigen::ComputeThinU | Eigen::ComputeThinV);
-
-    // Find the rotation
-    double d = (svd.matrixV() * svd.matrixU().transpose()).determinant();
-    if (d > 0)
-        d = 1.0;
-    else
-        d = -1.0;
-    Eigen::Matrix3d I = Eigen::Matrix3d::Identity(3, 3);
-    I(2, 2) = d;
-    Eigen::Matrix3d R = svd.matrixV() * I * svd.matrixU().transpose();
-
-    // The final transform
-    A.linear() = scale * R;
-    A.translation() = scale*(out_ctr - R*in_ctr);
-
-    cv::Mat Pose = cv::Mat::eye(4,4,CV_32F);
-
-    Pose.at<float>(0,0) = A.linear()(0,0); Pose.at<float>(0,1) = A.linear()(0,1); Pose.at<float>(0,2) = A.linear()(0,2);
-    Pose.at<float>(1,0) = A.linear()(1,0); Pose.at<float>(1,1) = A.linear()(1,1); Pose.at<float>(1,2) = A.linear()(1,2);
-    Pose.at<float>(2,0) = A.linear()(2,0); Pose.at<float>(2,1) = A.linear()(2,1); Pose.at<float>(2,2) = A.linear()(2,2);
-    Pose.at<float>(0,3) = A.translation()(0,0); Pose.at<float>(1,3) = A.translation()(1,0); Pose.at<float>(2,3) = A.translation()(2,0);
-
-    return Pose;
-}
 
 void Tracking::StackObjInfo(std::vector<cv::KeyPoint> &FeatDynObj, std::vector<float> &DepDynObj,
                   std::vector<int> &FeatLabObj)
@@ -3422,8 +2685,8 @@ void Tracking::RenewFrameInfo(const std::vector<int> &TM_sta)
         if (TM_sta[i]==-1)
             continue;
 
-        int x = mCurrentFrame.mvSiftKeys[TM_sta[i]].pt.x;
-        int y = mCurrentFrame.mvSiftKeys[TM_sta[i]].pt.y;
+        int x = mCurrentFrame.mvStatKeys[TM_sta[i]].pt.x;
+        int y = mCurrentFrame.mvStatKeys[TM_sta[i]].pt.y;
 
         if (x>=mImGrayLast.cols || y>=mImGrayLast.rows || x<=0 || y<=0)
             continue;
@@ -3439,10 +2702,10 @@ void Tracking::RenewFrameInfo(const std::vector<int> &TM_sta)
 
         if(flow_xe!=0 && flow_ye!=0)
         {
-            if(mCurrentFrame.mvSiftKeys[TM_sta[i]].pt.x+flow_xe < mImGrayLast.cols && mCurrentFrame.mvSiftKeys[TM_sta[i]].pt.y+flow_ye < mImGrayLast.rows && mCurrentFrame.mvSiftKeys[TM_sta[i]].pt.x+flow_xe>0 && mCurrentFrame.mvSiftKeys[TM_sta[i]].pt.y+flow_ye>0)
+            if(mCurrentFrame.mvStatKeys[TM_sta[i]].pt.x+flow_xe < mImGrayLast.cols && mCurrentFrame.mvStatKeys[TM_sta[i]].pt.y+flow_ye < mImGrayLast.rows && mCurrentFrame.mvStatKeys[TM_sta[i]].pt.x+flow_xe>0 && mCurrentFrame.mvStatKeys[TM_sta[i]].pt.y+flow_ye>0)
             {
-                mvKeysTmp.push_back(mCurrentFrame.mvSiftKeys[TM_sta[i]]);
-                mvCorresTmp.push_back(cv::KeyPoint(mCurrentFrame.mvSiftKeys[TM_sta[i]].pt.x+flow_xe,mCurrentFrame.mvSiftKeys[TM_sta[i]].pt.y+flow_ye,0,0,0,-1));
+                mvKeysTmp.push_back(mCurrentFrame.mvStatKeys[TM_sta[i]]);
+                mvCorresTmp.push_back(cv::KeyPoint(mCurrentFrame.mvStatKeys[TM_sta[i]].pt.x+flow_xe,mCurrentFrame.mvStatKeys[TM_sta[i]].pt.y+flow_ye,0,0,0,-1));
                 mvFlowNextTmp.push_back(cv::Point2f(flow_xe,flow_ye));
                 StaInlierIDTmp.push_back(TM_sta[i]);
             }
@@ -3459,7 +2722,7 @@ void Tracking::RenewFrameInfo(const std::vector<int> &TM_sta)
     std::vector<cv::KeyPoint> mvKeysTmpCheck = mvKeysTmp;
     std::vector<cv::KeyPoint> mvKeysSample;
     if (fea_sam)
-        mvKeysSample = mCurrentFrame.mvSiftKeysTmp;
+        mvKeysSample = mCurrentFrame.mvStatKeysTmp;
     else
         mvKeysSample = mCurrentFrame.mvKeys;
     while (tot_num<max_num_sta)
@@ -3541,16 +2804,16 @@ void Tracking::RenewFrameInfo(const std::vector<int> &TM_sta)
     std::vector<cv::Mat> mv3DPointTmp(mCurrentFrame.N_s_tmp);
     for (int i = 0; i < mCurrentFrame.N_s_tmp; ++i)
     {
-        mv3DPointTmp[i] = Optimizer::Get3DinWorld(mvKeysTmp[i], mvDepthTmp[i], mK, InvMatrix(mCurrentFrame.mTcw));
+        mv3DPointTmp[i] = Optimizer::Get3DinWorld(mvKeysTmp[i], mvDepthTmp[i], mK, Converter::toInvMatrix(mCurrentFrame.mTcw));
     }
 
     // Obtain inlier ID
     mCurrentFrame.nStaInlierID = StaInlierIDTmp;
 
     // Update
-    mCurrentFrame.mvSiftKeysTmp = mvKeysTmp;
-    mCurrentFrame.mvSiftDepthTmp = mvDepthTmp;
-    mCurrentFrame.mvSift3DPointTmp = mv3DPointTmp;
+    mCurrentFrame.mvStatKeysTmp = mvKeysTmp;
+    mCurrentFrame.mvStatDepthTmp = mvDepthTmp;
+    mCurrentFrame.mvStat3DPointTmp = mv3DPointTmp;
     mCurrentFrame.mvFlowNext = mvFlowNextTmp;
     mCurrentFrame.mvCorres = mvCorresTmp;
 
@@ -3720,7 +2983,7 @@ void Tracking::RenewFrameInfo(const std::vector<int> &TM_sta)
     // (4) create 3d point based on key point, depth and pose
     std::vector<cv::Mat> mvObj3DPointTmp(mvObjKeysTmp.size());
     for (int i = 0; i < mvObjKeysTmp.size(); ++i)
-        mvObj3DPointTmp[i] = Optimizer::Get3DinWorld(mvObjKeysTmp[i], mvObjDepthTmp[i], mK, InvMatrix(mCurrentFrame.mTcw));
+        mvObj3DPointTmp[i] = Optimizer::Get3DinWorld(mvObjKeysTmp[i], mvObjDepthTmp[i], mK, Converter::toInvMatrix(mCurrentFrame.mTcw));
 
 
     // update

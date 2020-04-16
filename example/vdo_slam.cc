@@ -45,7 +45,6 @@ int main(int argc, char **argv)
     vector<string> vstrFilenamesRGB;
     vector<string> vstrFilenamesDEP;
     vector<string> vstrFilenamesSEM;
-    vector<string> vstrFilenamesMOT;
     vector<string> vstrFilenamesFLO;
     std::vector<cv::Mat> vPoseGT;
     vector<vector<float> > vObjPoseGT;
@@ -63,7 +62,7 @@ int main(int argc, char **argv)
     }
 
 
-    // Check consistency in the number of images and depthmaps
+    // Check consistency in the number of images, depth maps, segmentations and flow maps
     int nImages = vstrFilenamesRGB.size();
     if(vstrFilenamesRGB.empty())
     {
@@ -72,7 +71,17 @@ int main(int argc, char **argv)
     }
     else if(vstrFilenamesDEP.size()!=vstrFilenamesRGB.size())
     {
-        cerr << endl << "Different number of images for rgb and depth." << endl;
+        cerr << endl << "Different number of images for depth map." << endl;
+        return 1;
+    }
+    else if(vstrFilenamesSEM.size()!=vstrFilenamesRGB.size())
+    {
+        cerr << endl << "Different number of images for segmentation." << endl;
+        return 1;
+    }
+    else if(vstrFilenamesFLO.size()!=vstrFilenamesRGB.size())
+    {
+        cerr << endl << "Different number of images for flow map." << endl;
         return 1;
     }
 
@@ -90,7 +99,7 @@ int main(int argc, char **argv)
     // (799,0007) (802,0009) (293,0010) (836,0020) (338,0018) (1057,0019) (339,0013)
     // (153,0000)(446,0001)(232,0002)(143,0003)(313,0004)(296,0005)(144,0017)(269,0006)
     cv::Mat imRGB, imD, mTcw_gt;
-    for(int ni=0; ni<nImages-1; ni++)
+    for(int ni=0; ni<nImages; ni++)
     {
         cout << endl;
         cout << "=======================================================" << endl;
@@ -103,19 +112,18 @@ int main(int argc, char **argv)
         // cv::resize(imD, imD_r, cv::Size(1242,375));
         imD.convertTo(imD_f, CV_32F);
 
-        // load flow matrix
+        // Load flow matrix
         cv::Mat imFlow = cv::optflow::readOpticalFlow(vstrFilenamesFLO[ni]);
         // FlowShow(imFlow);
 
-        // load mot mask and semantic mask
+        // Load semantic mask
         cv::Mat imSem(imRGB.rows, imRGB.cols, CV_32SC1);
-        cv::Mat imMot(imRGB.rows, imRGB.cols, CV_32SC1);
         LoadMask(vstrFilenamesSEM[ni],imSem);
 
         double tframe = vTimestamps[ni];
         mTcw_gt = vPoseGT[ni];
 
-        // object poses in current frame
+        // Object poses in current frame
         vector<vector<float> > vObjPose_gt(vObjPoseID[ni].size());
         for (int i = 0; i < vObjPoseID[ni].size(); ++i)
             vObjPose_gt[i] = vObjPoseGT[vObjPoseID[ni][i]];
@@ -132,7 +140,6 @@ int main(int argc, char **argv)
     }
 
     // // Save camera trajectory
-    // SLAM.SaveResultsICRA2020("0018/");
     // SLAM.SaveResultsIJRR2020("/Users/steed/work/code/Evaluation/ijrr2020/omd/");
 
     return 0;

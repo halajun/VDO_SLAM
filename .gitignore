@@ -198,3 +198,6 @@ dependencies/g2o/build/CMakeFiles/Makefile2
 dependencies/g2o/build/CMakeFiles/progress.marks
 dependencies/g2o/build/CMakeFiles/TargetDirectories.txt
 dependencies/g2o/build/Makefile
+example/vdo_slam
+track_distribution.txt
+track_distribution_static.txt

@@ -25,23 +25,6 @@ public:
     // ==========================================================
     // ============= output for evaluating results ==============
 
-    // camera motion of each frame, starting from 1st frame. (k*1) // _1 for m and deg, _2 for % and deg/m
-    std::vector<cv::Point2f> vvCamMotErr_1;
-    std::vector<cv::Point2f> vvCamMotErr_2;
-
-    // object motions in each frame
-    std::vector<std::vector<int> > vvObjMotID;
-    std::vector<std::vector<cv::Point2f> > vvObjMotErr_1;
-    std::vector<std::vector<cv::Point2f> > vvObjMotErr_2;
-    std::vector<std::vector<cv::Point2f> > vvObjMotErr_3;
-
-    // dynamic object detection number
-    std::vector<int> vTotObjNum;
-
-    // save camera trajectory
-    std::vector<cv::Mat> vmCameraPose_main;
-    std::vector<cv::Mat> vmCameraPose_orb;
-
     // ==========================================================
     // ==========================================================
 

@@ -72,7 +72,6 @@ This will create
 ```
 ./example/vdo_slam example/omd.yaml PATH_TO_OMD_SEQUENCE_DATA_FOLDER
 ```
-```
 
 # 5. Processing your own sequences
 You will need to create a settings (yaml) file with the calibration of your camera. See the settings files provided in the *example/* folder. RGB-D input must be synchronized and depth registered. The system also requires image pre-processing as input, which includes instance-level semantic segmentation and optical flow estimation. For evaluation purpose, ground truth data of camera pose and object pose are also needed as input. Details of input format are shown as follows,
@@ -89,14 +88,14 @@ You will need to create a settings (yaml) file with the calibration of your came
 ```
 FrameID R11 R12 R13 t1 R21 R22 R23 t2 R31 R32 R33 t3 0 0 0 1
 ```
-```
+
 Here Rij are the coefficients of the camera rotation matrix **R** and ti are the coefficients of the camera translation vector **t**.
 
 2. The input of ground truth object pose is also saved as .txt file. One example of such file (**KITTI Tracking Dataset**), which each row is organized as follows,
 ```
 FrameID ObjectID B1 B2 B3 B4 t1 t2 t3 r1
 ```
-```
+
 Where ti are the coefficients of 3D object location **t** in camera coordinates, and r1 is the Rotation around Y-axis in camera coordinates. B1-4 is 2D bounding box of object in the image, used for visualization. Please refer to the details in **KITTI Tracking Dataset** if necessary.
 
 The provided object pose of **OMD** dataset is different from **KITTI**. So in a word, a user can input a custom data format, but need to write a new function to input the data.

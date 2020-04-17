@@ -33,7 +33,7 @@ We use modified versions of [g2o](https://github.com/RainerKuemmerle/g2o) librar
 
 Clone the repository:
 ```
-git clone https://github.com/halajun/DynamicObjectSLAM.git VDO-SLAM
+git clone https://github.com/halajun/VDO_SLAM.git VDO-SLAM
 ```
 
 We provide a script `build.sh` to build the *dependencies* libraries and *VDO-SLAM*. Please make sure you have installed all required dependencies (see section 2). Execute:

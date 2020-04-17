@@ -16,11 +16,6 @@
 #include<opencv2/core/core.hpp>
 #include<opencv2/optflow.hpp>
 
-#include "imageio/imageLib.h"
-#include "flow/flowIO.h"
-#include "flow/colorcode.h"
-#include "flow/motiontocolor.h"
-
 #include<System.h>
 
 using namespace std;
@@ -30,8 +25,6 @@ void LoadData(const string &strPathToSequence, vector<string> &vstrFilenamesSEM,
               vector<double> &vTimestamps, vector<cv::Mat> &vPoseGT, vector<vector<float> > &vObjPoseGT);
 
 void LoadMask(const string &strFilenamesMask, cv::Mat &imMask);
-
-void FlowShow(const cv::Mat &mflow2show);
 
 int main(int argc, char **argv)
 {
@@ -447,42 +440,6 @@ void LoadMask(const string &strFilenamesMask, cv::Mat &imMask)
 
 }
 
-
-void FlowShow(const cv::Mat &mflow2show)
-{
-    int rows = mflow2show.rows;
-    int cols = mflow2show.cols;
-    {
-        CFloatImage cFlow(cols, rows, 2);
-
-        // Convert flow to CFLoatImage:
-        for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
-                cFlow.Pixel(j, i, 0) = mflow2show.at<cv::Vec2f>(i, j)[0];
-                cFlow.Pixel(j, i, 1) = mflow2show.at<cv::Vec2f>(i, j)[1];
-            }
-        }
-
-        CByteImage cImage;
-        MotionToColor(cFlow, cImage, 0.0);
-
-        cv::Mat flow_image(rows, cols, CV_8UC3, cv::Scalar(0, 0, 0));
-
-        // Compute back to cv::Mat with 3 channels in BGR:
-        for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
-                flow_image.at<cv::Vec3b>(i, j)[0] = cImage.Pixel(j, i, 0);
-                flow_image.at<cv::Vec3b>(i, j)[1] = cImage.Pixel(j, i, 1);
-                flow_image.at<cv::Vec3b>(i, j)[2] = cImage.Pixel(j, i, 2);
-            }
-        }
-
-        // image show
-        cv::imshow("Flow for the left image", flow_image);
-        cv::waitKey(0);
-
-    } // display end
-}
 
 
 

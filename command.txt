@@ -1,28 +1,8 @@
-./Examples/Stereo/stereo_kitti Vocabulary/ORBvoc.txt Examples/Stereo/KITTI00-02.yaml /Users/steed/work/KITTI/dataset/sequences/00
-
-./Examples/Stereo/stereo_euroc Vocabulary/ORBvoc.txt Examples/Stereo/EuRoC.yaml PATH_TO_SEQUENCE/cam0/data PATH_TO_SEQUENCE/cam1/data Examples/Stereo/EuRoC_TimeStamps/SEQUENCE.txt
-
-./Examples/Stereo/stereo_kitti Vocabulary/ORBvoc.txt /Users/steed/work/undistorted/underwater.yaml /Users/steed/work/undistorted
-
-./Examples/Stereo/stereo_kitti Vocabulary/ORBvoc.txt /Users/steed/work/ScottReef25/scottreef.yaml /Users/steed/work/ScottReef25/undistorted
-
-./Examples/Stereo/stereo_kitti Vocabulary/ORBvoc.txt /Users/steed/work/TasmaniaOHara7/ohara.yaml /Users/steed/work/TasmaniaOHara7/undistorted
-
-./Examples/Stereo/stereo_kitti Vocabulary/ORBvoc.txt /Users/steed/work/ShipWreck/shipwreck.yaml /Users/steed/work/Shipwreck
-
-./Examples/RGB-D/rgbd_tum Vocabulary/ORBvoc.txt /Users/steed/work/VirtualKitti/data/vkitti.yaml /Users/steed/work/VirtualKitti/data/0001
-
-./Examples/Stereo/stereo_kitti Vocabulary/ORBvoc.txt /Users/steed/work/code/mosegslam/kitti_ms/0003.yaml /Users/steed/work/code/mosegslam/kitti_ms/0003
-
-./Examples/Stereo/stereo_kitti Vocabulary/ORBvoc.txt /Users/steed/work/kitti_ms/0003.yaml /Users/steed/work/kitti_ms/0003
-
-./Examples/RGB-D/rgbd_tum Vocabulary/ORBvoc.txt /Users/steed/work/omd/swinging_4_unconstrained/oxford.yaml  /Users/steed/work/omd/swinging_4_unconstrained
-
-./Examples/RGB-D/rgbd_tum Vocabulary/ORBvoc.txt /Users/steed/work/omd/swinging_4_unconstrained_stereo/oxford_2.yaml  /Users/steed/work/omd/swinging_4_unconstrained_stereo
-
-./Examples/RGB-D/rgbd_tum Vocabulary/ORBvoc.txt /Volumes/ACRV\ Samsung\ SSD\ T5/Oxford\ MultiMotion\ Dataset/primary/swinging_4_unconstrained/oxford.yaml  /Volumes/ACRV\ Samsung\ SSD\ T5/Oxford\ MultiMotion\ Dataset/primary/swinging_4_unconstrained
-
-./Examples/RGB-D/rgbd_tum Vocabulary/ORBvoc.txt /Users/steed/work/kitti_ms/0000-0013.yaml  /Users/steed/work/kitti_ms/0002
 
 ./example/vdo_slam /Users/steed/work/kitti_ms/0000-0013.yaml  /Users/steed/work/kitti_ms/0003
 
+./example/vdo_slam /Users/steed/work/omd/swinging_4_unconstrained/omd.yaml  /Users/steed/work/omd/swinging_4_unconstrained
+
+./example/vdo_slam example/kitti-0000-0013.yaml PATH_TO_KITTI_SEQUENCE_DATA_FOLDER
+
+./example/vdo_slam example/omd.yaml PATH_TO_OMD_SEQUENCE_DATA_FOLDER

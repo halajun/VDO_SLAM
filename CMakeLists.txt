@@ -58,12 +58,6 @@ src/Converter.cc
 src/Map.cc
 src/Optimizer.cc
 src/Frame.cc
-
-src/flow/motiontocolor.cpp
-src/flow/image.cpp
-src/flow/RefCntMem.cpp
-src/flow/colorcode.cpp
-src/flow/flowIO.cpp
 )
 
 target_link_libraries(

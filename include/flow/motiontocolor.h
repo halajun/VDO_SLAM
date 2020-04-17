@@ -1,1 +1,0 @@
-void MotionToColor(CFloatImage motim, CByteImage &colim, float maxmotion);

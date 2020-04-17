@@ -1,0 +1,11 @@
+VDO-SLAM is released under a GPLv3 license (see LICENSE-GPL.txt).
+Please see Dependencies.md for a list of all included code and library dependencies which are not property of the authors of VDO-SLAM.
+
+For a closed-source version of VDO-SLAM for commercial purposes, please contact the authors.
+
+If you use VDO-SLAM in an academic work, please cite the most relevant publication associated by visiting:
+https://github.com/halajun/DynamicObjectSLAM
+
+
+
+

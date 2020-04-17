@@ -11,7 +11,7 @@ VDO-SLAM is a Visual Object-aware Dynamic SLAM library for **RGB-D** cameras tha
 
 # 1. License
 
-VDO is released under a [GPLv3 license](https://github.com/halajun/DynamicObjectSLAM/blob/master/LICENSE-GPL.txt). For a list of all code/library dependencies (and associated licenses), please see [Dependencies.md](https://github.com/halajun/DynamicObjectSLAM/blob/master/Dependencies.md).
+VDO-SLAM is released under a [GPLv3 license](https://github.com/halajun/VDO_SLAM/blob/master/LICENSE-GPL.txt). For a list of all code/library dependencies (and associated licenses), please see [Dependencies.md](https://github.com/halajun/VDO_SLAM/blob/master/Dependencies.md).
 
 If you use VDO-SLAM in an academic work, please cite:
 
@@ -33,7 +33,7 @@ We use modified versions of [g2o](https://github.com/RainerKuemmerle/g2o) librar
 
 Clone the repository:
 ```
-git clone https://github.com/halajun/DynamicObjectSLAM.git VDO-SLAM
+git clone https://github.com/halajun/VDO_SLAM.git VDO-SLAM
 ```
 
 We provide a script `build.sh` to build the *dependencies* libraries and *VDO-SLAM*. Please make sure you have installed all required dependencies (see section 2). Execute:

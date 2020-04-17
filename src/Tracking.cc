@@ -1207,7 +1207,7 @@ void Tracking::Track()
         // GetVelocityError(mpMap->vmRigidMotion, mpMap->vp3DPointDyn, mpMap->vnFeatLabel,
         //                  mpMap->vnRMLabel, mpMap->vfAllSpeed_GT, mpMap->vnAssoDyn, mpMap->vbObjStat);
 
-        if (bGlobalBatch)
+        if (bGlobalBatch && mTestData==KITTI)
         {
             // Get Full Batch Optimization
             Optimizer::FullBatchOptimization(mpMap,mK);

@@ -59,7 +59,7 @@ This will create
 
 ## KITTI Tracking Dataset  
 
-1. Download the a demo sequence (0003) from http://www.cvlibs.net/datasets/kitti/eval_odometry.php 
+1. Download the a demo sequence [kitti-demo](https://drive.google.com/file/d/1LpjIdh6xL_UtWOkiJng0CKSmP7qAQhGu/view?usp=sharing)
 
 2. Execute the following command. Make sure that in the yaml file, the 'ChooseData' item is set to 2 (which refers to KITTI), as different dataset comes with different configures, such as input format, ground truth, etc.
 ```
@@ -68,7 +68,7 @@ This will create
 
 ## Oxford Multi-motion Dataset  
 
-1. Download the a demo sequence (swinging_4_unconstrained) from http://www.cvlibs.net/datasets/kitti/eval_odometry.php 
+1. Download the a demo sequence [omd_demo](https://drive.google.com/file/d/1t4rG685a_7r0bHuW0bPKNbOhyiugnJK7/view?usp=sharing)
 
 2. Execute the following command. Make sure that in the yaml file, the 'ChooseData' item is set to 1 (which refers to OMD), as different dataset comes with different configures, such as input format, ground truth, etc.
 ```
@@ -76,7 +76,9 @@ This will create
 ```
 
 # 5. Processing your own sequences
-You will need to create a settings (yaml) file with the calibration of your camera. See the settings files provided in the *example/* folder. RGB-D input must be synchronized and depth registered. The system also requires image pre-processing as input, which includes instance-level semantic segmentation and optical flow estimation. For evaluation purpose, ground truth data of camera pose and object pose are also needed as input. Details of input format are shown as follows,
+You will need to create a settings (yaml) file with the calibration of your camera. See the settings files provided in the *example/* folder. RGB-D input must be synchronized and depth registered. A list of timestamps for the images is needed for input.
+
+The system also requires image pre-processing as input, which includes instance-level semantic segmentation and optical flow estimation. For evaluation purpose, ground truth data of camera pose and object pose are also needed as input. Details of input format are shown as follows,
 
 ## Input Data Pre-processing
 

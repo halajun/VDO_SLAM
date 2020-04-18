@@ -969,7 +969,7 @@ void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const
         // **********************************************
     }
 
-    bool show_result_before_opt=true, show_result_after_opt=true;
+    bool show_result_before_opt=false, show_result_after_opt=false;
     if (show_result_before_opt)
     {
         cout << "Pose and Motion BEFORE Local BA ......" << endl;
@@ -2332,7 +2332,7 @@ int Optimizer::PoseOptimizationNew(Frame *pCurFrame, Frame *pLastFrame, vector<i
 
 int Optimizer::PoseOptimizationFlow2Cam(Frame *pCurFrame, Frame *pLastFrame, vector<int> &TemperalMatch)
 {
-    float rp_thres = 0.01;
+    float rp_thres = 0.04; // 0.01
     bool updateflow = true;
 
     g2o::SparseOptimizer optimizer;
@@ -4123,7 +4123,7 @@ cv::Mat Optimizer::PoseOptimizationFlow(Frame *pCurFrame, Frame *pLastFrame, con
 
 cv::Mat Optimizer::PoseOptimizationFlow2(Frame *pCurFrame, Frame *pLastFrame, const vector<int> &ObjId, std::vector<int> &InlierID)
 {
-    float rp_thres = 0.01;  // 0.04 0.01
+    float rp_thres = 0.04;  // 0.04 0.01
     bool updateflow = true;
 
     g2o::SparseOptimizer optimizer;

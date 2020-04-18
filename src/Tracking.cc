@@ -470,139 +470,117 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
                 case 41:
                     cv::drawKeypoints(imRGB, KeyPoints_tmp, imRGB, cv::Scalar(60, 20, 220), 1);
                     break;
-                // case 1:
-                //     cv::drawKeypoints(imRGB, KeyPoints_tmp, imRGB, cv::Scalar(0,255,0), 1); // green 0,255,0
-                //     break;
-                // case 2:
-                //     cv::drawKeypoints(imRGB, KeyPoints_tmp, imRGB, cv::Scalar(255,0,0), 1); // blue
-                //     break;
-                // case 3:
-                //     cv::drawKeypoints(imRGB, KeyPoints_tmp, imRGB, cv::Scalar(255,255,0), 1); // cyan
-                //     break;
-                // case 4:
-                //     cv::drawKeypoints(imRGB, KeyPoints_tmp, imRGB, cv::Scalar(47,255,173), 1); // yellow green
-                //     break;
-                // case 5:
-                //     cv::drawKeypoints(imRGB, KeyPoints_tmp, imRGB, cv::Scalar(128, 0, 128), 1); // purple
-                //     break;
-                // case 6:
-                //     cv::drawKeypoints(imRGB, KeyPoints_tmp, imRGB, cv::Scalar(203,192,255), 1); // pink
-                //     break;
-                // case 7:
-                //     cv::drawKeypoints(imRGB, KeyPoints_tmp, imRGB, cv::Scalar(196,228,255), 1); // bisque
-                //     break;
-                // case 8:
-                //     cv::drawKeypoints(imRGB, KeyPoints_tmp, imRGB, cv::Scalar(42,42,165), 1); // brown
-                //     break;
-                // case 9:
-                //     cv::drawKeypoints(imRGB, KeyPoints_tmp, imRGB, cv::Scalar(255,255,255), 1); // white
-                //     break;
-                // case 10:
-                //     cv::drawKeypoints(imRGB, KeyPoints_tmp, imRGB, cv::Scalar(0,0,0), 1); // black
-                //     break;
             }
         }
-        cv::imshow("Sparse Static Features and Dense Object Points", imRGB);
+        cv::imshow("Static Background and Object Points", imRGB);
         // cv::imwrite("feat.png",imRGB);
         if (f_id<5)
-            cv::waitKey(0);
+            cv::waitKey(1);
         else
-            cv::waitKey(0);
+            cv::waitKey(1);
 
     }
 
-    // // ************** show bounding box with speed ***************
-    // if(timestamp!=0 && bFrame2Frame == true)
-    // {
-    //     cv::Mat mImBGR(mImGray.size(), CV_8UC3);
-    //     cvtColor(mImGray, mImBGR, CV_GRAY2RGB);
-    //     for (int i = 0; i < mCurrentFrame.vObjBoxID.size(); ++i)
-    //     {
-    //         // cout << "ID: " << mCurrentFrame.vObjBoxID[i] << endl;
-    //         cv::Point pt1(vObjPose_gt[mCurrentFrame.vObjBoxID[i]][2], vObjPose_gt[mCurrentFrame.vObjBoxID[i]][3]);
-    //         cv::Point pt2(vObjPose_gt[mCurrentFrame.vObjBoxID[i]][4], vObjPose_gt[mCurrentFrame.vObjBoxID[i]][5]);
-    //         // cout << pt1.x << " " << pt1.y << " " << pt2.x << " " << pt2.y << endl;
-    //         cv::rectangle(mImBGR, pt1, pt2, cv::Scalar(0, 255, 0),2);
-    //         // string sp_gt = std::to_string(mCurrentFrame.vSpeed[i].y);
-    //         string sp_est = std::to_string(mCurrentFrame.vSpeed[i].x);
-    //         // sp_gt.resize(5);
-    //         sp_est.resize(5);
-    //         // string output_gt = "GT:" + sp_gt + "km/h";
-    //         string output_est = sp_est + "km/h";
-    //         cv::putText(mImBGR, output_est, cv::Point(pt1.x, pt1.y-10), cv::FONT_HERSHEY_DUPLEX, 0.9, CV_RGB(0,255,0), 2); // CV_RGB(255,140,0)
-    //         // cv::putText(mImBGR, output_gt, cv::Point(pt1.x, pt1.y-32), cv::FONT_HERSHEY_DUPLEX, 0.7, CV_RGB(255, 0, 0), 2);
-    //     }
-    //     cv::imshow("Object Speed", mImBGR);
-    //     cv::waitKey(1);
-    // }
+    // ************** show bounding box with speed ***************
+    if(timestamp!=0 && bFrame2Frame == true && mTestData==KITTI)
+    {
+        cv::Mat mImBGR(mImGray.size(), CV_8UC3);
+        cvtColor(mImGray, mImBGR, CV_GRAY2RGB);
+        for (int i = 0; i < mCurrentFrame.vObjBoxID.size(); ++i)
+        {
+            if (mCurrentFrame.vSpeed[i].x==0)
+                continue;
+            // cout << "ID: " << mCurrentFrame.vObjBoxID[i] << endl;
+            cv::Point pt1(vObjPose_gt[mCurrentFrame.vObjBoxID[i]][2], vObjPose_gt[mCurrentFrame.vObjBoxID[i]][3]);
+            cv::Point pt2(vObjPose_gt[mCurrentFrame.vObjBoxID[i]][4], vObjPose_gt[mCurrentFrame.vObjBoxID[i]][5]);
+            // cout << pt1.x << " " << pt1.y << " " << pt2.x << " " << pt2.y << endl;
+            cv::rectangle(mImBGR, pt1, pt2, cv::Scalar(0, 255, 0),2);
+            // string sp_gt = std::to_string(mCurrentFrame.vSpeed[i].y);
+            string sp_est = std::to_string(mCurrentFrame.vSpeed[i].x/36);
+            // sp_gt.resize(5);
+            sp_est.resize(5);
+            // string output_gt = "GT:" + sp_gt + "km/h";
+            string output_est = sp_est + "km/h";
+            cv::putText(mImBGR, output_est, cv::Point(pt1.x, pt1.y-10), cv::FONT_HERSHEY_DUPLEX, 0.9, CV_RGB(0,255,0), 2); // CV_RGB(255,140,0)
+            // cv::putText(mImBGR, output_gt, cv::Point(pt1.x, pt1.y-32), cv::FONT_HERSHEY_DUPLEX, 0.7, CV_RGB(255, 0, 0), 2);
+        }
+        cv::imshow("Object Speed", mImBGR);
+        cv::waitKey(1);
+    }
 
-    // // // ************** show trajectory results ***************
-    // int sta_x = 300, sta_y = 120, radi = 2, thic = 5;  // (160/120/2/5)
-    // float scale = 6; // 6
-    // cv::Mat CamPos = Converter::toInvMatrix(mCurrentFrame.mTcw);
-    // int x = int(CamPos.at<float>(0,3)*scale) + sta_x;
-    // int y = int(CamPos.at<float>(2,3)*scale) + sta_y;
-    // // cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(255,0,0), thic);
-    // cv::rectangle(imTraj, cv::Point(x, y), cv::Point(x+10, y+10), cv::Scalar(0,0,255),1);
-    // cv::rectangle(imTraj, cv::Point(10, 30), cv::Point(550, 60), CV_RGB(0,0,0), CV_FILLED);
-    // cv::putText(imTraj, "Camera Trajectory (RED SQUARE)", cv::Point(10, 30), cv::FONT_HERSHEY_COMPLEX, 0.6, CV_RGB(255, 255, 255), 1);
-    // char text[100];
-    // sprintf(text, "x = %02fm y = %02fm z = %02fm", CamPos.at<float>(0,3), CamPos.at<float>(1,3), CamPos.at<float>(2,3));
-    // cv::putText(imTraj, text, cv::Point(10, 50), cv::FONT_HERSHEY_COMPLEX, 0.6, cv::Scalar::all(255), 1);
-    // cv::putText(imTraj, "Object Trajectories (COLORED CIRCLES)", cv::Point(10, 70), cv::FONT_HERSHEY_COMPLEX, 0.6, CV_RGB(255, 255, 255), 1);
+    // // ************** show trajectory results ***************
+    if (mTestData==KITTI)
+    {
+        int sta_x = 300, sta_y = 120, radi = 2, thic = 5;  // (160/120/2/5)
+        float scale = 6; // 6
+        cv::Mat CamPos = Converter::toInvMatrix(mCurrentFrame.mTcw);
+        int x = int(CamPos.at<float>(0,3)*scale) + sta_x;
+        int y = int(CamPos.at<float>(2,3)*scale) + sta_y;
+        // cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(255,0,0), thic);
+        cv::rectangle(imTraj, cv::Point(x, y), cv::Point(x+10, y+10), cv::Scalar(0,0,255),1);
+        cv::rectangle(imTraj, cv::Point(10, 30), cv::Point(550, 60), CV_RGB(0,0,0), CV_FILLED);
+        cv::putText(imTraj, "Camera Trajectory (RED SQUARE)", cv::Point(10, 30), cv::FONT_HERSHEY_COMPLEX, 0.6, CV_RGB(255, 255, 255), 1);
+        char text[100];
+        sprintf(text, "x = %02fm y = %02fm z = %02fm", CamPos.at<float>(0,3), CamPos.at<float>(1,3), CamPos.at<float>(2,3));
+        cv::putText(imTraj, text, cv::Point(10, 50), cv::FONT_HERSHEY_COMPLEX, 0.6, cv::Scalar::all(255), 1);
+        cv::putText(imTraj, "Object Trajectories (COLORED CIRCLES)", cv::Point(10, 70), cv::FONT_HERSHEY_COMPLEX, 0.6, CV_RGB(255, 255, 255), 1);
 
-    // for (int i = 0; i < mCurrentFrame.vObjCentre3D.size(); ++i)
-    // {
-    //     int x = int(mCurrentFrame.vObjCentre3D[i].at<float>(0,0)*scale) + sta_x;
-    //     int y = int(mCurrentFrame.vObjCentre3D[i].at<float>(0,2)*scale) + sta_y;
-    //     int l = mCurrentFrame.nSemPosition[i];
-    //     // int l = mCurrentFrame.nModLabel[i];
-    //     switch (l)
-    //     {
-    //         case 1:
-    //             cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(0, 165, 255), thic); // orange
-    //             break;
-    //         case 2:
-    //             cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(0,255,0), thic); // green
-    //             break;
-    //         case 3:
-    //             cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(0,255,255), thic); // yellow
-    //             break;
-    //         case 4:
-    //             cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(203,192,255), thic); // pink
-    //             break;
-    //         case 5:
-    //             cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(255,255,0), thic); // cyan (yellow green 47,255,173)
-    //             break;
-    //         case 6:
-    //             cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(128, 0, 128), thic); // purple
-    //             break;
-    //         case 7:
-    //             cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(255,255,255), thic);  // white
-    //             break;
-    //         case 8:
-    //             cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(196,228,255), thic); // bisque
-    //             break;
-    //         case 9:
-    //             cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(180, 105, 255), thic);  // blue
-    //             break;
-    //         case 10:
-    //             cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(42,42,165), thic);  // brown
-    //             break;
-    //         case 11:
-    //             cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(35, 142, 107), thic);
-    //             break;
-    //         case 12:
-    //             cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(45, 82, 160), thic);
-    //             break;
-    //         case 41:
-    //             cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(60, 20, 220), thic);
-    //             break;
-    //     }
-    // }
+        for (int i = 0; i < mCurrentFrame.vObjCentre3D.size(); ++i)
+        {
+            if (mCurrentFrame.vObjCentre3D[i].at<float>(0,0)==0 && mCurrentFrame.vObjCentre3D[i].at<float>(0,2)==0)
+                continue;
+            int x = int(mCurrentFrame.vObjCentre3D[i].at<float>(0,0)*scale) + sta_x;
+            int y = int(mCurrentFrame.vObjCentre3D[i].at<float>(0,2)*scale) + sta_y;
+            // int l = mCurrentFrame.nSemPosition[i];
+            int l = mCurrentFrame.nModLabel[i];
+            switch (l)
+            {
+                case 1:
+                    cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(128, 0, 128), thic); // orange
+                    break;
+                case 2:
+                    cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(0,255,255), thic); // green
+                    break;
+                case 3:
+                    cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(0, 255, 0), thic); // yellow
+                    break;
+                case 4:
+                    cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(0,0,255), thic); // pink
+                    break;
+                case 5:
+                    cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(255,255,0), thic); // cyan (yellow green 47,255,173)
+                    break;
+                case 6:
+                    cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(128, 0, 128), thic); // purple
+                    break;
+                case 7:
+                    cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(255,255,255), thic);  // white
+                    break;
+                case 8:
+                    cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(196,228,255), thic); // bisque
+                    break;
+                case 9:
+                    cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(180, 105, 255), thic);  // blue
+                    break;
+                case 10:
+                    cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(42,42,165), thic);  // brown
+                    break;
+                case 11:
+                    cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(35, 142, 107), thic);
+                    break;
+                case 12:
+                    cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(45, 82, 160), thic);
+                    break;
+                case 41:
+                    cv::circle(imTraj, cv::Point(x, y), radi, CV_RGB(60, 20, 220), thic);
+                    break;
+            }
+        }
 
-    // imshow( "Camera and Object Trajectories", imTraj);
-    // cv::waitKey(0);
+        imshow( "Camera and Object Trajectories", imTraj);
+        cv::waitKey(1);
+    }
+
 
     // // // ************** display temperal matching ***************
     // if(timestamp!=0 && bFrame2Frame == true)
@@ -879,7 +857,7 @@ void Tracking::Track()
             // cout << "Initial motion estimation: " << endl << H_tmp << endl;
             e_3_1 = clock();
 
-            if (ObjIdTest_in.size()<60)
+            if (ObjIdTest_in.size()<50)
             {
                 cout << "Object Initialization Fail! ! !" << endl;
                 mCurrentFrame.bObjStat[i] = false;
@@ -887,6 +865,7 @@ void Tracking::Track()
                 mCurrentFrame.vObjMod[i] = cv::Mat::eye(4,4, CV_32F);
                 mCurrentFrame.vObjCentre3D[i] = (cv::Mat_<float>(3,1) << 0.f, 0.f, 0.f);
                 mCurrentFrame.vObjSpeed_gt[i] = 0.0;
+                mCurrentFrame.vSpeed[i] = cv::Point2f(0.f, 0.f);
                 mCurrentFrame.vnObjInlierID[i] = ObjIdTest_in;
                 continue;
             }
@@ -1662,7 +1641,7 @@ cv::Mat Tracking::GetInitModelCam(const std::vector<int> &MatchId, std::vector<i
 
     // solve
     int iter_num = 500;
-    double reprojectionError = 0.3, confidence = 0.98; // 0.5 0.3
+    double reprojectionError = 0.4, confidence = 0.98; // 0.5 0.3
     cv::solvePnPRansac(pre_3d, cur_2d, camera_mat, distCoeffs, Rvec, Tvec, false,
                iter_num, reprojectionError, confidence, inliers, cv::SOLVEPNP_AP3P); // AP3P EPNP P3P ITERATIVE DLS
 
@@ -1765,7 +1744,7 @@ cv::Mat Tracking::GetInitModelObj(const std::vector<int> &ObjId, std::vector<int
 
     // solve
     int iter_num = 500;
-    double reprojectionError = 0.3, confidence = 0.98; // 0.3 0.5 1.0
+    double reprojectionError = 0.4, confidence = 0.98; // 0.3 0.5 1.0
     cv::solvePnPRansac(pre_3d, cur_2d, camera_mat, distCoeffs, Rvec, Tvec, false,
                iter_num, reprojectionError, confidence, inliers, cv::SOLVEPNP_AP3P); // AP3P EPNP P3P ITERATIVE DLS
 
@@ -3376,6 +3355,7 @@ void Tracking::GetMetricError(const std::vector<cv::Mat> &CamPose, const std::ve
     }
     cout << "average error (Over All Objects):" << " t: " << t_rpe_sum << " R: " << r_rpe_sum << endl;
 
+    // show each object
     for (int i = 0; i < each_obj_count.size(); ++i)
     {
         if (bRMSError)

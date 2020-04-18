@@ -102,7 +102,7 @@ FrameID ObjectID B1 B2 B3 B4 t1 t2 t3 r1
 
 Where ti are the coefficients of 3D object location **t** in camera coordinates, and r1 is the Rotation around Y-axis in camera coordinates. B1-4 is 2D bounding box of object in the image, used for visualization. Please refer to the details in **KITTI Tracking Dataset** if necessary.
 
-The provided object pose of **OMD** dataset is slightly different from **KITTI**. So in a word, a user can input a custom data format, but need to write a new function to input the data.
+The provided object pose format of **OMD** dataset is axis-angle + translation vector, please see the provided demos for details. A user can input a custom data format, but need to write a new function to input the data.
 
 
 

@@ -59,7 +59,7 @@ This will create
 
 ## KITTI Tracking Dataset  
 
-1. Download the a demo sequence [kitti-demo](https://drive.google.com/file/d/1LpjIdh6xL_UtWOkiJng0CKSmP7qAQhGu/view?usp=sharing).
+1. Download the demo sequence: [kitti-demo](https://drive.google.com/file/d/1LpjIdh6xL_UtWOkiJng0CKSmP7qAQhGu/view?usp=sharing).
 
 2. Execute the following command. Make sure that in the yaml file, the 'ChooseData' item is set to 2 (which refers to KITTI), as different dataset comes with different configures, such as input format, ground truth, etc.
 ```
@@ -68,7 +68,7 @@ This will create
 
 ## Oxford Multi-motion Dataset  
 
-1. Download the a demo sequence [omd_demo](https://drive.google.com/file/d/1t4rG685a_7r0bHuW0bPKNbOhyiugnJK7/view?usp=sharing).
+1. Download the demo sequence: [omd_demo](https://drive.google.com/file/d/1t4rG685a_7r0bHuW0bPKNbOhyiugnJK7/view?usp=sharing).
 
 2. Execute the following command. Make sure that in the yaml file, the 'ChooseData' item is set to 1 (which refers to OMD), as different dataset comes with different configures, such as input format, ground truth, etc.
 ```

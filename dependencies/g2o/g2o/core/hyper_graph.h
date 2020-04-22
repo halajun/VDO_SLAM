@@ -35,12 +35,7 @@
 #include <limits>
 #include <cstddef>
 
-#if defined(_MSC_VER) || defined(__APPLE__)
 #include <unordered_map>
-#else
-#include <tr1/unordered_map>
-#endif
-
 
 /** @addtogroup graph */
 //@{

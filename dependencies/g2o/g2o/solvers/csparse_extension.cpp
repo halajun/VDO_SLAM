@@ -21,6 +21,8 @@
 #include <iostream>
 #include "csparse_extension.h"
 
+#include <cassert>
+
 #include "../stuff/macros.h"
 
 using namespace std;

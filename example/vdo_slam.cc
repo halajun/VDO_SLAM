@@ -51,6 +51,8 @@ int main(int argc, char **argv)
     for (int i = 0; i < vObjPoseGT.size(); ++i)
     {
         int f_id = vObjPoseGT[i][0];
+        if (f_id>=vstrFilenamesRGB.size())
+            break;
         vObjPoseID[f_id].push_back(i);
     }
 

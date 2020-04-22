@@ -16,6 +16,9 @@ If you use VDO-SLAM in an academic work, please cite:
 # 2. Prerequisites
 We have tested the library in **Mac OS X 10.14** and **Ubuntu 16.04**, but it should be easy to compile in other platforms. 
 
+## C++11 and gcc
+We use some functionalities of C++11, and please upgrade gcc to latest version.
+
 ## OpenCV
 We use [OpenCV](http://opencv.org) to manipulate images and features. Download and install instructions can be found at: http://opencv.org. **Required at least 3.0. Tested with OpenCV OpenCV 3.2**.
 

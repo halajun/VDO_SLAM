@@ -45,15 +45,11 @@ chmod +x build.sh
 
 This will create 
 
-1. **libVDO_SLAM.dylib (Mac)** or **libVDO_SLAM.so (Ubuntu)** at *lib* folder,
+1. **libObjSLAM.dylib (Mac)** or **libObjSLAM.so (Ubuntu)** at *lib* folder,
 
 2. **libg2o.dylib (Mac)** or **libg2o.so (Ubuntu)** at */dependencies/g2o/lib* folder (Note that when compiling in different platforms, the library file suffix, i.e., '.dylib' or '.so', needs to be changed accordingly in the main CMakeLists.txt.),
 
 3. and the executable **vdo_slam** in *example* folder.
-
-## For Ubuntu Platform
-
-1. some detailed differences.
 
 # 4. Examples
 

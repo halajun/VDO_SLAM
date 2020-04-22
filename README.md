@@ -17,10 +17,10 @@ If you use VDO-SLAM in an academic work, please cite:
 We have tested the library in **Mac OS X 10.14** and **Ubuntu 16.04**, but it should be easy to compile in other platforms. 
 
 ## C++11 and gcc
-We use some functionalities of C++11, and please upgrade gcc to latest version.
+We use some functionalities of C++11, and the tested gcc version is 9.2.1.
 
 ## OpenCV
-We use [OpenCV](http://opencv.org) to manipulate images and features. Download and install instructions can be found at: http://opencv.org. **Required at least 3.0. Tested with OpenCV OpenCV 3.2**.
+We use [OpenCV](http://opencv.org) to manipulate images and features. Download and install instructions can be found at: http://opencv.org. **Required at least 3.0. Tested with OpenCV 3.2**.
 
 ## Eigen3
 Required by g2o (see below). Download and install instructions can be found at: http://eigen.tuxfamily.org. **Required at least 3.1.0**.
@@ -57,7 +57,7 @@ This will create
 
 1. Download the demo sequence: [kitti_demo](https://drive.google.com/file/d/1LpjIdh6xL_UtWOkiJng0CKSmP7qAQhGu/view?usp=sharing), and uncompress it.
 
-2. Execute the following command. Make sure that in the yaml file, the 'ChooseData' item is set to 2 (which refers to KITTI), as different dataset comes with different configures, such as input format, ground truth, etc.
+2. Execute the following command.
 ```
 ./example/vdo_slam example/kitti-0000-0013.yaml PATH_TO_KITTI_SEQUENCE_DATA_FOLDER
 ```
@@ -66,7 +66,7 @@ This will create
 
 1. Download the demo sequence: [omd_demo](https://drive.google.com/file/d/1t4rG685a_7r0bHuW0bPKNbOhyiugnJK7/view?usp=sharing), and uncompress it.
 
-2. Execute the following command. Make sure that in the yaml file, the 'ChooseData' item is set to 1 (which refers to OMD), as different dataset comes with different configures, such as input format, ground truth, etc.
+2. Execute the following command.
 ```
 ./example/vdo_slam example/omd.yaml PATH_TO_OMD_SEQUENCE_DATA_FOLDER
 ```

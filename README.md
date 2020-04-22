@@ -36,7 +36,7 @@ Clone the repository:
 git clone https://github.com/halajun/VDO_SLAM.git VDO-SLAM
 ```
 
-We provide a script `build.sh` to build the *dependencies* libraries and *VDO-SLAM*. Please make sure you have installed all required dependencies (see section 2). Execute:
+We provide a script `build.sh` to build the *dependencies* libraries and *VDO-SLAM*. Please make sure you have installed all required dependencies (see section 2). Please also change the library file suffix, i.e., '.dylib' for Mac (default) or '.so' for Ubuntu, in the main CMakeLists.txt. Then Execute:
 ```
 cd VDO-SLAM
 chmod +x build.sh
@@ -47,7 +47,7 @@ This will create
 
 1. **libObjSLAM.dylib (Mac)** or **libObjSLAM.so (Ubuntu)** at *lib* folder,
 
-2. **libg2o.dylib (Mac)** or **libg2o.so (Ubuntu)** at */dependencies/g2o/lib* folder (Note that when compiling in different platforms, the library file suffix, i.e., '.dylib' or '.so', needs to be changed accordingly in the main CMakeLists.txt.),
+2. **libg2o.dylib (Mac)** or **libg2o.so (Ubuntu)** at */dependencies/g2o/lib* folder,
 
 3. and the executable **vdo_slam** in *example* folder.
 

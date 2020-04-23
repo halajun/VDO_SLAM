@@ -17,7 +17,7 @@ Required by g2o (see below). Download and install instructions can be found at: 
 We use modified versions of [g2o](https://github.com/RainerKuemmerle/g2o) library to perform non-linear optimizations. The modified libraries (which are BSD) are included in the *dependencies* folder.
 
 
-# 2. Building VDO-SLAM Library
+# 2. Building Library
 
 In the source code folder, we provide a script `build.sh` to build the *dependencies* libraries and *VDO-SLAM*. 
 Please make sure you have installed all required dependencies (see Section 1). 

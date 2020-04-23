@@ -1,6 +1,11 @@
 # VDO-SLAM
 **Authors:** [Jun Zhang](https://halajun.github.io/), [Mina Henein](https://minahenein.github.io/), [Robert Mahony](https://users.cecs.anu.edu.au/~Robert.Mahony/) and [Viorela Ila](http://viorelaila.net/) 
 
+VDO-SLAM is a Visual Object-aware Dynamic SLAM library for **RGB-D** cameras that is able to track dynamic objects, estimate the camera poses along with the static and dynamic structure, the full SE(3) pose change of every rigid object in the scene, extract velocity information, and be demonstrable in real-world outdoor scenarios. We provide examples to run the SLAM system in the [KITTI Tracking Dataset](http://cvlibs.net/datasets/kitti/eval_tracking.php), and in the [Oxford Multi-motion Dataset](https://robotic-esp.com/datasets/omd/). 
+
+<img src="https://github.com/halajun/halajun.github.io/blob/master/images/VDO-SLAM_results_1.jpg" alt="VDO-SLAM" width="360" height="260" border="10" /></a>
+<img src="https://github.com/halajun/halajun.github.io/blob/master/images/VDO-SLAM_results_2.jpg" alt="VDO-SLAM" width="540" height="260" border="10" /></a>
+
 # 1. Prerequisites
 We have tested the library in **Mac OS X 10.14** and **Ubuntu 16.04**, but it should be easy to compile in other platforms. 
 

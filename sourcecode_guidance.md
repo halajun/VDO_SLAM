@@ -17,7 +17,7 @@ Required by g2o (see below). Download and install instructions can be found at: 
 We use modified versions of [g2o](https://github.com/RainerKuemmerle/g2o) library to perform non-linear optimizations. The modified libraries (which are BSD) are included in the *dependencies* folder.
 
 
-# 3. Building VDO-SLAM library and example
+# 2. Building VDO-SLAM Library
 
 In the source code folder, we provide a script `build.sh` to build the *dependencies* libraries and *VDO-SLAM*. 
 Please make sure you have installed all required dependencies (see Section 1). 
@@ -37,7 +37,7 @@ This will create
 
 3. and the executable **vdo_slam** in *example* folder.
 
-# 4. Examples
+# 3. Running Examples
 
 ## KITTI Tracking Dataset  
 

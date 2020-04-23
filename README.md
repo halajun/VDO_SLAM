@@ -29,7 +29,7 @@ Required by g2o (see below). Download and install instructions can be found at: 
 We use modified versions of [g2o](https://github.com/RainerKuemmerle/g2o) library to perform non-linear optimizations. The modified libraries (which are BSD) are included in the *dependencies* folder.
 
 
-# 3. Building VDO-SLAM library and example
+# 3. Building VDO-SLAM Library
 
 Clone the repository:
 ```
@@ -54,7 +54,7 @@ This will create
 
 3. and the executable **vdo_slam** in *example* folder.
 
-# 4. Examples
+# 4. Running Examples
 
 ## KITTI Tracking Dataset  
 
@@ -74,7 +74,7 @@ This will create
 ./example/vdo_slam example/omd.yaml PATH_TO_OMD_SEQUENCE_DATA_FOLDER
 ```
 
-# 5. Processing your own sequences
+# 5. Processing Your Own Data
 You will need to create a settings (yaml) file with the calibration of your camera. See the settings files provided in the *example/* folder. RGB-D input must be synchronized and depth registered. A list of timestamps for the images is needed for input.
 
 The system also requires image pre-processing as input, which includes instance-level semantic segmentation and optical flow estimation. For evaluation purpose, ground truth data of camera pose and object pose are also needed as input. Details of input format are shown as follows,

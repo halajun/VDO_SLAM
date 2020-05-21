@@ -6,7 +6,7 @@ VDO-SLAM is a Visual Object-aware Dynamic SLAM library for **RGB-D** cameras tha
 <img src="https://github.com/halajun/halajun.github.io/blob/master/images/VDO-SLAM_results_1.jpg" alt="VDO-SLAM" width="360" height="260" border="10" /></a>
 <img src="https://github.com/halajun/halajun.github.io/blob/master/images/VDO-SLAM_results_2.jpg" alt="VDO-SLAM" width="540" height="260" border="10" /></a>
 
-A Demo video can be found [here](https://youtu.be/u9mhkhUHkwo).
+Click [HERE](https://youtu.be/u9mhkhUHkwo) to watch a demo video.
 
 # 1. License
 

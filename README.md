@@ -6,6 +6,8 @@ VDO-SLAM is a Visual Object-aware Dynamic SLAM library for **RGB-D** cameras tha
 <img src="https://github.com/halajun/halajun.github.io/blob/master/images/VDO-SLAM_results_1.jpg" alt="VDO-SLAM" width="360" height="260" border="10" /></a>
 <img src="https://github.com/halajun/halajun.github.io/blob/master/images/VDO-SLAM_results_2.jpg" alt="VDO-SLAM" width="540" height="260" border="10" /></a>
 
+A Demo video can be found [here](https://youtu.be/u9mhkhUHkwo).
+
 # 1. License
 
 VDO-SLAM is released under a [GPLv3 license](https://github.com/halajun/VDO_SLAM/blob/master/LICENSE-GPL.txt). For a list of all code/library dependencies (and associated licenses), please see [Dependencies.md](https://github.com/halajun/VDO_SLAM/blob/master/Dependencies.md).

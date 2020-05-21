@@ -474,8 +474,8 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
         }
         cv::imshow("Static Background and Object Points", imRGB);
         // cv::imwrite("feat.png",imRGB);
-        if (f_id<5)
-            cv::waitKey(1);
+        if (f_id<3)
+            cv::waitKey(0);
         else
             cv::waitKey(1);
 
@@ -578,7 +578,10 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
         }
 
         imshow( "Camera and Object Trajectories", imTraj);
-        cv::waitKey(1);
+        if (f_id<3)
+            cv::waitKey(0);
+        else
+            cv::waitKey(1);
     }
 
 

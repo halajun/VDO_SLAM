@@ -20,7 +20,7 @@ This is a modified version of [g2o](https://github.com/RainerKuemmerle/g2o). All
 * **OpenCV**.
 BSD license.
 
-* **CvPlot**.
+* **cvplot**.
 MIT license.
 
 * **Eigen3**.

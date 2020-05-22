@@ -87,7 +87,7 @@ int main(int argc, char **argv)
     cout << "Start processing sequence ..." << endl;
     cout << "Images in the sequence: " << nImages << endl << endl;
 
-    namedWindow( "Trajectory", cv::WINDOW_AUTOSIZE);
+    // namedWindow( "Trajectory", cv::WINDOW_AUTOSIZE);
     cv::Mat imTraj = cv::Mat::zeros(800, 600, CV_8UC3);
 
     // Main loop
@@ -435,8 +435,8 @@ void LoadMask(const string &strFilenamesMask, cv::Mat &imMask)
     }
 
     // // Display the img_mask
-    // cv::imshow("Mask for the left image", imgLabel);
-    // cv::waitKey(0);
+    // cv::imshow("Segmentation Mask", imgLabel);
+    // cv::waitKey(1);
 
     return;
 

@@ -59,6 +59,12 @@ src/Converter.cc
 src/Map.cc
 src/Optimizer.cc
 src/Frame.cc
+
+src/cvplot/color.cc
+src/cvplot/figure.cc
+src/cvplot/highgui.cc
+src/cvplot/window.cc
+src/cvplot/internal.h
 )
 
 target_link_libraries(

@@ -13,12 +13,15 @@
 
 #include<opencv2/core/core.hpp>
 #include<opencv2/features2d/features2d.hpp>
+#include <opencv2/highgui.hpp>
+#include <cvplot/cvplot.h>
 
 #include"Converter.h"
 #include"Map.h"
 #include"Optimizer.h"
 
 #include<iostream>
+#include<string>
 #include<stdio.h>
 #include<math.h>
 #include<time.h>
@@ -474,8 +477,8 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
         }
         cv::imshow("Static Background and Object Points", imRGB);
         // cv::imwrite("feat.png",imRGB);
-        if (f_id<3)
-            cv::waitKey(0);
+        if (f_id<4)
+            cv::waitKey(1);
         else
             cv::waitKey(1);
 
@@ -511,7 +514,7 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
     // // ************** show trajectory results ***************
     if (mTestData==KITTI)
     {
-        int sta_x = 300, sta_y = 120, radi = 2, thic = 5;  // (160/120/2/5)
+        int sta_x = 300, sta_y = 100, radi = 2, thic = 5;  // (160/120/2/5)
         float scale = 6; // 6
         cv::Mat CamPos = Converter::toInvMatrix(mCurrentFrame.mTcw);
         int x = int(CamPos.at<float>(0,3)*scale) + sta_x;
@@ -582,6 +585,13 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
             cv::waitKey(0);
         else
             cv::waitKey(1);
+    }
+
+
+    if(timestamp!=0 && bFrame2Frame == true && mTestData==OMD)
+    {
+        PlotMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
+                       mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
     }
 
 
@@ -3376,6 +3386,264 @@ void Tracking::GetMetricError(const std::vector<cv::Mat> &CamPose, const std::ve
     }
 
     cout << "=================================================" << endl;
+
+}
+
+void Tracking::PlotMetricError(const std::vector<cv::Mat> &CamPose, const std::vector<std::vector<cv::Mat> > &RigMot, const std::vector<std::vector<cv::Mat> > &ObjPosePre,
+                    const std::vector<cv::Mat> &CamPose_gt, const std::vector<std::vector<cv::Mat> > &RigMot_gt,
+                    const std::vector<std::vector<bool> > &ObjStat)
+{
+    // saved evaluated errors
+    std::vector<float> CamRotErr(CamPose.size()-1);
+    std::vector<float> CamTraErr(CamPose.size()-1);
+    std::vector<std::vector<float> > ObjRotErr(max_id-1);
+    std::vector<std::vector<float> > ObjTraErr(max_id-1);
+
+    bool bRMSError = false, bAccumError = true;
+    cout << "=================================================" << endl;
+
+    // absolute trajectory error for CAMERA (RMSE)
+    cout << "CAMERA:" << endl;
+    float t_sum = 0, r_sum = 0;
+    for (int i = 1; i < CamPose.size(); ++i)
+    {
+        cv::Mat T_lc_inv = CamPose[i]*Converter::toInvMatrix(CamPose[i-1]);
+        cv::Mat T_lc_gt = CamPose_gt[i-1]*Converter::toInvMatrix(CamPose_gt[i]);
+        cv::Mat ate_cam = T_lc_inv*T_lc_gt;
+        // cv::Mat ate_cam = CamPose[i]*Converter::toInvMatrix(CamPose_gt[i]);
+
+        // translation
+        float t_ate_cam = std::sqrt(ate_cam.at<float>(0,3)*ate_cam.at<float>(0,3) + ate_cam.at<float>(1,3)*ate_cam.at<float>(1,3) + ate_cam.at<float>(2,3)*ate_cam.at<float>(2,3));
+        if (bRMSError)
+            t_sum = t_sum + t_ate_cam*t_ate_cam;
+        else
+            t_sum = t_sum + t_ate_cam;
+
+        // rotation
+        float trace_ate = 0;
+        for (int j = 0; j < 3; ++j)
+        {
+            if (ate_cam.at<float>(j,j)>1.0)
+                trace_ate = trace_ate + 1.0-(ate_cam.at<float>(j,j)-1.0);
+            else
+                trace_ate = trace_ate + ate_cam.at<float>(j,j);
+        }
+        float r_ate_cam = acos( (trace_ate -1.0)/2.0 )*180.0/3.1415926;
+        if (bRMSError)
+            r_sum = r_sum + r_ate_cam*r_ate_cam;
+        else
+            r_sum = r_sum + r_ate_cam;
+
+        if (bAccumError)
+        {
+            CamRotErr[i-1] = r_ate_cam/i;
+            CamTraErr[i-1] = t_ate_cam/i;
+        }
+        else
+        {
+            CamRotErr[i-1] = r_ate_cam;
+            CamTraErr[i-1] = t_ate_cam;            
+        }
+
+
+
+
+        // cout << " t: " << t_ate_cam << " R: " << r_ate_cam << endl;
+    }
+    if (bRMSError)
+    {
+        t_sum = std::sqrt(t_sum/(CamPose.size()-1));
+        r_sum = std::sqrt(r_sum/(CamPose.size()-1));
+    }
+    else
+    {
+        t_sum = t_sum/(CamPose.size()-1);
+        r_sum = r_sum/(CamPose.size()-1);
+    }
+
+    cout << "average error (Camera):" << " t: " << t_sum << " R: " << r_sum << endl;
+
+    std::vector<float> each_obj_t(max_id-1,0);
+    std::vector<float> each_obj_r(max_id-1,0);
+    std::vector<int> each_obj_count(max_id-1,0);
+
+    // all motion error for OBJECTS (mean error)
+    cout << "OBJECTS:" << endl;
+    float r_rpe_sum = 0, t_rpe_sum = 0, obj_count = 0;
+    for (int i = 0; i < RigMot.size(); ++i)
+    {
+        if (RigMot[i].size()>1)
+        {
+            for (int j = 1; j < RigMot[i].size(); ++j)
+            {
+                if (!ObjStat[i][j])
+                {
+                    cout << "(" << mpMap->vnRMLabel[i][j] << ")" << " is a failure case." << endl;
+                    continue;
+                }
+
+                cv::Mat RigMotBody = Converter::toInvMatrix(ObjPosePre[i][j])*RigMot[i][j]*ObjPosePre[i][j];
+                cv::Mat rpe_obj = Converter::toInvMatrix(RigMotBody)*RigMot_gt[i][j];
+
+                // translation error
+                float t_rpe_obj = std::sqrt( rpe_obj.at<float>(0,3)*rpe_obj.at<float>(0,3) + rpe_obj.at<float>(1,3)*rpe_obj.at<float>(1,3) + rpe_obj.at<float>(2,3)*rpe_obj.at<float>(2,3) );
+                if (bRMSError){
+                    each_obj_t[mpMap->vnRMLabel[i][j]-1] = each_obj_t[mpMap->vnRMLabel[i][j]-1] + t_rpe_obj*t_rpe_obj;
+                    t_rpe_sum = t_rpe_sum + t_rpe_obj*t_rpe_obj;
+                }
+                else{
+                    each_obj_t[mpMap->vnRMLabel[i][j]-1] = each_obj_t[mpMap->vnRMLabel[i][j]-1] + t_rpe_obj;
+                    t_rpe_sum = t_rpe_sum + t_rpe_obj;
+                }
+
+                // rotation error
+                float trace_rpe = 0;
+                for (int k = 0; k < 3; ++k)
+                {
+                    if (rpe_obj.at<float>(k,k)>1.0)
+                        trace_rpe = trace_rpe + 1.0-(rpe_obj.at<float>(k,k)-1.0);
+                    else
+                        trace_rpe = trace_rpe + rpe_obj.at<float>(k,k);
+                }
+                float r_rpe_obj = acos( ( trace_rpe -1.0 )/2.0 )*180.0/3.1415926; 
+                if (bRMSError){
+                    each_obj_r[mpMap->vnRMLabel[i][j]-1] = each_obj_r[mpMap->vnRMLabel[i][j]-1] + r_rpe_obj*r_rpe_obj;
+                    r_rpe_sum = r_rpe_sum + r_rpe_obj*r_rpe_obj;
+                }
+                else{
+                    each_obj_r[mpMap->vnRMLabel[i][j]-1] = each_obj_r[mpMap->vnRMLabel[i][j]-1] + r_rpe_obj;
+                    r_rpe_sum = r_rpe_sum + r_rpe_obj;
+                }
+
+                // cout << "(" << mpMap->vnRMLabel[i][j] << ")" << " t: " << t_rpe_obj << " R: " << r_rpe_obj << endl;
+                obj_count++;
+                each_obj_count[mpMap->vnRMLabel[i][j]-1] = each_obj_count[mpMap->vnRMLabel[i][j]-1] + 1;
+                if (bAccumError)
+                {
+                    ObjTraErr[mpMap->vnRMLabel[i][j]-1].push_back(each_obj_t[mpMap->vnRMLabel[i][j]-1]/each_obj_count[mpMap->vnRMLabel[i][j]-1]);
+                    ObjRotErr[mpMap->vnRMLabel[i][j]-1].push_back(each_obj_r[mpMap->vnRMLabel[i][j]-1]/each_obj_count[mpMap->vnRMLabel[i][j]-1]);
+                }
+                else
+                {
+                    ObjTraErr[mpMap->vnRMLabel[i][j]-1].push_back(t_rpe_obj);
+                    ObjRotErr[mpMap->vnRMLabel[i][j]-1].push_back(r_rpe_obj);           
+                }
+
+            }
+        }
+    }
+    if (bRMSError)
+    {
+        t_rpe_sum = std::sqrt(t_rpe_sum/obj_count);
+        r_rpe_sum = std::sqrt(r_rpe_sum/obj_count);
+    }
+    else
+    {
+        t_rpe_sum = t_rpe_sum/obj_count;
+        r_rpe_sum = r_rpe_sum/obj_count;
+    }
+    cout << "average error (Over All Objects):" << " t: " << t_rpe_sum << " R: " << r_rpe_sum << endl;
+
+    // show each object
+    for (int i = 0; i < each_obj_count.size(); ++i)
+    {
+        if (bRMSError)
+        {
+            each_obj_t[i] = std::sqrt(each_obj_t[i]/each_obj_count[i]);
+            each_obj_r[i] = std::sqrt(each_obj_r[i]/each_obj_count[i]);
+        }
+        else
+        {
+            each_obj_t[i] = each_obj_t[i]/each_obj_count[i];
+            each_obj_r[i] = each_obj_r[i]/each_obj_count[i];
+        }
+        if (each_obj_count[i]>=3)
+            cout << endl << "average error of Object " << i+1 << ": " << " t: " << each_obj_t[i] << " R: " << each_obj_r[i] << endl;
+    }
+
+    cout << "=================================================" << endl;
+
+
+    auto name1 = "Translation";
+    cvplot::setWindowTitle(name1, "Translation Error (Meter)");
+    cvplot::moveWindow(name1, 0, 240);
+    cvplot::resizeWindow(name1, 800, 240);
+    auto &figure1 = cvplot::figure(name1);
+
+    auto name2 = "Rotation";
+    cvplot::setWindowTitle(name2, "Rotation Error (Degree)");
+    cvplot::resizeWindow(name2, 800, 240);
+    auto &figure2 = cvplot::figure(name2);
+
+    figure1.series("Camera")
+        .setValue(CamTraErr)
+        .type(cvplot::DotLine)
+        .color(cvplot::Red);
+
+    figure2.series("Camera")
+        .setValue(CamRotErr)
+        .type(cvplot::DotLine)
+        .color(cvplot::Red);
+
+    for (int i = 0; i < max_id-1; ++i)
+    {
+        switch (i)
+        {
+            case 0:
+                figure1.series("Object "+std::to_string(i+1))
+                    .setValue(ObjTraErr[i])
+                    .type(cvplot::DotLine)
+                    .color(cvplot::Purple);
+                figure2.series("Object "+std::to_string(i+1))
+                    .setValue(ObjRotErr[i])
+                    .type(cvplot::DotLine)
+                    .color(cvplot::Purple);
+                break;
+            case 1:
+                figure1.series("Object "+std::to_string(i+1))
+                    .setValue(ObjTraErr[i])
+                    .type(cvplot::DotLine)
+                    .color(cvplot::Green);
+                figure2.series("Object "+std::to_string(i+1))
+                    .setValue(ObjRotErr[i])
+                    .type(cvplot::DotLine)
+                    .color(cvplot::Green);
+                break;
+            case 2:
+                figure1.series("Object "+std::to_string(i+1))
+                    .setValue(ObjTraErr[i])
+                    .type(cvplot::DotLine)
+                    .color(cvplot::Cyan);
+                figure2.series("Object "+std::to_string(i+1))
+                    .setValue(ObjRotErr[i])
+                    .type(cvplot::DotLine)
+                    .color(cvplot::Cyan);
+                break;
+            case 3:
+                figure1.series("Object "+std::to_string(i+1))
+                    .setValue(ObjTraErr[i])
+                    .type(cvplot::DotLine)
+                    .color(cvplot::Blue);
+                figure2.series("Object "+std::to_string(i+1))
+                    .setValue(ObjRotErr[i])
+                    .type(cvplot::DotLine)
+                    .color(cvplot::Blue);
+                break;
+            case 4:
+                figure1.series("Object "+std::to_string(i+1))
+                    .setValue(ObjTraErr[i])
+                    .type(cvplot::DotLine)
+                    .color(cvplot::Pink);
+                figure2.series("Object "+std::to_string(i+1))
+                    .setValue(ObjRotErr[i])
+                    .type(cvplot::DotLine)
+                    .color(cvplot::Pink);
+                break;
+        }
+    }
+
+    figure1.show(true);
+    figure2.show(true);
 
 }
 

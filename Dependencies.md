@@ -20,6 +20,9 @@ This is a modified version of [g2o](https://github.com/RainerKuemmerle/g2o). All
 * **OpenCV**.
 BSD license.
 
+* **CvPlot**.
+MIT license.
+
 * **Eigen3**.
 For versions greater than 3.1.1 is MPL2, earlier versions are LGPLv3.
 

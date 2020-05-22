@@ -582,7 +582,7 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
 
         imshow( "Camera and Object Trajectories", imTraj);
         if (f_id<3)
-            cv::waitKey(0);
+            cv::waitKey(1);
         else
             cv::waitKey(1);
     }

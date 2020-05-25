@@ -14,7 +14,7 @@ VDO-SLAM is released under a [GPLv3 license](https://github.com/halajun/VDO_SLAM
 
 If you use VDO-SLAM in an academic work, please cite:
 
-    @article{zhang2020arxiv,
+    @article{zhang2020vdoslam,
       title={{VDO-SLAM: A Visual Dynamic Object-aware SLAM System}},
       author={Zhang, Jun and Henein, Mina and Mahony, Robert and Ila, Viorela},
       year={2020},

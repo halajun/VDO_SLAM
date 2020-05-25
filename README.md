@@ -16,10 +16,10 @@ If you use VDO-SLAM in an academic work, please cite:
 
     @article{zhang2020arxiv,
       title={{VDO-SLAM: A Visual Dynamic Object-aware SLAM System}},
-      author={Jun Zhang and Mina Henein and Robert Mahony and Viorela Ila},
+      author={Zhang, Jun and Henein, Mina and Mahony, Robert and Ila, Viorela},
       year={2020},
       eprint={2005.11052},
-      archivePrefix={arXiv},&emsp;
+      archivePrefix={arXiv},
       primaryClass={cs.RO}
      }
 

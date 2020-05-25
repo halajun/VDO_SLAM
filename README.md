@@ -14,6 +14,15 @@ VDO-SLAM is released under a [GPLv3 license](https://github.com/halajun/VDO_SLAM
 
 If you use VDO-SLAM in an academic work, please cite:
 
+@article{zhang2020arxiv,
+    title={VDO-SLAM: A Visual Dynamic Object-aware SLAM System},
+    author={Jun Zhang and Mina Henein and Robert Mahony and Viorela Ila},
+    year={2020},
+    eprint={2005.11052},
+    archivePrefix={arXiv},
+    primaryClass={cs.RO}
+}
+
 
 # 2. Prerequisites
 We have tested the library in **Mac OS X 10.14** and **Ubuntu 16.04**, but it should be easy to compile in other platforms. 

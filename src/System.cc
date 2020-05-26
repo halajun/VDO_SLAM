@@ -21,21 +21,14 @@ namespace VDO_SLAM
 
 System::System(const string &strSettingsFile, const eSensor sensor):mSensor(sensor)
 {
-    // // ===== output welcome message ======
-    // cout << endl <<
-    // "VDO-SLAM Copyright (C) 2019-2020 Jun Zhang, Australian National University." << endl <<
-    // "This program comes with ABSOLUTELY NO WARRANTY;" << endl  <<
-    // "This is free software, and you are welcome to redistribute it" << endl <<
-    // "under certain conditions. See LICENSE.txt." << endl << endl;
-
-    // cout << "Input sensor was set to: ";
-
-    // if(mSensor==MONOCULAR)
-    //     cout << "Monocular" << endl;
-    // else if(mSensor==STEREO)
-    //     cout << "Stereo" << endl;
-    // else if(mSensor==RGBD)
-    //     cout << "RGB-D" << endl;
+    // ===== output welcome message ======
+    cout << endl << 
+    " ----------------------------------------------------------------------------" << endl <<
+    "| VDO-SLAM Copyright (C) 2019-2020 Jun Zhang, Australian National University.|" << endl <<
+    "| This program comes with ABSOLUTELY NO WARRANTY;                            |" << endl  <<
+    "| This is free software, and you are welcome to redistribute it              |" << endl <<
+    "| under certain conditions; See LICENSE.txt.                                 |" << endl << 
+    " ----------------------------------------------------------------------------" << endl;
 
     // Check settings file
     cv::FileStorage fsSettings(strSettingsFile.c_str(), cv::FileStorage::READ);

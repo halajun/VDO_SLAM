@@ -921,17 +921,6 @@ void Tracking::Track()
             s_3_2 = clock();
             // // save object motion and label
             std::vector<int> InlierID;
-            // cv::Mat Obj_X_tmp = Optimizer::PoseOptimizationObj(&mCurrentFrame,&mLastFrame,TemperalMatch,ObjIdNew[i],repro_e[i]);
-            // cv::Mat Obj_X_tmp = Optimizer::PoseOptimizationObj(&mCurrentFrame,&mLastFrame,TemperalMatch,ObjIdTest_in,repro_e[i]);
-            // cv::Mat Obj_X_tmp = Optimizer::PoseOptimizationObjTest(&mCurrentFrame,&mLastFrame,ObjIdTest_in);
-            // cv::Mat Obj_X_tmp = Optimizer::PoseOptimizationForBack(&mCurrentFrame,&mLastFrame,ObjIdTest_in);
-            // cv::Mat Obj_X_tmp = Optimizer::PoseOptimizationObjMotTLS(&mCurrentFrame,&mLastFrame,ObjIdTest_in);
-            // cv::Mat Obj_X_tmp = Optimizer::PoseOptimizationFlowDepth(&mCurrentFrame,&mLastFrame,ObjIdTest_in);
-            // cv::Mat Obj_X_tmp = Optimizer::PoseOptimizationFlowDepth2(&mCurrentFrame,&mLastFrame,ObjIdTest_in);
-            // cv::Mat Obj_X_tmp = Optimizer::PoseOptimizationFlowDepth3(&mCurrentFrame,&mLastFrame,ObjIdTest_in);
-            // cv::Mat Obj_X_tmp = Optimizer::PoseOptimizationDepth(&mCurrentFrame,&mLastFrame,ObjIdTest_in);
-            // cv::Mat Obj_X_tmp = Optimizer::PoseOptimizationFlow(&mCurrentFrame,&mLastFrame,ObjIdTest_in);
-            // cv::Mat Obj_X_tmp = Optimizer::PoseOptimizationFlow2RanSac(&mCurrentFrame,&mLastFrame,ObjIdTest_in,of_gt_in,e_bef);
             if (bJoint)
             {
                 cv::Mat Obj_X_tmp = Optimizer::PoseOptimizationFlow2(&mCurrentFrame,&mLastFrame,ObjIdTest_in,InlierID);
@@ -984,7 +973,7 @@ void Tracking::Track()
             cv::Mat H_p_c_body_est = L_w_p_inv*mCurrentFrame.vObjMod[i]*L_w_p;
             cv::Mat RePoEr = Converter::toInvMatrix(H_p_c_body_est)*H_p_c_body;
 
-            // (4) Metric on body-fixed
+            // (4) metric
             // cv::Mat H_p_c_body = L_w_p_inv*L_w_c;
             // cv::Mat H_p_c_body_est_inv = Converter::toInvMatrix(mCurrentFrame.vObjMod[i]);
             // cv::Mat RePoEr = H_p_c_body_est_inv*H_p_c_body;

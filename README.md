@@ -38,7 +38,7 @@ Jun Zhang\*, Mina Henein\*, Robert Mahony and Viorela Ila.
 * <b>Robust Ego and Object 6-DoF Motion Estimation and Tracking</b> <br> 
 Jun Zhang, Mina Henein, Robert Mahony and Viorela Ila. 
 <i>The IEEE/RSJ International Conference on Intelligent Robots and Systems</i>. <b>IROS 2020</b>.
-<a href="https://arxiv.org/abs/2005.11052" target="_blank"><b>[ArXiv/PDF]</b></a>
+<a href="https://arxiv.org/abs/2007.13993" target="_blank"><b>[ArXiv/PDF]</b></a>
 <a href="https://halajun.github.io/files/zhang20iros.txt" target="_blank"><b>[BibTex]</b></a>
 * <b>Dynamic SLAM: The Need For Speed</b> <br> 
 Mina Henein, Jun Zhang, Robert Mahony and Viorela Ila. 

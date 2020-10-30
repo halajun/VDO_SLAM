@@ -111,7 +111,9 @@ This will create
 # 5. Processing Your Own Data
 You will need to create a settings (yaml) file with the calibration of your camera. See the settings files provided in the *example/* folder. RGB-D input must be synchronized and depth registered. A list of timestamps for the images is needed for input.
 
-The system also requires image pre-processing as input, which includes instance-level semantic segmentation and optical flow estimation. For evaluation purpose, ground truth data of camera pose and object pose are also needed as input. Details of input format are shown as follows,
+The system also requires image pre-processing as input, which includes instance-level semantic segmentation and optical flow estimation. In our experiments, we used [Mask R-CNN](https://github.com/matterport/Mask_RCNN) for instance segmentation, and [PWC-NET](https://github.com/NVlabs/PWC-Net) for optic-flow estimation. Other state-of-the-art methods can also be applied instead for better performance.
+
+For evaluation purpose, ground truth data of camera pose and object pose are also needed as input. Details of input format are shown as follows,
 
 ## Input Data Pre-processing
 

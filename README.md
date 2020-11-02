@@ -72,7 +72,7 @@ git clone https://github.com/halajun/VDO_SLAM.git VDO-SLAM
 
 We provide a script `build.sh` to build the *dependencies* libraries and *VDO-SLAM*. 
 Please make sure you have installed all required dependencies (see section 2). 
-Please also change the library file suffix, i.e., '.dylib' for Mac (default) or '.so' for Ubuntu, in the main CMakeLists.txt. 
+**Please also change the library file suffix, i.e., '.dylib' for Mac (default) or '.so' for Ubuntu, in the main CMakeLists.txt. **
 Then Execute:
 ```
 cd VDO-SLAM

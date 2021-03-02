@@ -73,9 +73,9 @@ ${OpenCV_LIBS}
 ${EIGEN3_LIBS}
 ${CSPARSE_LIBRARY}
 # for mac os (default)
-${PROJECT_SOURCE_DIR}/dependencies/g2o/lib/libg2o.dylib
+#${PROJECT_SOURCE_DIR}/dependencies/g2o/lib/libg2o.dylib
 # for linux (ubuntu)
-#${PROJECT_SOURCE_DIR}/dependencies/g2o/lib/libg2o.so
+${PROJECT_SOURCE_DIR}/dependencies/g2o/lib/libg2o.so
 )
 
 

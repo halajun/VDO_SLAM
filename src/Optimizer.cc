@@ -187,11 +187,11 @@ void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const
     optimizer.addParameter(cameraOffset);
 
     // === set information matrix ===
-    const float sigma2_cam = 0.0001; // 0.005 0.001
+    const float sigma2_cam = 0.0001; // 0.005 0.001 0.0001
     const float sigma2_3d_sta = 16; // 50 80 16
     const float sigma2_obj_smo = 0.1; // 0.1
     const float sigma2_obj = 20; // 0.5 1 10 20
-    const float sigma2_3d_dyn = 16; // 50 100
+    const float sigma2_3d_dyn = 16; // 50 100 16
     const float sigma2_alti = 1;
 
     // === identity initialization ===
@@ -210,7 +210,7 @@ void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const
     int count_unique_id = 1, FeaLengthThresSta = 3, FeaLengthThresDyn = 3, StaticStartFrame = N-WINDOW_SIZE;
     bool ROBUST_KERNEL = true, ALTITUDE_CONSTRAINT = false, SMOOTH_CONSTRAINT = true, STATIC_ONLY = true;
     // float deltaHuberCamMot = 0.1, deltaHuberObjMot = 0.25, deltaHuber3D = 0.25;
-    float deltaHuberCamMot = 0.01, deltaHuberObjMot = 0.01, deltaHuber3D = 0.01;
+    float deltaHuberCamMot = 0.0001, deltaHuberObjMot = 0.0001, deltaHuber3D = 0.0001;
     int PreFrameID, CurFrameID;
 
     // ===========================================================================
@@ -1327,11 +1327,11 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     optimizer.addParameter(cameraOffset);
 
     // === set information matrix ===
-    const float sigma2_cam = 0.0001; // 0.005 0.001 (ox:)
-    const float sigma2_3d_sta = 80; // 50 80 (ox:) 16
+    const float sigma2_cam = 0.001; // 0.005 0.001 (ox:) 0.0001
+    const float sigma2_3d_sta = 80; // 50 (ox:) 80 16
     const float sigma2_obj_smo = 0.001; // 0.1 0.5 (ox:) 0.001
-    const float sigma2_obj = 100; // 0.5 1 10 20 50 100 (ox:) 20
-    const float sigma2_3d_dyn = 80; // 50 100 (ox:) 16
+    const float sigma2_obj = 100; // 0.5 1 10 20 50 (ox:) 100
+    const float sigma2_3d_dyn = 80; // 50 100 16 (ox:) 80
     const float sigma2_alti = 0.1;
 
     // === identity initialization ===
@@ -1349,7 +1349,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     // ---------------------------------------------------------------------------------------
     int count_unique_id = 1;
     bool ROBUST_KERNEL = true, ALTITUDE_CONSTRAINT = false, SMOOTH_CONSTRAINT = true, STATIC_ONLY = false;
-    float deltaHuberCamMot = 0.01, deltaHuberObjMot = 0.01, deltaHuber3D = 0.01;
+    float deltaHuberCamMot = 0.0001, deltaHuberObjMot = 0.0001, deltaHuber3D = 0.0001;
     int PreFrameID;
     for (int i = 0; i < N; ++i)
     {

@@ -30,7 +30,7 @@ Related Publications:
 
 * <b>VDO-SLAM: A Visual Dynamic Object-aware SLAM System</b> <br> 
 Jun Zhang\*, Mina Henein\*, Robert Mahony and Viorela Ila. 
-<i>Submitted to The International Journal of Robotics Research</i>. <b>IJRR (Under Review)</b>.
+<i>	arXiv:2005.11052</i>.
 <a href="https://arxiv.org/abs/2005.11052" target="_blank"><b>[ArXiv/PDF]</b></a>
 <a href="https://github.com/halajun/VDO_SLAM" target="_blank"><b>[Code]</b></a>
 <a href="https://drive.google.com/file/d/1PbL4KiJ3sUhxyJSQPZmRP6mgi9dIC0iu/view" target="_blank"><b>[Video]</b></a>
@@ -111,13 +111,13 @@ This will create
 # 5. Processing Your Own Data
 You will need to create a settings (yaml) file with the calibration of your camera. See the settings files provided in the *example/* folder. RGB-D input must be synchronized and depth registered. A list of timestamps for the images is needed for input.
 
-The system also requires image pre-processing as input, which includes instance-level semantic segmentation and optical flow estimation. In our experiments, we used [Mask R-CNN](https://github.com/matterport/Mask_RCNN) for instance segmentation, and [PWC-NET](https://github.com/NVlabs/PWC-Net) for optic-flow estimation. Other state-of-the-art methods can also be applied instead for better performance.
+The system also requires image pre-processing as input, which includes instance-level semantic segmentation and optical flow estimation. In our experiments, we used [Mask R-CNN](https://github.com/matterport/Mask_RCNN) for instance segmentation (for KITTI only; we applied colour-based method to segment cuboids in OMD, check the matlab code in [tools](https://github.com/halajun/VDO_SLAM/blob/master/tools) folder), and [PWC-NET](https://github.com/NVlabs/PWC-Net) (PyTorch version) for optic-flow estimation. Other state-of-the-art methods can also be applied instead for better performance.
 
 For evaluation purpose, ground truth data of camera pose and object pose are also needed as input. Details of input format are shown as follows,
 
 ## Input Data Pre-processing
 
-1. The input of segmentation mask is saved as matrix, same size as image, in .txt file. Each element of the matrix is integer, with 0 stands for background, and 1,2,...,n stands for different instance label.
+1. The input of segmentation mask is saved as matrix, same size as image, in .txt file. Each element of the matrix is integer, with 0 stands for background, and 1,2,...,n stands for different instance label. Note that, to easily compare with ground truth object motion in KITTI dataset, we align the estimated mask label with the ground truth label. The alignment code is in [tools](https://github.com/halajun/VDO_SLAM/blob/master/tools) folder.
 
 2. The input of optical flow is the standard .flo file that can be read and processed directly using OpenCV.
 

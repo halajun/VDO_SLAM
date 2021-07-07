@@ -50,7 +50,7 @@ public:
                       const cv::Mat &mTcw_gt, const vector<vector<float> > &vObjPose_gt, const double &timestamp,
                       cv::Mat &imTraj, const int &nImage);
 
-    void SaveResultsIJRR2020(const string &filename);
+    void SaveResults(const string &filename);
 
 private:
 

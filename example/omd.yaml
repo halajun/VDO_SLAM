@@ -47,7 +47,7 @@ MaxTrackPointBG: 1200
 MaxTrackPointOBJ: 800
 
 # Scene Flow Magnitude and Distribution Threshold
-SFMgThres: 0.05
+SFMgThres: 0.02
 SFDsThres: 0.99
 
 # Window Size and Overlapping Size for Local Batch Optimization

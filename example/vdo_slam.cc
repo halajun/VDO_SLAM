@@ -58,7 +58,7 @@ int main(int argc, char **argv)
 
 
     // Check consistency in the number of images, depth maps, segmentations and flow maps
-    int nImages = vstrFilenamesRGB.size();
+    int nImages = vstrFilenamesRGB.size()-1;
     if(vstrFilenamesRGB.empty())
     {
         cerr << endl << "No images found in provided path." << endl;
@@ -88,7 +88,8 @@ int main(int argc, char **argv)
     cout << "Images in the sequence: " << nImages << endl << endl;
 
     // namedWindow( "Trajectory", cv::WINDOW_AUTOSIZE);
-    cv::Mat imTraj = cv::Mat::zeros(800, 600, CV_8UC3);
+    // cv::Mat imTraj = cv::Mat::zeros(800, 600, CV_8UC3);
+    cv::Mat imTraj(1000, 1000, CV_8UC3, cv::Scalar(255,255,255));
 
     // Main loop
     // (799,0007) (802,0009) (293,0010) (836,0020) (338,0018) (1057,0019) (339,0013)
@@ -104,8 +105,13 @@ int main(int argc, char **argv)
         imRGB = cv::imread(vstrFilenamesRGB[ni],CV_LOAD_IMAGE_UNCHANGED);
         imD   = cv::imread(vstrFilenamesDEP[ni],CV_LOAD_IMAGE_UNCHANGED);
         cv::Mat imD_f, imD_r;
-        // cv::resize(imD, imD_r, cv::Size(1242,375));
+
+        // // For stereo disparity input
         imD.convertTo(imD_f, CV_32F);
+
+        // // For monocular depth input
+        // cv::resize(imD, imD_r, cv::Size(1242,375));
+        // imD_r.convertTo(imD_f, CV_32F);
 
         // Load flow matrix
         cv::Mat imFlow = cv::optflow::readOpticalFlow(vstrFilenamesFLO[ni]);
@@ -134,8 +140,9 @@ int main(int argc, char **argv)
 
     }
 
-    // // Save camera trajectory
-    // SLAM.SaveResultsIJRR2020("/Users/steed/work/code/Evaluation/ijrr2020/omd/");
+    // Save camera trajectory
+    // SLAM.SaveResults("/Users/steed/work/code/Evaluation/ijrr2020/omd/omd_results/new/");
+    // SLAM.SaveResults("/Users/steed/work/code/Evaluation/ijrr2020/00/new/");
 
     return 0;
 }
@@ -165,7 +172,7 @@ void LoadData(const string &strPathToSequence, vector<string> &vstrFilenamesSEM,
 
     // +++ image, depth, semantic and moving object tracking mask +++
     string strPrefixImage = strPathToSequence + "/image_0/";         // image  image_0
-    string strPrefixDepth = strPathToSequence + "/depth/";           // depth_gt  depth
+    string strPrefixDepth = strPathToSequence + "/depth/";           // depth_gt  depth  depth_mono_stereo
     string strPrefixSemantic = strPathToSequence + "/semantic/";     // semantic_gt  semantic
     string strPrefixFlow = strPathToSequence + "/flow/";             // flow_gt  flow
 

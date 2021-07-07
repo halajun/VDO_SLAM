@@ -27,7 +27,7 @@ System::System(const string &strSettingsFile, const eSensor sensor):mSensor(sens
     "| VDO-SLAM Copyright (C) 2019-2020 Jun Zhang, Australian National University.|" << endl <<
     "| This program comes with ABSOLUTELY NO WARRANTY;                            |" << endl  <<
     "| This is free software, and you are welcome to redistribute it              |" << endl <<
-    "| under certain conditions; See LICENSE.txt.                                 |" << endl << 
+    "| under certain conditions; See LICENSE.txt.                                 |" << endl <<
     " ----------------------------------------------------------------------------" << endl;
 
     // Check settings file
@@ -63,7 +63,7 @@ cv::Mat System::TrackRGBD(const cv::Mat &im, cv::Mat &depthmap, const cv::Mat &f
     return Tcw;
 }
 
-void System::SaveResultsIJRR2020(const string &filename)
+void System::SaveResults(const string &filename)
 {
     cout << endl << "Saving Results into TXT File..." << endl;
 
@@ -71,11 +71,15 @@ void System::SaveResultsIJRR2020(const string &filename)
     // ***************************************** SAVE OBJ SPEED **********************************************
     // *******************************************************************************************************
 
-    ofstream save_objmot, save_objmot_gt;
-    string path_objmot = filename + "obj_mot_rgbd_new.txt";
+    ofstream save_objmot, save_objmot_rf, save_objmot_gt, save_obj_centre;
+    string path_objmot = filename + "obj_mot_stereo_new.txt";
+    string path_objmot_rf = filename + "obj_mot_stereo_rf_new.txt";
     string path_objmot_gt = filename + "obj_mot_gt.txt";
+    string path_obj_centre = filename + "obj_centre.txt";
     save_objmot.open(path_objmot.c_str(),ios::trunc);
+    save_objmot_rf.open(path_objmot_rf.c_str(),ios::trunc);
     save_objmot_gt.open(path_objmot_gt.c_str(),ios::trunc);
+    save_obj_centre.open(path_obj_centre.c_str(),ios::trunc);
 
     int start_frame = 0;
     // main loop
@@ -85,10 +89,19 @@ void System::SaveResultsIJRR2020(const string &filename)
         {
             for (int j = 1; j < mpMap->vmRigidMotion[i].size(); ++j)
             {
+                cv::Mat RigMot_body = Converter::toInvMatrix(mpMap->vmObjPosePre[i][j])*mpMap->vmRigidMotion[i][j]*mpMap->vmObjPosePre[i][j];
+                cv::Mat RigMot_body_rf = Converter::toInvMatrix(mpMap->vmObjPosePre[i][j])*mpMap->vmRigidMotion_RF[i][j]*mpMap->vmObjPosePre[i][j];
+
                 save_objmot << start_frame+i+1 << " " <<  mpMap->vnRMLabel[i][j] << " " << fixed << setprecision(9) <<
-                                 mpMap->vmRigidMotion[i][j].at<float>(0,0) << " " << mpMap->vmRigidMotion[i][j].at<float>(0,1)  << " " << mpMap->vmRigidMotion[i][j].at<float>(0,2) << " "  << mpMap->vmRigidMotion[i][j].at<float>(0,3) << " " <<
-                                 mpMap->vmRigidMotion[i][j].at<float>(1,0) << " " << mpMap->vmRigidMotion[i][j].at<float>(1,1)  << " " << mpMap->vmRigidMotion[i][j].at<float>(1,2) << " "  << mpMap->vmRigidMotion[i][j].at<float>(1,3) << " " <<
-                                 mpMap->vmRigidMotion[i][j].at<float>(2,0) << " " << mpMap->vmRigidMotion[i][j].at<float>(2,1)  << " " << mpMap->vmRigidMotion[i][j].at<float>(2,2) << " "  << mpMap->vmRigidMotion[i][j].at<float>(2,3) << " " <<
+                                 RigMot_body.at<float>(0,0) << " " << RigMot_body.at<float>(0,1)  << " " << RigMot_body.at<float>(0,2) << " "  << RigMot_body.at<float>(0,3) << " " <<
+                                 RigMot_body.at<float>(1,0) << " " << RigMot_body.at<float>(1,1)  << " " << RigMot_body.at<float>(1,2) << " "  << RigMot_body.at<float>(1,3) << " " <<
+                                 RigMot_body.at<float>(2,0) << " " << RigMot_body.at<float>(2,1)  << " " << RigMot_body.at<float>(2,2) << " "  << RigMot_body.at<float>(2,3) << " " <<
+                                 0.0 << " " << 0.0 << " " << 0.0 << " " << 1.0 << endl;
+
+                save_objmot_rf << start_frame+i+1 << " " <<  mpMap->vnRMLabel[i][j] << " " << fixed << setprecision(9) <<
+                                 RigMot_body_rf.at<float>(0,0) << " " << RigMot_body_rf.at<float>(0,1)  << " " << RigMot_body_rf.at<float>(0,2) << " "  << RigMot_body_rf.at<float>(0,3) << " " <<
+                                 RigMot_body_rf.at<float>(1,0) << " " << RigMot_body_rf.at<float>(1,1)  << " " << RigMot_body_rf.at<float>(1,2) << " "  << RigMot_body_rf.at<float>(1,3) << " " <<
+                                 RigMot_body_rf.at<float>(2,0) << " " << RigMot_body_rf.at<float>(2,1)  << " " << RigMot_body_rf.at<float>(2,2) << " "  << RigMot_body_rf.at<float>(2,3) << " " <<
                                  0.0 << " " << 0.0 << " " << 0.0 << " " << 1.0 << endl;
 
                 save_objmot_gt << start_frame+i+1 << " " <<  mpMap->vnRMLabel[i][j] << " " << fixed << setprecision(9) <<
@@ -96,12 +109,17 @@ void System::SaveResultsIJRR2020(const string &filename)
                                   mpMap->vmRigidMotion_GT[i][j].at<float>(1,0) << " " << mpMap->vmRigidMotion_GT[i][j].at<float>(1,1)  << " " << mpMap->vmRigidMotion_GT[i][j].at<float>(1,2) << " "  << mpMap->vmRigidMotion_GT[i][j].at<float>(1,3) << " " <<
                                   mpMap->vmRigidMotion_GT[i][j].at<float>(2,0) << " " << mpMap->vmRigidMotion_GT[i][j].at<float>(2,1)  << " " << mpMap->vmRigidMotion_GT[i][j].at<float>(2,2) << " "  << mpMap->vmRigidMotion_GT[i][j].at<float>(2,3) << " " <<
                                   0.0 << " " << 0.0 << " " << 0.0 << " " << 1.0 << endl;
+
+                save_obj_centre << start_frame+i+1 << " " <<  mpMap->vnRMLabel[i][j] << " " << fixed << setprecision(9) <<
+                                  mpMap->vmRigidCentre[i][j].at<float>(0,0) << " " << mpMap->vmRigidCentre[i][j].at<float>(0,1)  << " " << mpMap->vmRigidCentre[i][j].at<float>(0,2) << endl;
             }
         }
     }
 
     save_objmot.close();
+    save_objmot_rf.close();
     save_objmot_gt.close();
+    save_obj_centre.close();
 
     // *******************************************************************************************************
     // ***************************************** SAVE CAMERA TRAJETORY ***************************************
@@ -110,7 +128,7 @@ void System::SaveResultsIJRR2020(const string &filename)
     std::vector<cv::Mat> CamPose_ini = mpMap->vmCameraPose;
 
     ofstream save_traj_ini;
-    string path_ini = filename + "initial_rgbd_new.txt";
+    string path_ini = filename + "initial_stereo_new.txt";
     // cout << path_ini << endl;
     save_traj_ini.open(path_ini.c_str(),ios::trunc);
 
@@ -129,7 +147,7 @@ void System::SaveResultsIJRR2020(const string &filename)
     std::vector<cv::Mat> CamPose_ref = mpMap->vmCameraPose_RF;
 
     ofstream save_traj_ref;
-    string path_ref = filename + "refined_rgbd_new.txt";
+    string path_ref = filename + "refined_stereo_new.txt";
     save_traj_ref.open(path_ref.c_str(),ios::trunc);
 
     for (int i = 0; i < CamPose_ref.size(); ++i)
@@ -147,7 +165,7 @@ void System::SaveResultsIJRR2020(const string &filename)
     std::vector<cv::Mat> CamPose_gt = mpMap->vmCameraPose_GT;
 
     ofstream save_traj_gt;
-    string path_gt = filename + "cam_pose_gt.txt";
+    string path_gt = filename + "cam_pose_gt_stereo.txt";
     save_traj_gt.open(path_gt.c_str(),ios::trunc);
 
     for (int i = 0; i < CamPose_gt.size(); ++i)

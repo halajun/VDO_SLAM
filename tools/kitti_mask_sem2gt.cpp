@@ -22,6 +22,11 @@ using namespace cv;
 
 // How To Run: ./kitti_mask_sem2gt PATH-TO-FOLDER
 
+// // Format of .mask file: 
+// (1) first row : Image_height Image_width Number_of_detected_objects;
+// (2) following: category of the detected objects, with each taking one row;
+// (3) finally: the mask matrix of image size, with -1 for background, and 1,...,n for objects;
+
 cv::Mat LoadMask(const string &strMask);
 
 void LoadData(const string &strPathToSequence, vector<double> &vTimestamps, vector<string> &vstrFilenamesSEM,

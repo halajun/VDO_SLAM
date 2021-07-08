@@ -30,7 +30,7 @@ Related Publications:
 
 * <b>VDO-SLAM: A Visual Dynamic Object-aware SLAM System</b> <br> 
 Jun Zhang\*, Mina Henein\*, Robert Mahony and Viorela Ila. 
-<i>	arXiv:2005.11052</i>.
+<i>	ArXiv:2005.11052</i>.
 <a href="https://arxiv.org/abs/2005.11052" target="_blank"><b>[ArXiv/PDF]</b></a>
 <a href="https://github.com/halajun/VDO_SLAM" target="_blank"><b>[Code]</b></a>
 <a href="https://drive.google.com/file/d/1PbL4KiJ3sUhxyJSQPZmRP6mgi9dIC0iu/view" target="_blank"><b>[Video]</b></a>

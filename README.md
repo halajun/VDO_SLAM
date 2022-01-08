@@ -35,7 +35,7 @@ Jun Zhang\*, Mina Henein\*, Robert Mahony and Viorela Ila.
 <a href="https://github.com/halajun/VDO_SLAM" target="_blank"><b>[Code]</b></a>
 <a href="https://drive.google.com/file/d/1PbL4KiJ3sUhxyJSQPZmRP6mgi9dIC0iu/view" target="_blank"><b>[Video]</b></a>
 <a href="https://halajun.github.io/files/zhang20vdoslam.txt" target="_blank"><b>[BibTex]</b></a>
-<span style="color:red">A new version of the manuscript has been updated.</span> (Dec 2021)
+<span style="color:red"> <b>NOTE</b>: a new version of the manuscript has been updated, please check the Arxiv link (Dec 2021).</span>
 * <b>Robust Ego and Object 6-DoF Motion Estimation and Tracking</b> <br> 
 Jun Zhang, Mina Henein, Robert Mahony and Viorela Ila. 
 <i>The IEEE/RSJ International Conference on Intelligent Robots and Systems</i>. <b>IROS 2020</b>.

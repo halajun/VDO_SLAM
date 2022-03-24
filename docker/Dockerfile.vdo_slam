@@ -1,0 +1,103 @@
+FROM ubuntu:16.04
+
+
+
+ARG CHECKOUT_HASH=master
+# Add sudo
+RUN apt-get update && apt-get install apt-utils sudo -y
+
+RUN useradd --create-home --shell=/bin/bash user
+RUN chown -R user /home/user/
+RUN usermod -aG sudo user
+# Give the user a password
+RUN echo user:user | chpasswd
+
+RUN mkdir /home/user/app
+
+WORKDIR /home/user/app
+
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends software-properties-common \
+    && add-apt-repository ppa:ubuntu-toolchain-r/test
+
+# Install GCC-9
+RUN apt-get update \
+	&& DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+		build-essential \
+		gcc-9 \
+		g++-9 \
+		gcc-9-multilib \
+		g++-9-multilib \
+		xutils-dev \
+		patch \
+		git \
+		python3 \
+		python3-pip \
+		libpulse-dev \
+	&& apt-get clean \
+	&& rm -rf /var/lib/apt/lists/*
+
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 50 \
+	&& update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 50
+
+# Install OpenCV 3.4
+
+RUN apt-get update
+RUN apt-get install -y cmake git libgtk2.0-dev pkg-config libavcodec-dev \
+libavformat-dev libswscale-dev python-dev python-numpy libtbb2 libtbb-dev \
+libjpeg-dev libpng-dev libtiff-dev libjasper-dev libdc1394-22-dev unzip
+
+RUN apt-get install -y wget
+RUN apt-get install -y vim
+
+# get and build OpenCV 3.4
+RUN cd \
+    && wget https://github.com/opencv/opencv/archive/3.4.0.zip \
+    && unzip 3.4.0.zip \
+    && cd opencv-3.4.0 \
+    && mkdir build \
+    && cd build \
+    && cmake .. \
+    && make -j8 \
+    && make install \
+    && cd \
+    && rm 3.4.0.zip
+
+# install and build opencv_contrib
+RUN cd \
+    && wget https://github.com/opencv/opencv_contrib/archive/3.4.0.zip \
+    && unzip 3.4.0.zip \
+    && cd opencv-3.4.0/build \
+    && cmake -DOPENCV_EXTRA_MODULES_PATH=../../opencv_contrib-3.4.0/modules/ .. \
+    && make -j8 \
+    && make install \
+    && cd ../.. \
+    && rm 3.4.0.zip
+
+
+# Install Eigen3
+RUN apt install libeigen3-dev
+
+# install CSparse
+RUN DEBIAN_FRONTEND=noninteractive apt install -y libsuitesparse-dev
+
+
+USER user
+
+RUN git clone https://github.com/halajun/VDO_SLAM.git &&\
+    cd VDO_SLAM && git checkout $CHECKOUT_HASH
+
+USER root
+RUN cd VDO_SLAM && chmod +x build.sh && ./build.sh
+
+
+USER user
+     
+
+# # Build the Library
+# RUN chmod +x build.sh
+# RUN ./build.sh
+
+SHELL ["/bin/bash", "--login", "-c"]
+
+# CMD ["/bin/bash"]

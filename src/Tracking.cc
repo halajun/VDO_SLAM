@@ -683,7 +683,7 @@ void Tracking::Track()
         clock_t s_1_1, s_1_2, e_1_1, e_1_2;
         double cam_pos_time;
         s_1_1 = clock();
-        // Get initial estimate using P3P plus RanSac
+        // Get initial estimate using P3P plus RANSAC/mVelocity estimate
         cv::Mat iniTcw = GetInitModelCam(TemperalMatch,TemperalMatch_subset);
         e_1_1 = clock();
 
@@ -1611,6 +1611,8 @@ std::vector<std::vector<int> > Tracking::DynObjTracking()
     return ObjIdNew;
 }
 
+//match_id sub is all the inliers we get fron match id
+//estimate current pose by minimizing reprojection error either with mVelocity or solving PnPRansac
 cv::Mat Tracking::GetInitModelCam(const std::vector<int> &MatchId, std::vector<int> &MatchId_sub)
 {
     cv::Mat Mod = cv::Mat::eye(4,4,CV_32F);
@@ -1619,6 +1621,9 @@ cv::Mat Tracking::GetInitModelCam(const std::vector<int> &MatchId, std::vector<i
     // construct input
     std::vector<cv::Point2f> cur_2d(N);
     std::vector<cv::Point3f> pre_3d(N);
+
+    //get all the 2d keypoints in the current frame and project them
+    //into the previous frame to get some 3D points
     for (int i = 0; i < N; ++i)
     {
         cv::Point2f tmp_2d;
@@ -1626,6 +1631,8 @@ cv::Mat Tracking::GetInitModelCam(const std::vector<int> &MatchId, std::vector<i
         tmp_2d.y = mCurrentFrame.mvStatKeys[MatchId[i]].pt.y;
         cur_2d[i] = tmp_2d;
         cv::Point3f tmp_3d;
+        //from the UnprojectStereoStat this is projected into the world frame
+        //using the gt camera pose?
         cv::Mat x3D_p = mLastFrame.UnprojectStereoStat(MatchId[i],0);
         tmp_3d.x = x3D_p.at<float>(0);
         tmp_3d.y = x3D_p.at<float>(1);
@@ -1656,7 +1663,7 @@ cv::Mat Tracking::GetInitModelCam(const std::vector<int> &MatchId, std::vector<i
 
     cv::Rodrigues(Rvec, d);
 
-    // assign the result to current pose
+    // assign the result to current pose (3 x 4) matrix including rotation and translation [R | t] solved by PnP ransac
     Mod.at<float>(0,0) = d.at<double>(0,0); Mod.at<float>(0,1) = d.at<double>(0,1); Mod.at<float>(0,2) = d.at<double>(0,2); Mod.at<float>(0,3) = Tvec.at<double>(0,0);
     Mod.at<float>(1,0) = d.at<double>(1,0); Mod.at<float>(1,1) = d.at<double>(1,1); Mod.at<float>(1,2) = d.at<double>(1,2); Mod.at<float>(1,3) = Tvec.at<double>(1,0);
     Mod.at<float>(2,0) = d.at<double>(2,0); Mod.at<float>(2,1) = d.at<double>(2,1); Mod.at<float>(2,2) = d.at<double>(2,2); Mod.at<float>(2,3) = Tvec.at<double>(2,0);
@@ -1665,23 +1672,33 @@ cv::Mat Tracking::GetInitModelCam(const std::vector<int> &MatchId, std::vector<i
     // calculate the re-projection error
     std::vector<int> MM_inlier;
     cv::Mat MotionModel;
+    //if current velocity prediction is none
     if (mVelocity.empty())
+        //motion model is an estimate of the current pose (if mVelocity is non then we start by assuming we're not moving?)
         MotionModel = cv::Mat::eye(4,4,CV_32F)*mLastFrame.mTcw;
     else
+        //using the current velocity, step from the previous pose to the current pose 
+        //(motion model is an estimate of our current pose in the current frame)
         MotionModel = mVelocity*mLastFrame.mTcw;
     for (int i = 0; i < N; ++i)
     {
+        //3D point (in world frame?) we project our current keypoint[i] 
         const cv::Mat x3D  = (cv::Mat_<float>(3,1) << pre_3d[i].x, pre_3d[i].y, pre_3d[i].z);
+
+        //using the current motion model, get the 3D point from last pose in the current pose
         const cv::Mat x3D_c = MotionModel.rowRange(0,3).colRange(0,3)*x3D+MotionModel.rowRange(0,3).col(3);
 
         const float xc = x3D_c.at<float>(0);
         const float yc = x3D_c.at<float>(1);
         const float invzc = 1.0/x3D_c.at<float>(2);
+        //backproject those points into the current frame to get a u,v pair
         const float u = mCurrentFrame.fx*xc*invzc+mCurrentFrame.cx;
         const float v = mCurrentFrame.fy*yc*invzc+mCurrentFrame.cy;
+        //compare against the actual detected keypoint
         const float u_ = cur_2d[i].x - u;
         const float v_ = cur_2d[i].y - v;
         const float Rpe = std::sqrt(u_*u_ + v_*v_);
+        //only include points that fall under the reprojection error
         if (Rpe<reprojectionError){
             MM_inlier.push_back(i);
         }
@@ -1691,6 +1708,8 @@ cv::Mat Tracking::GetInitModelCam(const std::vector<int> &MatchId, std::vector<i
 
     cv::Mat output;
 
+    //inliers is just the set of inliers generated from solvePnPRansac
+    //if more inliers from solving Pnp Ransac, use that
     if (inliers.rows>MM_inlier.size())
     {
         // save the inliers IDs
@@ -1701,6 +1720,7 @@ cv::Mat Tracking::GetInitModelCam(const std::vector<int> &MatchId, std::vector<i
         }
         // cout << "(Camera) AP3P+RanSac inliers/total number: " << inliers.rows << "/" << MatchId.size() << endl;
     }
+    //use the model generated using the mVelocity motion model
     else
     {
         output = MotionModel;

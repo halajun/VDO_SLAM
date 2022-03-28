@@ -132,8 +132,10 @@ public:
     std::vector<float> mvObjDepth;
     std::vector<cv::Mat> mvObj3DPoint;
     // Correspondence for the objects
+    //(jesse) seems to be the detect KP + the detected optical flow
     std::vector<cv::KeyPoint> mvObjCorres;
     // Optical flow for the objects
+    //the actual optical flow at some u,v coordinate
     std::vector<cv::Point2f> mvObjFlowGT, mvObjFlowNext;
     // semantic object label of all the foreground features
     std::vector<int> vSemObjLabel;
@@ -168,6 +170,7 @@ public:
     // for initializing motion
     cv::Mat mInitModel;
 
+    //(jesse) for dynamic and static features?
     std::vector<cv::KeyPoint> mvCorres; // correspondence
     std::vector<cv::Point2f> mvFlow,mvFlowNext; // optical flow
     // std::vector<int> vCorSta; // the status of correspondence, -1 (outliers) 1 (has correspondence)

@@ -449,6 +449,7 @@ public:
     Vector2d obs(_measurement);
     Vector2d est = v2->estimate();
     Vector3d Xw;
+    //observation is keypoint
     Xw << (obs(0)-cx)*depth/fx, (obs(1)-cy)*depth/fy, depth;
     Xw = Twl.block(0,0,3,3)*Xw + Twl.col(3).head(3);
     _error = (obs+est) - cam_project(v1->estimate().map(Xw));

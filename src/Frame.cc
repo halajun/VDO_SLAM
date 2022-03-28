@@ -211,12 +211,15 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlo
                 const float flow_x = imFlow.at<cv::Vec2f>(i,j)[0];
                 const float flow_y = imFlow.at<cv::Vec2f>(i,j)[1];
 
+                //we are within the image bounds?
                 if(j+flow_x < imGray.cols && j+flow_x > 0 && i+flow_y < imGray.rows && i+flow_y > 0)
                 {
                     // save correspondences
                     mvObjFlowNext.push_back(cv::Point2f(flow_x,flow_y));
+                    //
                     mvObjCorres.push_back(cv::KeyPoint(j+flow_x,i+flow_y,0,0,0,-1));
                     // save pixel location
+                    //and setting classid = -1
                     mvObjKeys.push_back(cv::KeyPoint(j,i,0,0,0,-1));
                     // save depth
                     mvObjDepth.push_back(imDepth.at<float>(i,j));
@@ -641,6 +644,8 @@ cv::Mat Frame::ObtainFlowDepthObject(const int &i, const bool &addnoise)
     }
 }
 
+//gets optical flow vector at match i. 
+//retyurns flowu, flowv and z of point
 cv::Mat Frame::ObtainFlowDepthCamera(const int &i, const bool &addnoise)
 {
     float z = mvStatDepth[i];

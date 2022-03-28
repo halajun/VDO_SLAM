@@ -2398,10 +2398,15 @@ int Optimizer::PoseOptimizationFlow2Cam(Frame *pCurFrame, Frame *pLastFrame, vec
             // Set Binary Edges
             g2o::EdgeSE3ProjectFlow2* e = new g2o::EdgeSE3ProjectFlow2();
 
+
+            //vertex ID -> VFlow estimate (type  g2o::VertexSBAFlow())
             e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id)));
+            //vertex ID = 0 -> the inital pose
             e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(0)));
             e->setMeasurement(obs_2d);
             Eigen::Matrix2d info_flow;
+
+            //information matrix
             info_flow << 0.1, 0.0, 0.0, 0.1;
             e->setInformation(Eigen::Matrix2d::Identity()*info_flow);
 
@@ -2430,6 +2435,7 @@ int Optimizer::PoseOptimizationFlow2Cam(Frame *pCurFrame, Frame *pLastFrame, vec
             vnIndexEdgeMono.push_back(i);
 
             Eigen::Matrix<double,2,1> obs_flo;
+            //flow in x, y
             obs_flo << FloD(0), FloD(1);
 
             // Set Unary Edges (constraints)

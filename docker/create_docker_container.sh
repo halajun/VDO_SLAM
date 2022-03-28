@@ -12,13 +12,16 @@ CONTAINER_DATA_FOLDER=/root/data
 
 echo "Mounting data folder (local) $LOCAL_DATA_FOLDER -> (container) $CONTAINER_DATA_FOLDER"
 
-
 docker create --privileged \
             --net=host \
             --pid=host \
             --name=$CONTAINER_NAME \
+            -e DISPLAY=$DISPLAY -e QT_X11_NO_MITSHM=1 \
+            -v /tmp/.X11-unix:/tmp/.X11-unix \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v $LOCAL_DATA_FOLDER:$CONTAINER_DATA_FOLDER \
             -it \
             $CONTAINER_IMAGE_NAME \
             bash
+
+sudo xhost +local:`sudo docker inspect --format='{{ .Config.Hostname }}' $CONTAINER_NAME`

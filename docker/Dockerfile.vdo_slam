@@ -3,18 +3,24 @@ FROM ubuntu:16.04
 
 
 ARG CHECKOUT_HASH=master
+
+ENV DIRPATH /root/
+WORKDIR $DIRPATH
+
 # Add sudo
 RUN apt-get update && apt-get install apt-utils sudo -y
 
-RUN useradd --create-home --shell=/bin/bash user
-RUN chown -R user /home/user/
-RUN usermod -aG sudo user
-# Give the user a password
-RUN echo user:user | chpasswd
 
-RUN mkdir /home/user/app
 
-WORKDIR /home/user/app
+# RUN useradd --create-home --shell=/bin/bash user
+# RUN chown -R user /home/user/
+# RUN usermod -aG sudo user
+# # Give the user a password
+# RUN echo user:user | chpasswd
+
+# RUN mkdir /home/user/app
+
+# WORKDIR /home/user/app
 
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends software-properties-common \
@@ -51,8 +57,7 @@ RUN apt-get install -y wget
 RUN apt-get install -y vim
 
 # get and build OpenCV 3.4
-RUN cd \
-    && wget https://github.com/opencv/opencv/archive/3.4.0.zip \
+RUN wget https://github.com/opencv/opencv/archive/3.4.0.zip \
     && unzip 3.4.0.zip \
     && cd opencv-3.4.0 \
     && mkdir build \
@@ -64,8 +69,7 @@ RUN cd \
     && rm 3.4.0.zip
 
 # install and build opencv_contrib
-RUN cd \
-    && wget https://github.com/opencv/opencv_contrib/archive/3.4.0.zip \
+RUN wget https://github.com/opencv/opencv_contrib/archive/3.4.0.zip \
     && unzip 3.4.0.zip \
     && cd opencv-3.4.0/build \
     && cmake -DOPENCV_EXTRA_MODULES_PATH=../../opencv_contrib-3.4.0/modules/ .. \
@@ -82,16 +86,12 @@ RUN apt install libeigen3-dev
 RUN DEBIAN_FRONTEND=noninteractive apt install -y libsuitesparse-dev
 
 
-USER user
 
 RUN git clone https://github.com/halajun/VDO_SLAM.git &&\
-    cd VDO_SLAM && git checkout $CHECKOUT_HASH
-
-USER root
-RUN cd VDO_SLAM && chmod +x build.sh && ./build.sh
+    cd VDO_SLAM && git checkout $CHECKOUT_HASH &&\
+    ./build.sh
 
 
-USER user
      
 
 # # Build the Library

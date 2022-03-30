@@ -1,4 +1,4 @@
-echo "Configuring and building g2o ..."
+echo "Configuring and building dependacies g2o ..."
 
 cd dependencies/g2o
 

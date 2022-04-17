@@ -5,10 +5,12 @@ CONTAINER_IMAGE_NAME=docker_vdo_slam
 
 ### EDIT THIS TO WHEREVER YOU'RE STORING YOU DATA ###
 # folder should exist before you mount it
-LOCAL_DATA_FOLDER=/media/jesse/T7/datasets
+LOCAL_DATA_FOLDER=/media/jesse/T72/datasets
+LOCAL_SSH_KEY_FOLDER=~/.ssh
 
 
 CONTAINER_DATA_FOLDER=/root/data
+CONTAINER_SSH_FOLDER=/root/.ssh
 
 echo "Mounting data folder (local) $LOCAL_DATA_FOLDER -> (container) $CONTAINER_DATA_FOLDER"
 
@@ -20,6 +22,7 @@ docker create --privileged \
             -v /tmp/.X11-unix:/tmp/.X11-unix \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v $LOCAL_DATA_FOLDER:$CONTAINER_DATA_FOLDER \
+            -v $LOCAL_SSH_KEY_FOLDER:$CONTAINER_SSH_FOLDER \
             -it \
             $CONTAINER_IMAGE_NAME \
             bash

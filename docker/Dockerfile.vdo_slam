@@ -1,4 +1,4 @@
-FROM ubuntu:16.04
+FROM ubuntu:18.04
 
 
 
@@ -22,12 +22,14 @@ RUN apt-get update && apt-get install apt-utils sudo -y
 
 # WORKDIR /home/user/app
 
-RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends software-properties-common \
+RUN apt update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends software-properties-common nano wget \
     && add-apt-repository ppa:ubuntu-toolchain-r/test
 
+
+
 # Install GCC-9
-RUN apt-get update \
+RUN apt update \
 	&& DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
 		build-essential \
 		gcc-9 \
@@ -46,15 +48,37 @@ RUN apt-get update \
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 50 \
 	&& update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 50
 
-# Install OpenCV 3.4
 
+RUN add-apt-repository "deb http://security.ubuntu.com/ubuntu xenial-security main"
 RUN apt-get update
-RUN apt-get install -y cmake git libgtk2.0-dev pkg-config libavcodec-dev \
-libavformat-dev libswscale-dev python-dev python-numpy libtbb2 libtbb-dev \
-libjpeg-dev libpng-dev libtiff-dev libjasper-dev libdc1394-22-dev unzip
 
-RUN apt-get install -y wget
-RUN apt-get install -y vim
+# Getting latest version of cmake for glogging
+RUN apt remove cmake
+RUN apt install build-essential libssl-dev -y
+RUN wget https://github.com/Kitware/CMake/releases/download/v3.20.0/cmake-3.20.0.tar.gz
+RUN tar -zxvf cmake-3.20.0.tar.gz && cd cmake-3.20.0 && ./bootstrap && \
+    make && make install 
+
+
+
+# Install OpenCV 3.4
+RUN apt-get install -y git libgtk2.0-dev pkg-config libavcodec-dev \
+    libavformat-dev libswscale-dev python-dev python-numpy libtbb2 libtbb-dev \
+    libjpeg-dev libpng-dev libtiff-dev libjasper1 libjasper-dev libdc1394-22-dev unzip
+
+
+
+RUN sudo apt upgrade -y
+RUN sudo apt update -y
+
+# get glogging module
+RUN git clone https://github.com/google/glog.git \
+    && cd glog \
+    && mkdir build && cd build \
+    && cmake -S .. -G "Unix Makefiles"
+
+RUN cd glog && cmake --build build --target install
+
 
 # get and build OpenCV 3.4
 RUN wget https://github.com/opencv/opencv/archive/3.4.0.zip \

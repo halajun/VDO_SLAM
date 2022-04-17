@@ -71,30 +71,35 @@ void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const
     for (int i = 0; i < StaTracks.size(); ++i)
     {
         // filter the tracklets via threshold
-        if (StaTracks[i].size()<3) // 3 the length of track on background.
+        if (StaTracks[i].size()<3) { // 3 the length of track on background.
             continue;
+        }
         valid_sta++;
         // label them
-        for (int j = 0; j < StaTracks[i].size(); ++j)
+        for (int j = 0; j < StaTracks[i].size(); ++j) {
+            //first -> frameId, second -> feature Id
             vnFeaLabSta[StaTracks[i][j].first][StaTracks[i][j].second] = i;
+        }
     }
     // label dynamic feature
     for (int i = 0; i < DynTracks.size(); ++i)
     {
         // filter the tracklets via threshold
-        if (DynTracks[i].size()<3) // 3 the length of track on objects.
+        if (DynTracks[i].size()<3) { // 3 the length of track on objects.
             continue;
+        }
         valid_dyn++;
         // label them
         for (int j = 0; j < DynTracks[i].size(); ++j){
+            //first -> frameId, second -> feature Id
             vnFeaLabDyn[DynTracks[i][j].first][DynTracks[i][j].second] = i;
-
         }
     }
 
     // save vertex ID in the graph
     std::vector<std::vector<int> > VertexID(N);
     // initialize
+    //why is it i < N; dont we just use window size?
     for (int i = 0; i < N; ++i)
     {
         if (i==0)
@@ -104,6 +109,8 @@ void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const
         }
         else
         {
+            //take i-1 becuase 0 will be cmaera motion and tracking labels start at 1
+            //so we actually 
             std::vector<int> v_id_tmp(pMap->vnRMLabel[i-1].size(),-1);
             VertexID[i] = v_id_tmp;
         }
@@ -121,10 +128,14 @@ void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const
     std::vector<int> UniLab, LabCount;
     for (int i = N-WINDOW_SIZE; i < N-1; ++i)
     {
-        if (i == N-WINDOW_SIZE)
-        {
+        //first 
+        if (i == N-WINDOW_SIZE) {
+            //start at j = 1 because 0 is camera motion and 1 ... l is rigid motion
             for (int j = 1; j < pMap->vnRMLabel[i].size(); ++j)
             {
+                //guarantee that all labels are unique?
+                //frame i and rigid body motion j
+                //for the first one we just go through and all labels for this frame
                 UniLab.push_back(pMap->vnRMLabel[i][j]);
                 LabCount.push_back(1);
             }
@@ -136,6 +147,8 @@ void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const
                 bool used = false;
                 for (int k = 0; k < UniLab.size(); ++k)
                 {
+                    //if the unique label at index k is the same as this
+                    //rigid body motion, label it it has used and inncrease count
                     if (UniLab[k]==pMap->vnRMLabel[i][j])
                     {
                         used = true;
@@ -224,6 +237,7 @@ void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const
         v_se3->setEstimate(Converter::toSE3Quat(pMap->vmCameraPose[i]));
         // v_se3->setEstimate(Converter::toSE3Quat(id_temp));
         optimizer.addVertex(v_se3);
+        //when we do our first batch optimization where the total frames is the batch size
         if (count_unique_id==1 && N==WINDOW_SIZE)
         {
             // cout << "the very first frame: " << N << " " << WINDOW_SIZE << endl;
@@ -291,8 +305,10 @@ void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const
             {
                 // check if this feature track has the same length as the window size
                 const int TrLength = StaTracks[TrackID].size();
-                if ( TrLength<FeaLengthThresSta )
+                if ( TrLength<FeaLengthThresSta ) {
                     continue;
+                }
+
 
                 // (3) save <VERTEX_POINT_3D>
                 g2o::VertexPointXYZ *v_p = new g2o::VertexPointXYZ();

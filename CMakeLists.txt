@@ -41,6 +41,7 @@ endif()
 
 find_package(Eigen3 3.1.0 REQUIRED)
 find_package(CSparse REQUIRED)
+find_package (glog 0.6.0 REQUIRED)
 
 include_directories(
 ${PROJECT_SOURCE_DIR}
@@ -59,6 +60,7 @@ src/Converter.cc
 src/Map.cc
 src/Optimizer.cc
 src/Frame.cc
+src/FactorGraph.cc
 
 src/cvplot/color.cc
 src/cvplot/figure.cc
@@ -76,6 +78,7 @@ ${CSPARSE_LIBRARY}
 #${PROJECT_SOURCE_DIR}/dependencies/g2o/lib/libg2o.dylib
 # for linux (ubuntu)
 ${PROJECT_SOURCE_DIR}/dependencies/g2o/lib/libg2o.so
+glog::glog
 )
 
 
@@ -85,6 +88,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/example)
 
 add_executable(vdo_slam
 example/vdo_slam.cc)
-target_link_libraries(vdo_slam ${PROJECT_NAME})
+target_link_libraries(vdo_slam ${PROJECT_NAME} )
 
 

@@ -81,7 +81,11 @@ SET(G2O_CXX_COMPILER "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER}")
 configure_file(config.h.in ${g2o_SOURCE_DIR}/config.h)
 
 find_package(CSparse REQUIRED)
-include_directories(${CSPARSE_INCLUDE_DIR})
+find_package(Cholmod REQUIRED)
+include_directories(
+  ${CSPARSE_INCLUDE_DIR}
+  ${CHOLMOD_INCLUDES}
+)
 
 # Set up the top-level include directories
 INCLUDE_DIRECTORIES(
@@ -89,7 +93,12 @@ ${g2o_SOURCE_DIR}/core
 ${g2o_SOURCE_DIR}/types
 ${g2o_SOURCE_DIR}/stuff
 ${g2o_SOURCE_DIR}/solvers
+${g2o_SOURCE_DIR}/incremental
 ${G2O_EIGEN3_INCLUDE})
+
+# This should eventually just be for release
+#othrwise too many warnings I cannot see the build errors!!
+add_definitions(-w)
 
 
 # Include the subdirectories
@@ -97,6 +106,7 @@ ADD_LIBRARY(g2o ${G2O_LIB_TYPE}
 
 #types
 g2o/types/eigen_types_new.h
+g2o/core/eigen_types.h
 g2o/types/types_sba.h
 g2o/types/types_six_dof_expmap.h
 g2o/types/types_sba.cpp
@@ -226,8 +236,29 @@ g2o/solvers/csparse_extension.h
 g2o/solvers/csparse_helper.cpp
 g2o/solvers/csparse_helper.h
 g2o/solvers/g2o_csparse_api.h
+g2o/solvers/linear_solver_cholmod.h
+g2o/solvers/solver_cholmod.cpp
+g2o/solvers/linear_solver_pcg.h
+g2o/solvers/linear_solver_pcg.hpp
+g2o/solvers/solver_pcg.cpp
 #g2o/solvers/solver_csparse.cpp
 g2o/solvers/linear_solver_csparse.h
+
+
+#incremental
+g2o/incremental/g2o_incremental_api.h
+g2o/incremental/g2o_interactive_api.h
+g2o/incremental/graph_optimizer_sparse_incremental.cpp
+g2o/incremental/graph_optimizer_sparse_incremental.h
+g2o/incremental/graph_optimizer_sparse_online.cpp
+g2o/incremental/graph_optimizer_sparse_online.h
+g2o/incremental/linear_solver_cholmod_online.h
+g2o/incremental/types_online.cc
+g2o/incremental/types_slam3d_online.h
+
 )
 
-target_link_libraries(g2o ${CSPARSE_LIBRARY})
+target_link_libraries(g2o 
+  ${CSPARSE_LIBRARY}
+  ${CHOLMOD_LIBRARIES}
+)

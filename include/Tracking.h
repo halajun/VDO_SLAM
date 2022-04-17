@@ -18,6 +18,7 @@
 
 #include"Map.h"
 #include"Frame.h"
+#include "FactorGraph.h"
 #include"ORBextractor.h"
 #include "System.h"
 
@@ -215,6 +216,9 @@ protected:
 
     //Map
     Map* mpMap;
+
+    //FactorGraph for incremental
+    FactorGraph::Ptr graph;
 
     //Calibration matrix
     cv::Mat mK;

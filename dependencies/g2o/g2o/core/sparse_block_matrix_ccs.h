@@ -34,7 +34,7 @@
 #include "../../config.h"
 #include "matrix_operations.h"
 
-#if defined(_MSC_VER) || defined(__APPLE__)
+#if defined(_MSC_VER) || defined(__APPLE__) || defined(__linux__)
 #include <unordered_map>
 #else
 #include <tr1/unordered_map>

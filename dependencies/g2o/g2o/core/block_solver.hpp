@@ -39,6 +39,10 @@ using namespace std;
 using namespace Eigen;
 
 template <typename Traits>
+BlockSolver<Traits>::BlockSolver(std::unique_ptr<LinearSolverType> linearSolver) :
+  BlockSolver(linearSolver.get()) {}
+
+template <typename Traits>
 BlockSolver<Traits>::BlockSolver(LinearSolverType* linearSolver) :
   BlockSolverBase(),
   _linearSolver(linearSolver)

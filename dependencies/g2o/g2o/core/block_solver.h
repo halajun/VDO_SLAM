@@ -118,6 +118,7 @@ namespace g2o {
        * in its destructor.
        */
       BlockSolver(LinearSolverType* linearSolver);
+      BlockSolver(std::unique_ptr<LinearSolverType> linearSolver);
       ~BlockSolver();
 
       virtual bool init(SparseOptimizer* optmizer, bool online = false);
@@ -174,6 +175,9 @@ namespace g2o {
       int _numPoses, _numLandmarks;
       int _sizePoses, _sizeLandmarks;
   };
+
+  template<int p, int l>
+  using BlockSolverPL = BlockSolver< BlockSolverTraits<p, l> >;
 
 
   //variable size solver

@@ -16,7 +16,11 @@
 #include<opencv2/core/core.hpp>
 #include<opencv2/optflow.hpp>
 
+#include <glog/logging.h>
+#include <gflags/gflags.h>
+
 #include<System.h>
+
 
 using namespace std;
 
@@ -27,12 +31,13 @@ void LoadData(const string &strPathToSequence, vector<string> &vstrFilenamesSEM,
 void LoadMask(const string &strFilenamesMask, cv::Mat &imMask);
 
 int main(int argc, char **argv)
+
 {
-    if(argc != 3)
-    {
-        cerr << endl << "Usage: ./vdo_slam path_to_settings path_to_sequence" << endl;
-        return 1;
-    }
+    google::InitGoogleLogging(argv[0]);
+    google::InstallFailureSignalHandler();
+
+
+    PCHECK(argc == 3) << "Usage: ./vdo_slam path_to_settings path_to_sequence";
 
     // Retrieve paths to images
     vector<string> vstrFilenamesRGB;

@@ -39,6 +39,10 @@ if(NOT OpenCV_FOUND)
    endif()
 endif()
 
+# This should eventually just be for release
+#othrwise too many warnings I cannot see the build errors!!
+add_definitions(-w)
+
 find_package(Eigen3 3.1.0 REQUIRED)
 find_package(CSparse REQUIRED)
 find_package (glog 0.6.0 REQUIRED)
@@ -46,8 +50,10 @@ find_package (glog 0.6.0 REQUIRED)
 include_directories(
 ${PROJECT_SOURCE_DIR}
 ${PROJECT_SOURCE_DIR}/include
+
 ${EIGEN3_INCLUDE_DIR}
 ${CSPARSE_INCLUDE_DIR}
+${GLOG_INCLUDE_DIRS} 
 )
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
@@ -78,6 +84,7 @@ ${CSPARSE_LIBRARY}
 #${PROJECT_SOURCE_DIR}/dependencies/g2o/lib/libg2o.dylib
 # for linux (ubuntu)
 ${PROJECT_SOURCE_DIR}/dependencies/g2o/lib/libg2o.so
+
 glog::glog
 )
 
@@ -88,6 +95,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/example)
 
 add_executable(vdo_slam
 example/vdo_slam.cc)
-target_link_libraries(vdo_slam ${PROJECT_NAME} )
+target_link_libraries(vdo_slam ${PROJECT_NAME} glog::glog)
 
 

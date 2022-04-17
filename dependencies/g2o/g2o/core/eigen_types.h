@@ -30,6 +30,9 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+#include "../../config.h"
+
+
 namespace g2o {
 
   typedef Eigen::Matrix<int,2,1,Eigen::ColMajor>                                  Vector2I;

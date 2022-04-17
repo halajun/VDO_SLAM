@@ -1,3 +1,5 @@
+GLOGGING Prefix:
+GLOG_v=7 GLOG_logtostderr=1 
 
 ./example/vdo_slam /Users/steed/work/kitti_ms/0000-0013.yaml  /Users/steed/work/kitti_ms/0003
 

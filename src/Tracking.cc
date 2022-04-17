@@ -10,6 +10,7 @@
 #include "Tracking.h"
 
 #include <Eigen/Core>
+#include <glog/logging.h>
 
 #include<opencv2/core/core.hpp>
 #include<opencv2/features2d/features2d.hpp>
@@ -159,6 +160,9 @@ Tracking::Tracking(System *pSys, Map *pMap, const string &strSettingPath, const 
         cout << "- used sampled feature for background scene..." << endl;
     else
         cout << "- used detected feature for background scene..." << endl;
+
+    graph = std::make_shared<FactorGraph>(pMap, mK);
+
 }
 
 cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Mat &imFlow,
@@ -1062,6 +1066,7 @@ void Tracking::Track()
         mpMap->vnAssoDyn.push_back(mCurrentFrame.nDynInlierID);        // (new added Nov 20 2019)
         mpMap->vnFeatLabel.push_back(mCurrentFrame.vObjLabel);         // (new added Nov 20 2019)
 
+        CHECK(bLocalBatch);
         if (f_id==StopFrame || bLocalBatch)
         {
             // (3) save static feature tracklets
@@ -1164,6 +1169,8 @@ void Tracking::Track()
     // =================================================================================================
     // ============== Partial batch optimize on all the measurements (local optimization) ==============
     // =================================================================================================
+
+    // graph->stepAndOptimize();
 
     bLocalBatch = true;
     if ( (f_id-nOVERLAP_SIZE+1)%(nWINDOW_SIZE-nOVERLAP_SIZE)==0 && f_id>=nWINDOW_SIZE-1 && bLocalBatch)

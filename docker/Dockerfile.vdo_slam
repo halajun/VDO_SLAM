@@ -23,7 +23,7 @@ RUN apt-get update && apt-get install apt-utils sudo -y
 # WORKDIR /home/user/app
 
 RUN apt update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends software-properties-common nano wget \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends software-properties-common nano wget libgflags-dev \
     && add-apt-repository ppa:ubuntu-toolchain-r/test
 
 

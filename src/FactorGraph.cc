@@ -22,6 +22,8 @@
 #include "dependencies/g2o/g2o/types/edge_xyz_prior.h"
 #include "dependencies/g2o/g2o/core/sparse_optimizer_terminate_action.h"
 #include "dependencies/g2o/g2o/solvers/linear_solver_csparse.h"
+#include "dependencies/g2o/g2o/incremental/linear_solver_cholmod_online.h"
+
 
 #include <glog/logging.h>
 #include <vector>
@@ -33,7 +35,7 @@
 
 namespace VDO_SLAM {
 
-FactorGraph::FactorGraph(Map* map_, const cv::Mat& Calib_K_)
+FactorGraph::FactorGraph(Map* map_, const cv::Mat& Calib_K_, int batch_size_, int update_size_)
     :   map(CHECK_NOTNULL(map_)),
         Calib_K(Calib_K_),
         steps(0),
@@ -41,19 +43,22 @@ FactorGraph::FactorGraph(Map* map_, const cv::Mat& Calib_K_)
         curr_frame_id(0),
         count_unique_id(1),
         start_frame(0),
+        batch_size(batch_size_),
+        update_size(update_size_),
         vnFeaLabSta(),
         vnFeaMakSta(),
         vnFeaLabDyn(),
         vnFeaMakDyn() {
 
     linearSolver = new g2o::LinearSolverCSparse<g2o::BlockSolverX::PoseMatrixType>();
+    // linearSolver = new g2o::LinearSolverCholmodOnline<g2o::BlockSolverX::PoseMatrixType>();
     solver_ptr = new g2o::BlockSolverX(linearSolver);
     solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
 
 
     optimizer.setAlgorithm(solver);
 
-    terminateAction = new g2o::SparseOptimizerTerminateAction;
+    terminateAction = new g2o::SparseOptimizerTerminateAction();
     CHECK_NOTNULL(terminateAction)->setGainThreshold(1e-3);
     optimizer.addPostIterationAction(terminateAction);
 

@@ -22,6 +22,9 @@
 #include "dependencies/g2o/g2o/core/sparse_optimizer_terminate_action.h"
 #include "dependencies/g2o/g2o/solvers/linear_solver_csparse.h"
 
+#include "dependencies/g2o/g2o/incremental/graph_optimizer_sparse_incremental.h"
+
+
 #include <glog/logging.h>
 #include <memory>
 
@@ -34,7 +37,7 @@ class FactorGraph {
         typedef std::unique_ptr<FactorGraph> UniquePtr;
         typedef std::shared_ptr<const FactorGraph> ConstPtr;
 
-        FactorGraph(Map* map_, const cv::Mat& Calib_K_);
+        FactorGraph(Map* map_, const cv::Mat& Calib_K_, int batch_size_, int update_size_);
         ~FactorGraph();
 
         void stepAndOptimize();
@@ -63,9 +66,13 @@ class FactorGraph {
         //this starts at 0
         int curr_frame_id;
 
+        int batch_size;
+        int update_size;
+
 
         //g2o stuff
         g2o::SparseOptimizer optimizer;
+        // g2o::SparseOptimizerIncremental optimizer;
         g2o::BlockSolverX::LinearSolverType* linearSolver;
         g2o::BlockSolverX* solver_ptr;
         g2o::OptimizationAlgorithmLevenberg* solver;
@@ -86,6 +93,9 @@ class FactorGraph {
         std::vector<std::vector<int>> vnFeaMakSta;
         std::vector<std::vector<int>> vnFeaLabDyn;
         std::vector<std::vector<int>> vnFeaMakDyn;
+
+        HyperGraph::VertexSet verticesAdded;
+        HyperGraph::EdgeSet edgesAdded;
 
 };
 

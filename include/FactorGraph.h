@@ -37,7 +37,7 @@ class FactorGraph {
         typedef std::unique_ptr<FactorGraph> UniquePtr;
         typedef std::shared_ptr<const FactorGraph> ConstPtr;
 
-        FactorGraph(Map* map_, const cv::Mat& Calib_K_, int batch_size_, int update_size_);
+        FactorGraph(Map* map_, const cv::Mat& Calib_K_);
         ~FactorGraph();
 
         void stepAndOptimize();
@@ -52,6 +52,8 @@ class FactorGraph {
 
         inline int getMapSize() const { return map->vpFeatSta.size(); }
 
+        cv::Mat getLatestCameraPose() const;
+
     private:
         void updateMap();
 
@@ -60,11 +62,13 @@ class FactorGraph {
         int start_frame;
         //should always one less than the size of the map (ie. N - 1)
         int steps;
+
+        //I think this is the id of the camera pose vertex saved at the previous and current frames
         //the frame id solved for previously
-        int pre_frame_id;
+        int pre_camera_pose_vertex;
         //the frame id to be solving for. I guess we only need one of them 
         //this starts at 0
-        int curr_frame_id;
+        int curr_camera_pose_vertex;
 
         int batch_size;
         int update_size;
@@ -94,8 +98,10 @@ class FactorGraph {
         std::vector<std::vector<int>> vnFeaLabDyn;
         std::vector<std::vector<int>> vnFeaMakDyn;
 
-        HyperGraph::VertexSet verticesAdded;
-        HyperGraph::EdgeSet edgesAdded;
+
+        g2o::HyperGraph::VertexSet verticesAdded;
+        g2o::HyperGraph::EdgeSet edgesAdded;
+
 
 };
 

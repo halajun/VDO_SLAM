@@ -35,16 +35,16 @@
 
 namespace VDO_SLAM {
 
-FactorGraph::FactorGraph(Map* map_, const cv::Mat& Calib_K_, int batch_size_, int update_size_)
+FactorGraph::FactorGraph(Map* map_, const cv::Mat& Calib_K_)
     :   map(CHECK_NOTNULL(map_)),
         Calib_K(Calib_K_),
         steps(0),
-        pre_frame_id(-1),
-        curr_frame_id(0),
+        pre_camera_pose_vertex(-1),
+        curr_camera_pose_vertex(0),
         count_unique_id(1),
         start_frame(0),
-        batch_size(batch_size_),
-        update_size(update_size_),
+        // batch_size(batch_size_),
+        // update_size(update_size_),
         vnFeaLabSta(),
         vnFeaMakSta(),
         vnFeaLabDyn(),
@@ -65,6 +65,7 @@ FactorGraph::FactorGraph(Map* map_, const cv::Mat& Calib_K_, int batch_size_, in
     cameraOffset = new g2o::ParameterSE3Offset();
     CHECK_NOTNULL(cameraOffset)->setId(0);
     optimizer.addParameter(cameraOffset);
+
 }
 
 FactorGraph::~FactorGraph() {
@@ -256,32 +257,27 @@ void FactorGraph::step() {
 
     CHECK_EQ(unique_vertices.size(), N);
 
-    //the first time this is called: ie. curr_frame_id == 0 as N = 1
-    if(start_frame == 0) {
-        LOG(INFO) << "The first frame. N: " << N;
-        CHECK_EQ(count_unique_id, 1);
 
-        //we just have the one camera pose measurement to add
-        // (1) save <VERTEX_POSE_R3_SO3>
-        g2o::VertexSE3 *v_se3 = new g2o::VertexSE3();
-        v_se3->setId(count_unique_id);
-        v_se3->setEstimate(Converter::toSE3Quat(map->vmCameraPose[start_frame]));
-        optimizer.addVertex(v_se3);
+    //we just have the one camera pose measurement to add
+    // (1) save <VERTEX_POSE_R3_SO3>
+    g2o::VertexSE3 *v_se3 = new g2o::VertexSE3();
+    v_se3->setId(count_unique_id);
+    v_se3->setEstimate(Converter::toSE3Quat(map->vmCameraPose[start_frame]));
+    optimizer.addVertex(v_se3);
 
-        //what about the prior?
+    //what about the prior?
 
-        //unique id for the first frame and the camera pose
-        unique_vertices[start_frame][0] = count_unique_id;
-        curr_frame_id = count_unique_id;
-        count_unique_id++;
+    //unique id for the first frame and the camera pose
+    unique_vertices[start_frame][0] = count_unique_id;
+    curr_camera_pose_vertex = count_unique_id;
+    count_unique_id++;
         
-    }
     //not the first call
-    else {
+    if(start_frame > 0) {
         // (2) save <EDGE_R3_SO3>
         g2o::EdgeSE3 * ep = new g2o::EdgeSE3();
-        ep->setVertex(0, optimizer.vertex(pre_frame_id));
-        ep->setVertex(1, optimizer.vertex(curr_frame_id));
+        ep->setVertex(0, optimizer.vertex(pre_camera_pose_vertex));
+        ep->setVertex(1, optimizer.vertex(curr_camera_pose_vertex));
         ep->setMeasurement(Converter::toSE3Quat(map->vmRigidMotion[start_frame-1][0]));
         ep->information() = Eigen::MatrixXd::Identity(6, 6)/sigma2_cam;
         if (ROBUST_KERNEL)
@@ -294,7 +290,7 @@ void FactorGraph::step() {
         vpEdgeSE3.push_back(ep);
     }
 
-    CHECK(curr_frame_id != 0);
+    CHECK(curr_camera_pose_vertex != 0);
 
     //now do for static features
     LOG(INFO) << "Static features for current frame is " << vnFeaLabSta[start_frame].size();
@@ -342,7 +338,7 @@ void FactorGraph::step() {
 
             // (4) save <EDGE_3D>
             g2o::EdgeSE3PointXYZ * e = new g2o::EdgeSE3PointXYZ();
-            e->setVertex(0, optimizer.vertex(curr_frame_id));
+            e->setVertex(0, optimizer.vertex(curr_camera_pose_vertex));
             e->setVertex(1, optimizer.vertex(count_unique_id));
             cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatSta[start_frame][j],map->vfDepSta[start_frame][j],Calib_K);
             e->setMeasurement(Converter::toVector3d(Xc));
@@ -373,7 +369,7 @@ void FactorGraph::step() {
 
             // (4) save <EDGE_3D>
             g2o::EdgeSE3PointXYZ * e = new g2o::EdgeSE3PointXYZ();
-            e->setVertex(0, optimizer.vertex(curr_frame_id));
+            e->setVertex(0, optimizer.vertex(curr_camera_pose_vertex));
             e->setVertex(1, optimizer.vertex(FeaMakTmp));
             cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatSta[start_frame][j],map->vfDepSta[start_frame][j],Calib_K);
             e->setMeasurement(Converter::toVector3d(Xc));
@@ -396,7 +392,7 @@ void FactorGraph::step() {
 
 
     // update frame ID
-    pre_frame_id = curr_frame_id;
+    pre_camera_pose_vertex = curr_camera_pose_vertex;
 
     //now steps should be the same as N
     steps++;
@@ -476,6 +472,11 @@ void FactorGraph::stepAndOptimize() {
         updateMap();
     }
     
+}
+
+cv::Mat FactorGraph::getLatestCameraPose() const {
+    cv::Mat pose = map->vmCameraPose[start_frame];
+    return Converter::toInvMatrix(pose);
 }
 
 };

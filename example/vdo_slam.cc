@@ -17,7 +17,6 @@
 #include<opencv2/optflow.hpp>
 
 #include <glog/logging.h>
-#include <gflags/gflags.h>
 
 #include<System.h>
 

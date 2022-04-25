@@ -46,6 +46,7 @@ add_definitions(-w)
 find_package(Eigen3 3.1.0 REQUIRED)
 find_package(CSparse REQUIRED)
 find_package (glog 0.6.0 REQUIRED)
+find_package(GTSAM REQUIRED)
 
 include_directories(
 ${PROJECT_SOURCE_DIR}
@@ -54,6 +55,7 @@ ${PROJECT_SOURCE_DIR}/include
 ${EIGEN3_INCLUDE_DIR}
 ${CSPARSE_INCLUDE_DIR}
 ${GLOG_INCLUDE_DIRS} 
+${GTSAM_INCLUDE_DIR}
 )
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
@@ -68,6 +70,8 @@ src/Optimizer.cc
 src/Frame.cc
 src/FactorGraph.cc
 
+src/utils/UtilsGTSAM.cc
+
 src/cvplot/color.cc
 src/cvplot/figure.cc
 src/cvplot/highgui.cc
@@ -75,8 +79,8 @@ src/cvplot/window.cc
 src/cvplot/internal.h
 )
 
-target_link_libraries(
-${PROJECT_NAME}
+target_link_libraries(${PROJECT_NAME}
+PUBLIC
 ${OpenCV_LIBS}
 ${EIGEN3_LIBS}
 ${CSPARSE_LIBRARY}
@@ -84,7 +88,7 @@ ${CSPARSE_LIBRARY}
 #${PROJECT_SOURCE_DIR}/dependencies/g2o/lib/libg2o.dylib
 # for linux (ubuntu)
 ${PROJECT_SOURCE_DIR}/dependencies/g2o/lib/libg2o.so
-
+gtsam
 glog::glog
 )
 

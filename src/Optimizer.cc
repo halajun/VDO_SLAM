@@ -7,6 +7,7 @@
 **/
 
 #include "Optimizer.h"
+#include "utils/UtilsGTSAM.h"
 
 #include "dependencies/g2o/g2o/core/block_solver.h"
 #include "dependencies/g2o/g2o/core/optimization_algorithm_levenberg.h"
@@ -34,10 +35,380 @@
 
 #include<mutex>
 
+
+//new GTSAM stuff
+#include <gtsam/slam/BetweenFactor.h>
+#include <gtsam/sam/BearingRangeFactor.h>
+#include <gtsam/slam/dataset.h>
+#include <gtsam/base/Vector.h>
+#include <gtsam/geometry/Pose3.h>
+#include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
+#include <gtsam/nonlinear/ISAM2.h>
+#include <gtsam/nonlinear/GaussNewtonOptimizer.h>
+#include <gtsam/nonlinear/Marginals.h>
+#include <gtsam/linear/GaussianJunctionTree.h>
+#include <gtsam/linear/GaussianEliminationTree.h>
+#include <gtsam/inference/Symbol.h>
+#include <gtsam/slam/ProjectionFactor.h>
+
 namespace VDO_SLAM
 {
 
 using namespace std;
+
+void Optimizer::PartialBatchOptimizationGTSAM(Map* pMap, const cv::Mat Calib_K, const int WINDOW_SIZE) {
+    const int N = pMap->vpFeatSta.size(); // Number of Frames
+    std::vector<std::vector<std::pair<int, int> > > StaTracks = pMap->TrackletSta;
+    std::vector<std::vector<std::pair<int, int> > > DynTracks = pMap->TrackletDyn;
+
+    // =======================================================================================
+
+    // mark each feature if it is satisfied (valid) for usage
+    // here we use track length as threshold, for static >=3, dynamic >=3.
+    // label each feature of the position in TrackLets: -1(invalid) or >=0(TrackID);
+    // size: static: (N)xM_1, M_1 is the size of features in each frame
+    // size: dynamic: (N)xM_2, M_2 is the size of features in each frame
+    std::vector<std::vector<int> > vnFeaLabSta(N),vnFeaMakSta(N),vnFeaLabDyn(N),vnFeaMakDyn(N);
+    // initialize
+    for (int i = 0; i < N; ++i)
+    {
+        std::vector<int>  vnFLS_tmp(pMap->vpFeatSta[i].size(),-1);
+        vnFeaLabSta[i] = vnFLS_tmp;
+        vnFeaMakSta[i] = vnFLS_tmp;
+    }
+    for (int i = 0; i < N; ++i)
+    {
+        std::vector<int>  vnFLD_tmp(pMap->vpFeatDyn[i].size(),-1);
+        vnFeaLabDyn[i] = vnFLD_tmp;
+        vnFeaMakDyn[i] = vnFLD_tmp;
+    }
+    int valid_sta = 0, valid_dyn = 0;
+    // label static feature
+    for (int i = 0; i < StaTracks.size(); ++i)
+    {
+        // filter the tracklets via threshold
+        if (StaTracks[i].size()<3) { // 3 the length of track on background.
+            continue;
+        }
+        valid_sta++;
+        // label them
+        for (int j = 0; j < StaTracks[i].size(); ++j) {
+            //first -> frameId, second -> feature Id
+            vnFeaLabSta[StaTracks[i][j].first][StaTracks[i][j].second] = i;
+        }
+    }
+    // label dynamic feature
+    for (int i = 0; i < DynTracks.size(); ++i)
+    {
+        // filter the tracklets via threshold
+        if (DynTracks[i].size()<3) { // 3 the length of track on objects.
+            continue;
+        }
+        valid_dyn++;
+        // label them
+        for (int j = 0; j < DynTracks[i].size(); ++j){
+            //first -> frameId, second -> feature Id
+            vnFeaLabDyn[DynTracks[i][j].first][DynTracks[i][j].second] = i;
+        }
+    }
+
+    // save vertex ID in the graph
+    std::vector<std::vector<int> > VertexID(N);
+    // initialize
+    //why is it i < N; dont we just use window size?
+    for (int i = 0; i < N; ++i)
+    {
+        if (i==0)
+        {
+            std::vector<int> v_id_tmp(1,-1);
+            VertexID[i] = v_id_tmp;
+        }
+        else
+        {
+            //take i-1 becuase 0 will be cmaera motion and tracking labels start at 1
+            //so we actually 
+            std::vector<int> v_id_tmp(pMap->vnRMLabel[i-1].size(),-1);
+            VertexID[i] = v_id_tmp;
+        }
+    }
+
+    // check if objects has the required tracking length in current window
+    const int ObjLength = WINDOW_SIZE-1;
+    std::vector<std::vector<bool> > ObjCheck(N-1);
+    for (int i = 0; i < N-1; ++i)
+    {
+        std::vector<bool>  ObjCheck_tmp(pMap->vnRMLabel[i].size(),false);
+        ObjCheck[i] = ObjCheck_tmp;
+    }
+    // collect unique object label and how many times it appears
+    std::vector<int> UniLab, LabCount;
+    for (int i = N-WINDOW_SIZE; i < N-1; ++i)
+    {
+        //first 
+        if (i == N-WINDOW_SIZE) {
+            //start at j = 1 because 0 is camera motion and 1 ... l is rigid motion
+            for (int j = 1; j < pMap->vnRMLabel[i].size(); ++j)
+            {
+                //guarantee that all labels are unique?
+                //frame i and rigid body motion j
+                //for the first one we just go through and all labels for this frame
+                UniLab.push_back(pMap->vnRMLabel[i][j]);
+                LabCount.push_back(1);
+            }
+        }
+        else
+        {
+            for (int j = 1; j < pMap->vnRMLabel[i].size(); ++j)
+            {
+                bool used = false;
+                for (int k = 0; k < UniLab.size(); ++k)
+                {
+                    //if the unique label at index k is the same as this
+                    //rigid body motion, label it it has used and inncrease count
+                    if (UniLab[k]==pMap->vnRMLabel[i][j])
+                    {
+                        used = true;
+                        LabCount[k] = LabCount[k] + 1;
+                        break;
+                    }
+                }
+                if (used==false)
+                {
+                    UniLab.push_back(pMap->vnRMLabel[i][j]);
+                    LabCount.push_back(1);
+                }
+            }
+        }
+    }
+    // assign the ObjCheck ......
+    for (int i = N-WINDOW_SIZE; i < N-1; ++i)
+    {
+        for (int j = 1; j < pMap->vnRMLabel[i].size(); ++j)
+        {
+            for (int k = 0; k < UniLab.size(); ++k)
+            {
+                if (UniLab[k]==pMap->vnRMLabel[i][j] && LabCount[k]>=ObjLength)
+                {
+                    ObjCheck[i][j]= true;
+                    break;
+                }
+            }
+        }
+    }
+    
+    // === set information matrix ===
+    const GtsamAccesType sigma2_cam = 0.0001; // 0.005 0.001 0.0001
+    const GtsamAccesType sigma2_3d_sta = 16; // 50 80 16
+    const GtsamAccesType sigma2_obj_smo = 0.1; // 0.1
+    const GtsamAccesType sigma2_obj = 20; // 0.5 1 10 20
+    const GtsamAccesType sigma2_3d_dyn = 16; // 50 100 16
+    const GtsamAccesType sigma2_alti = 1;
+
+    
+    
+    gtsam::Cal3_S2 calib_k_gtsam = utils::cvMat2Cal3_S2(Calib_K);
+    gtsam::Cal3_S2::shared_ptr K = boost::make_shared<gtsam::Cal3_S2>(calib_k_gtsam);
+
+
+    //make optimizer using gtsam
+    gtsam::NonlinearFactorGraph graph;
+    gtsam::Values values;
+    //missing camera param
+    gtsam::Key count_unique_id = 1;
+    int FeaLengthThresSta = 3;
+    int FeaLengthThresDyn = 3;
+    int StaticStartFrame = N-WINDOW_SIZE;
+    int PreFrameID, CurFrameID;
+
+    float deltaHuberCamMot = 0.0001, deltaHuberObjMot = 0.0001, deltaHuber3D = 0.0001;
+
+    for (int i = StaticStartFrame; i < N; ++i) {
+        gtsam::Pose3 camera_pose = utils::cvMatToGtsamPose3(pMap->vmCameraPose[i]);
+
+        values.insert(count_unique_id, camera_pose);
+
+        if(count_unique_id == 1 && N == WINDOW_SIZE) {
+            auto pose_prior = gtsam::noiseModel::Diagonal::Sigmas(
+                gtsam::Vector6::Constant(1.0/0.0000001)
+            );
+            graph.addPrior(count_unique_id, camera_pose, pose_prior);
+        }
+
+
+        VertexID[i][0] = count_unique_id;
+         // record the ID of current frame saved in graph file
+        CurFrameID = count_unique_id;
+        count_unique_id++;
+
+        if(i != StaticStartFrame) {
+            // (2) save <EDGE_R3_SO3> 
+            //like I guess?
+            //pretty sure we want to optimize for the rigid motion too...? This should become a variable?
+            gtsam::Pose3 rigid_motion = utils::cvMatToGtsamPose3(pMap->vmRigidMotion[i-1][0]);
+            auto edge_information = gtsam::noiseModel::Diagonal::Sigmas(
+                gtsam::Vector6::Constant(1.0/sigma2_cam)
+            );
+
+            graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
+                PreFrameID,
+                CurFrameID,
+                rigid_motion,
+                edge_information
+            );
+
+            //missing robust kernal
+
+        }
+
+        // loop for static features
+        for (int j = 0; j < vnFeaLabSta[i].size(); ++j) {
+            // check feature validation
+            if (vnFeaLabSta[i][j]==-1) {
+                continue;
+            }
+
+            // get the TrackID of current feature
+            int TrackID = vnFeaLabSta[i][j];
+
+            // get the position of current feature in the tracklet
+            int PositionID = -1;
+            for (int k = 0; k < StaTracks[TrackID].size(); ++k)
+            {
+                if (StaTracks[TrackID][k].first==i && StaTracks[TrackID][k].second==j)
+                {
+                    PositionID = k;
+                    break;
+                }
+            }
+            if (PositionID==-1){
+                LOG(WARNING) << "cannot find the position of current feature in the tracklet !!!";
+                continue;
+            }
+
+            // check if the PositionID is 0. Yes means this static point is first seen by this frame,
+            // then save both the vertex and edge, otherwise save edge only because vertex is saved before.
+            if (PositionID==0)
+            {
+                // check if this feature track has the same length as the window size
+                const int TrLength = StaTracks[TrackID].size();
+                if ( TrLength<FeaLengthThresSta ) {
+                    continue;
+                }
+
+
+
+                //make vertex for 3d static point which we want to optimize for
+                //note that the 3d points are in the world frame (apparently)
+                gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(pMap->vp3DPointSta[i][j]);
+                values.insert(count_unique_id, X_w);
+
+                auto camera_projection_noise = gtsam::noiseModel::Diagonal::Sigmas(
+                        gtsam::Vector3::Constant(1.0/sigma2_3d_sta));
+
+                //now add factor
+                cv::KeyPoint kp = pMap->vpFeatSta[i][j];
+                gtsam::Point2 projection_measurement(kp.pt.x, kp.pt.y);
+                graph.emplace_shared<
+                    gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3_S2>>(
+                        projection_measurement, camera_projection_noise,
+                        CurFrameID, count_unique_id, 
+                        K
+                    );
+
+
+                // // (3) save <VERTEX_POINT_3D>
+                // g2o::VertexPointXYZ *v_p = new g2o::VertexPointXYZ();
+                // v_p->setId(count_unique_id);
+                // cv::Mat Xw = pMap->vp3DPointSta[i][j];
+                // v_p->setEstimate(Converter::toVector3d(Xw));
+                // optimizer.addVertex(v_p);
+
+                // // (4) save <EDGE_3D>
+                // g2o::EdgeSE3PointXYZ * e = new g2o::EdgeSE3PointXYZ();
+                // e->setVertex(0, optimizer.vertex(CurFrameID));
+                // e->setVertex(1, optimizer.vertex(count_unique_id));
+                // cv::Mat Xc = Optimizer::Get3DinCamera(pMap->vpFeatSta[i][j],pMap->vfDepSta[i][j],Calib_K);
+                // e->setMeasurement(Converter::toVector3d(Xc));
+                // e->information() = Eigen::Matrix3d::Identity()/sigma2_3d_sta;
+                // if (ROBUST_KERNEL)
+                // {
+                //     g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+                //     e->setRobustKernel(rk);
+                //     e->robustKernel()->setDelta(deltaHuber3D);
+                // }
+                // e->setParameterId(0, 0);
+                // optimizer.addEdge(e);
+                // vpEdgeSE3PointSta.push_back(e);
+
+                // update unique id
+                vnFeaMakSta[i][j] = count_unique_id;
+                count_unique_id++;
+            }
+            else {
+                // // check if this feature track has the same length as the window size
+                // // or its previous FeaMakTmp is not -1, then save it, otherwise skip.
+                const int TrLength = StaTracks[TrackID].size();
+                const int FeaMakTmp = vnFeaMakSta[StaTracks[TrackID][PositionID-1].first][StaTracks[TrackID][PositionID-1].second];
+                if (TrLength<FeaLengthThresSta || FeaMakTmp==-1) {
+                    continue;
+                }
+
+                auto camera_projection_noise = gtsam::noiseModel::Diagonal::Sigmas(
+                        gtsam::Vector3::Constant(1.0/sigma2_3d_sta));
+
+                //now add factor
+                cv::KeyPoint kp = pMap->vpFeatSta[i][j];
+                gtsam::Point2 projection_measurement(kp.pt.x, kp.pt.y);
+                graph.emplace_shared<
+                    gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3_S2>>(
+                        projection_measurement, camera_projection_noise,
+                        CurFrameID, FeaMakTmp, 
+                        K
+                    );
+
+                // // (4) save <EDGE_3D>
+                // g2o::EdgeSE3PointXYZ * e = new g2o::EdgeSE3PointXYZ();
+                // e->setVertex(0, optimizer.vertex(CurFrameID));
+                // e->setVertex(1, optimizer.vertex(FeaMakTmp));
+                // cv::Mat Xc = Optimizer::Get3DinCamera(pMap->vpFeatSta[i][j],pMap->vfDepSta[i][j],Calib_K);
+                // e->setMeasurement(Converter::toVector3d(Xc));
+                // e->information() = Eigen::Matrix3d::Identity()/sigma2_3d_sta;
+                // if (ROBUST_KERNEL)
+                // {
+                //     g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
+                //     e->setRobustKernel(rk);
+                //     e->robustKernel()->setDelta(deltaHuber3D);
+                // }
+                // e->setParameterId(0, 0);
+                // optimizer.addEdge(e);
+                // vpEdgeSE3PointSta.push_back(e);
+
+                // // update unique id
+                vnFeaMakSta[i][j] = FeaMakTmp;
+            }
+
+        }
+
+        // cout << " (2) save static features " << endl;
+
+        // update frame ID
+        PreFrameID = CurFrameID;
+
+    }
+
+    LOG(INFO) << "Trying to solve for gtsam LM...";
+    gtsam::LevenbergMarquardtParams params;
+    params.verbosityLM = gtsam::LevenbergMarquardtParams::VerbosityLM::SUMMARY;
+
+    gtsam::LevenbergMarquardtOptimizer optimizer(graph, values, params);
+    gtsam::Values result = optimizer.optimize();
+
+
+
+
+
+}
+
 
 void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const int WINDOW_SIZE)
 {

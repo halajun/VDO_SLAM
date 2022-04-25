@@ -3,7 +3,7 @@
 CHECKOUT_HASH=$1
 
 if [ -z $CHECKOUT_HASH ]; then
-    CHECKOUT_HASH=master
+    CHECKOUT_HASH=gtsam-refactor
 fi
 
 docker build --build-arg CHECKOUT_HASH=$CHECKOUT_HASH -f Dockerfile.vdo_slam -t docker_vdo_slam .

@@ -102,6 +102,18 @@ RUN wget https://github.com/opencv/opencv_contrib/archive/3.4.0.zip \
     && cd ../.. \
     && rm 3.4.0.zip
 
+# Install GTSAM
+RUN apt-get update && apt-get install -y libboost-all-dev libtbb-dev
+ADD https://api.github.com/repos/borglab/gtsam/git/refs/heads/master version.json
+RUN git clone https://github.com/borglab/gtsam.git
+RUN cd gtsam && \
+    git fetch && \
+    git checkout develop && \
+    mkdir build && \
+    cd build && \
+    cmake -DCMAKE_INSTALL_PREFIX=/usr/local -DGTSAM_BUILD_TESTS=OFF -DGTSAM_BUILD_EXAMPLES_ALWAYS=OFF -DCMAKE_BUILD_TYPE=Release -DGTSAM_BUILD_UNSTABLE=ON -DGTSAM_POSE3_EXPMAP=ON -DGTSAM_ROT3_EXPMAP=ON -DGTSAM_TANGENT_PREINTEGRATION=OFF .. && \
+    make -j$(nproc) install
+
 
 # Install Eigen3
 RUN apt install libeigen3-dev

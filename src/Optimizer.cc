@@ -205,10 +205,12 @@ void Optimizer::PartialBatchOptimizationGTSAM(Map* pMap, const cv::Mat Calib_K, 
     const GtsamAccesType sigma2_alti = 1;
 
     
-    
-    gtsam::Cal3_S2 calib_k_gtsam = utils::cvMat2Cal3_S2(Calib_K);
-    gtsam::Cal3_S2::shared_ptr K = boost::make_shared<gtsam::Cal3_S2>(calib_k_gtsam);
-
+    gtsam::Cal3_S2::shared_ptr K = utils::cvMat2Cal3_S2(Calib_K);
+    const GtsamAccesType camera_pose_prior_sigma = 0.0000001;
+    // gtsam::noiseModel::Diagonal::shared_ptr camera_pose_prior_n = 
+    auto camera_pose_prior_n = gtsam::noiseModel::Diagonal::Sigmas(
+        (gtsam::Vector(6) << gtsam::Vector6::Constant(camera_pose_prior_sigma)).finished()
+    );
 
     //make optimizer using gtsam
     gtsam::NonlinearFactorGraph graph;
@@ -225,13 +227,12 @@ void Optimizer::PartialBatchOptimizationGTSAM(Map* pMap, const cv::Mat Calib_K, 
     for (int i = StaticStartFrame; i < N; ++i) {
         gtsam::Pose3 camera_pose = utils::cvMatToGtsamPose3(pMap->vmCameraPose[i]);
 
+        LOG(INFO) << "Adding camera pose " << camera_pose;
+
         values.insert(count_unique_id, camera_pose);
 
         if(count_unique_id == 1 && N == WINDOW_SIZE) {
-            auto pose_prior = gtsam::noiseModel::Diagonal::Sigmas(
-                gtsam::Vector6::Constant(1.0/0.0000001)
-            );
-            graph.addPrior(count_unique_id, camera_pose, pose_prior);
+            graph.addPrior(count_unique_id, camera_pose, camera_pose_prior_n);
         }
 
 
@@ -246,7 +247,7 @@ void Optimizer::PartialBatchOptimizationGTSAM(Map* pMap, const cv::Mat Calib_K, 
             //pretty sure we want to optimize for the rigid motion too...? This should become a variable?
             gtsam::Pose3 rigid_motion = utils::cvMatToGtsamPose3(pMap->vmRigidMotion[i-1][0]);
             auto edge_information = gtsam::noiseModel::Diagonal::Sigmas(
-                gtsam::Vector6::Constant(1.0/sigma2_cam)
+                (gtsam::Vector(6) << gtsam::Vector6::Constant(sigma2_cam)).finished()
             );
 
             graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
@@ -299,21 +300,29 @@ void Optimizer::PartialBatchOptimizationGTSAM(Map* pMap, const cv::Mat Calib_K, 
 
                 //make vertex for 3d static point which we want to optimize for
                 //note that the 3d points are in the world frame (apparently)
-                gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(pMap->vp3DPointSta[i][j]);
-                values.insert(count_unique_id, X_w);
 
+                //what if they're not in the worls frame?
+                //// gtsam::Pose3 T_W_C = utils::cvMatToGtsamPose3(pMap->vmCameraPose[i]);
+                // gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(pMap->vp3DPointSta[i][j]);
+                //// gtsam::Point3 X_c = utils::cvMatToGtsamPoint3(pMap->vp3DPointSta[i][j]);
+
+                // gtsam::Point3 X_w = T_W_C * X_c;
+                // values.insert(count_unique_id, X_w);
+
+                //changed from 3 -> 2 dimensions
                 auto camera_projection_noise = gtsam::noiseModel::Diagonal::Sigmas(
-                        gtsam::Vector3::Constant(1.0/sigma2_3d_sta));
+                    (gtsam::Vector(2) << gtsam::Vector2::Constant(1.0/sigma2_3d_sta)).finished()
+                );
 
                 //now add factor
                 cv::KeyPoint kp = pMap->vpFeatSta[i][j];
                 gtsam::Point2 projection_measurement(kp.pt.x, kp.pt.y);
-                graph.emplace_shared<
-                    gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3_S2>>(
-                        projection_measurement, camera_projection_noise,
-                        CurFrameID, count_unique_id, 
-                        K
-                    );
+                // graph.emplace_shared<
+                //     gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3_S2>>(
+                //         projection_measurement, camera_projection_noise,
+                //         CurFrameID, count_unique_id, 
+                //         K
+                //     );
 
 
                 // // (3) save <VERTEX_POINT_3D>
@@ -353,18 +362,27 @@ void Optimizer::PartialBatchOptimizationGTSAM(Map* pMap, const cv::Mat Calib_K, 
                     continue;
                 }
 
+                //changed from 3 -> 2 dimensions
                 auto camera_projection_noise = gtsam::noiseModel::Diagonal::Sigmas(
-                        gtsam::Vector3::Constant(1.0/sigma2_3d_sta));
+                    (gtsam::Vector(2) << gtsam::Vector2::Constant(1.0/sigma2_3d_sta)).finished()
+                );
+
+                //base logic checks
+                // gtsam::Values::iterator it =  values.find(FeaMakTmp);
+                // if(it == values.end()) { LOG(ERROR) << "Static Feature Key is not a valid variable";};
+
+                // it == values.find(CurFrameID);
+                // if(it == values.end()) { LOG(ERROR) << "Camera frame ID Key is not a valid variable";};
 
                 //now add factor
                 cv::KeyPoint kp = pMap->vpFeatSta[i][j];
                 gtsam::Point2 projection_measurement(kp.pt.x, kp.pt.y);
-                graph.emplace_shared<
-                    gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3_S2>>(
-                        projection_measurement, camera_projection_noise,
-                        CurFrameID, FeaMakTmp, 
-                        K
-                    );
+                // graph.emplace_shared<
+                //     gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3_S2>>(
+                //         projection_measurement, camera_projection_noise,
+                //         CurFrameID, FeaMakTmp, 
+                //         K
+                //     );
 
                 // // (4) save <EDGE_3D>
                 // g2o::EdgeSE3PointXYZ * e = new g2o::EdgeSE3PointXYZ();
@@ -399,9 +417,16 @@ void Optimizer::PartialBatchOptimizationGTSAM(Map* pMap, const cv::Mat Calib_K, 
     LOG(INFO) << "Trying to solve for gtsam LM...";
     gtsam::LevenbergMarquardtParams params;
     params.verbosityLM = gtsam::LevenbergMarquardtParams::VerbosityLM::SUMMARY;
+    params.absoluteErrorTol = 1e-10;
+    params.relativeErrorTol = 1e-10;
+    params.maxIterations = 500;
+
+    // gtsam::GaussNewtonParams params;
+    // params.setVerbosity("TERMINATION");  // show info about stopping conditions
 
     gtsam::LevenbergMarquardtOptimizer optimizer(graph, values, params);
     gtsam::Values result = optimizer.optimize();
+    result.print("Variables for basic batch\n");
 
 
 

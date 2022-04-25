@@ -36,7 +36,7 @@ gtsam::Rot3 cvMatToGtsamRot3(const cv::Mat& R);
   // Converts a 3x1 OpenCV matrix to gtsam Point3
 gtsam::Point3 cvMatToGtsamPoint3(const cv::Mat& cv_t);
 
-gtsam::Cal3_S2 cvMat2Cal3_S2(const cv::Mat& K); 
+gtsam::Cal3_S2::shared_ptr cvMat2Cal3_S2(const cv::Mat& K); 
 
 
 } //namespace utils

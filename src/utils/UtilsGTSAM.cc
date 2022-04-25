@@ -25,8 +25,6 @@ gtsam::Pose3 cvMatToGtsamPose3(const cv::Mat& H) {
         T.at<CvMatAccessType>(i, 0) = H.at<CvMatAccessType>(i, 3);
     }
 
-    // LOG(INFO) << "Original H"
-
     return cvMatsToGtsamPose3(R, T);
 }
 
@@ -51,7 +49,7 @@ gtsam::Point3 cvMatToGtsamPoint3(const cv::Mat& cv_t) {
     return gtsam_t;
 }
 
-gtsam::Cal3_S2 cvMat2Cal3_S2(const cv::Mat& K) {
+gtsam::Cal3_S2::shared_ptr cvMat2Cal3_S2(const cv::Mat& K) {
     CHECK_EQ(K.rows, 3);  // We expect homogeneous camera matrix.
     CHECK_GE(K.cols, 3);  // We accept extra columns (which we do not use).
     const CvMatAccessType& fx = K.at<CvMatAccessType>(0, 0);
@@ -59,7 +57,7 @@ gtsam::Cal3_S2 cvMat2Cal3_S2(const cv::Mat& K) {
     const CvMatAccessType& s = K.at<CvMatAccessType>(0, 1);
     const CvMatAccessType& u0 = K.at<CvMatAccessType>(0, 2);
     const CvMatAccessType& v0 = K.at<CvMatAccessType>(1, 2);
-    return gtsam::Cal3_S2(fx, fy, s, u0, v0);
+    return boost::make_shared<gtsam::Cal3_S2>(fx, fy, s, u0, v0);
 }
 
 

@@ -90,7 +90,8 @@ ${CSPARSE_LIBRARY}
 # for linux (ubuntu)
 ${PROJECT_SOURCE_DIR}/dependencies/g2o/lib/libg2o.so
 gtsam
-glog::glog
+${GFLAGS_LIBRARIES}
+${GLOG_LIBRARIES}
 )
 
 
@@ -100,13 +101,16 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/example)
 
 add_executable(vdo_slam
 example/vdo_slam.cc)
-target_link_libraries(vdo_slam ${PROJECT_NAME} glog::glog)
+target_link_libraries(vdo_slam ${PROJECT_NAME})
 
 ##### Add some tests #####
 add_executable(gtsam_basic_test
    test/gtsam_basic_test.cc
 )
 
-target_link_libraries(gtsam_basic_test gtsam glog::glog)
+target_link_libraries(gtsam_basic_test
+   gtsam
+   ${GFLAGS_LIBRARIES}
+   ${GLOG_LIBRARIES} )
 
 

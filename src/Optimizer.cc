@@ -227,8 +227,6 @@ void Optimizer::PartialBatchOptimizationGTSAM(Map* pMap, const cv::Mat Calib_K, 
     for (int i = StaticStartFrame; i < N; ++i) {
         gtsam::Pose3 camera_pose = utils::cvMatToGtsamPose3(pMap->vmCameraPose[i]);
 
-        LOG(INFO) << "Adding camera pose " << camera_pose;
-
         values.insert(count_unique_id, camera_pose);
 
         if(count_unique_id == 1 && N == WINDOW_SIZE) {
@@ -250,12 +248,12 @@ void Optimizer::PartialBatchOptimizationGTSAM(Map* pMap, const cv::Mat Calib_K, 
                 (gtsam::Vector(6) << gtsam::Vector6::Constant(sigma2_cam)).finished()
             );
 
-            // graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
-            //     PreFrameID,
-            //     CurFrameID,
-            //     rigid_motion,
-            //     edge_information
-            // );
+            graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
+                PreFrameID,
+                CurFrameID,
+                rigid_motion,
+                edge_information
+            );
 
             //missing robust kernal
 
@@ -303,11 +301,11 @@ void Optimizer::PartialBatchOptimizationGTSAM(Map* pMap, const cv::Mat Calib_K, 
 
                 //what if they're not in the worls frame?
                 //// gtsam::Pose3 T_W_C = utils::cvMatToGtsamPose3(pMap->vmCameraPose[i]);
-                // gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(pMap->vp3DPointSta[i][j]);
+                gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(pMap->vp3DPointSta[i][j]);
                 //// gtsam::Point3 X_c = utils::cvMatToGtsamPoint3(pMap->vp3DPointSta[i][j]);
 
                 // gtsam::Point3 X_w = T_W_C * X_c;
-                // values.insert(count_unique_id, X_w);
+                values.insert(count_unique_id, X_w);
 
                 //changed from 3 -> 2 dimensions
                 auto camera_projection_noise = gtsam::noiseModel::Diagonal::Sigmas(
@@ -317,12 +315,12 @@ void Optimizer::PartialBatchOptimizationGTSAM(Map* pMap, const cv::Mat Calib_K, 
                 //now add factor
                 cv::KeyPoint kp = pMap->vpFeatSta[i][j];
                 gtsam::Point2 projection_measurement(kp.pt.x, kp.pt.y);
-                // graph.emplace_shared<
-                //     gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3_S2>>(
-                //         projection_measurement, camera_projection_noise,
-                //         CurFrameID, count_unique_id, 
-                //         K
-                //     );
+                graph.emplace_shared<
+                    gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3_S2>>(
+                        projection_measurement, camera_projection_noise,
+                        CurFrameID, count_unique_id, 
+                        K
+                    );
 
 
                 // // (3) save <VERTEX_POINT_3D>
@@ -377,12 +375,12 @@ void Optimizer::PartialBatchOptimizationGTSAM(Map* pMap, const cv::Mat Calib_K, 
                 //now add factor
                 cv::KeyPoint kp = pMap->vpFeatSta[i][j];
                 gtsam::Point2 projection_measurement(kp.pt.x, kp.pt.y);
-                // graph.emplace_shared<
-                //     gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3_S2>>(
-                //         projection_measurement, camera_projection_noise,
-                //         CurFrameID, FeaMakTmp, 
-                //         K
-                //     );
+                graph.emplace_shared<
+                    gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3_S2>>(
+                        projection_measurement, camera_projection_noise,
+                        CurFrameID, FeaMakTmp, 
+                        K
+                    );
 
                 // // (4) save <EDGE_3D>
                 // g2o::EdgeSE3PointXYZ * e = new g2o::EdgeSE3PointXYZ();
@@ -414,19 +412,98 @@ void Optimizer::PartialBatchOptimizationGTSAM(Map* pMap, const cv::Mat Calib_K, 
 
     }
 
+    // //now we do object motion and dynamic features
+    // for (int i = N-WINDOW_SIZE; i < N; ++i) {
+
+    //     if(i == N - WINDOW_SIZE) {
+    //         //loop dynamic features
+    //         for (int j = 0; j < vnFeaLabDyn[i].size(); ++j) {
+    //             // check feature validation
+    //             if (vnFeaLabDyn[i][j]==-1) {
+    //                 continue;
+    //             }
+
+    //             // get the TrackID of current feature
+    //             int TrackID = vnFeaLabDyn[i][j];
+
+    //             // get the position of current feature in the tracklet
+    //             int PositionID = -1;
+    //             for (int k = 0; k < DynTracks[TrackID].size(); ++k) {
+    //                 if (DynTracks[TrackID][k].first==i && DynTracks[TrackID][k].second==j) {
+    //                     PositionID = k;
+    //                     break;
+    //                 }
+    //             }
+    //             if (PositionID==-1){
+    //                 LOG(WARNING) << "cannot find the position of current feature in the tracklet !!!";
+    //                 continue;
+    //             }
+
+    //             const int TrLength = DynTracks[TrackID].size();
+    //             if ( TrLength-PositionID<FeaLengthThresDyn ) {
+    //                 continue;
+    //             }
+
+    //             //save vertex point
+    //             gtsam::Point3 dynamic_point = utils::cvMatToGtsamPoint3(pMap->vp3DPointDyn[i][j]);
+    //             values.insert(count_unique_id, dynamic_point);
+
+    //             //add factor between visual point and observed camera pose
+
+    //         }
+    //     }
+    // }
+
+
     LOG(INFO) << "Trying to solve for gtsam LM...";
     gtsam::LevenbergMarquardtParams params;
     params.verbosityLM = gtsam::LevenbergMarquardtParams::VerbosityLM::SUMMARY;
-    params.absoluteErrorTol = 1e-10;
-    params.relativeErrorTol = 1e-10;
-    params.maxIterations = 500;
+    // params.absoluteErrorTol = 1e-10;
+    // params.relativeErrorTol = 1e-10;
+    params.maxIterations = 100;
 
     // gtsam::GaussNewtonParams params;
     // params.setVerbosity("TERMINATION");  // show info about stopping conditions
 
     gtsam::LevenbergMarquardtOptimizer optimizer(graph, values, params);
     gtsam::Values result = optimizer.optimize();
-    result.print("Variables for basic batch\n");
+    
+    //comapre to ground truth (same as g2o)
+    LOG(INFO) << "GTSAM comparision to ground truth";
+    double t_sum_refined = 0, r_sum_refined  = 0;
+    double t_sum_original = 0, r_sum_original  = 0;
+    for (int i = StaticStartFrame; i < N; ++i) {
+        //get camera poses
+        gtsam::Key pose_key = VertexID[i][0];
+        gtsam::Pose3 refined_camera_pose = result.at<gtsam::Pose3>(pose_key);
+
+        gtsam::Pose3 original_camera_pose = utils::cvMatToGtsamPose3(pMap->vmCameraPose[i]);
+        gtsam::Pose3 gt_camera_pose = utils::cvMatToGtsamPose3(pMap->vmCameraPose_GT[i]);
+
+        std::pair<double, double> errors_original = utils::computeRotationAndTranslationErrors(
+                                                        original_camera_pose, gt_camera_pose);
+
+        r_sum_original += errors_original.first;
+        t_sum_original += errors_original.second;
+
+        std::pair<double, double> errors_refined = utils::computeRotationAndTranslationErrors(
+                                                        refined_camera_pose, gt_camera_pose);
+
+        r_sum_refined += errors_refined.first;
+        t_sum_refined += errors_refined.second;
+    }
+
+    r_sum_original /= (N-StaticStartFrame);
+    t_sum_original /= (N-StaticStartFrame);
+    r_sum_refined /= (N-StaticStartFrame);
+    t_sum_refined /= (N-StaticStartFrame);
+
+    LOG(INFO) << "acerage camera error GTSAM\n"
+              << "Original R: " << r_sum_original << " T: " << t_sum_original << "\n"
+              << "Refined R: " << r_sum_refined << " T: " << t_sum_refined;
+
+
+
 
 
 
@@ -1381,7 +1458,7 @@ void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const
         // **********************************************
     }
 
-    bool show_result_before_opt=false, show_result_after_opt=false;
+    bool show_result_before_opt=false, show_result_after_opt=true;
     if (show_result_before_opt)
     {
         cout << "Pose and Motion BEFORE Local BA ......" << endl;

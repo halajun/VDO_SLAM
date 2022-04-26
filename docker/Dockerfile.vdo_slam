@@ -63,15 +63,6 @@ RUN apt-get update && apt-get install -y \
 
 
 
-# # get glogging module
-# RUN git clone https://github.com/google/glog.git \
-#     && cd glog \
-#     && mkdir build && cd build \
-#     && cmake -S .. -G "Unix Makefiles"
-
-# RUN cd glog && cmake --build build --target install
-
-
 
 RUN git clone https://github.com/opencv/opencv.git
 RUN cd opencv && \

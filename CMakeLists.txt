@@ -45,7 +45,8 @@ add_definitions(-w)
 
 find_package(Eigen3 3.1.0 REQUIRED)
 find_package(CSparse REQUIRED)
-find_package (glog 0.6.0 REQUIRED)
+find_package(Gflags REQUIRED)
+find_package(Glog 0.3.5 REQUIRED)
 find_package(GTSAM REQUIRED)
 
 include_directories(

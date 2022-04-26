@@ -12,12 +12,13 @@ WORKDIR $DIRPATH
 RUN apt-get update && apt-get install apt-utils sudo -y
 
 
-
 RUN apt update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends software-properties-common nano wget libgflags-dev \
     && add-apt-repository ppa:ubuntu-toolchain-r/test
 
-
+#Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends apt-utils
+RUN apt-get update && apt-get install -y git cmake build-essential pkg-config
 
 # Install GCC-9
 RUN apt update \

@@ -101,4 +101,11 @@ add_executable(vdo_slam
 example/vdo_slam.cc)
 target_link_libraries(vdo_slam ${PROJECT_NAME} glog::glog)
 
+##### Add some tests #####
+add_executable(gtsam_basic_test
+   test/gtsam_basic_test.cc
+)
+
+target_link_libraries(gtsam_basic_test gtsam glog::glog)
+
 

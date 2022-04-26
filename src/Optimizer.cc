@@ -250,12 +250,12 @@ void Optimizer::PartialBatchOptimizationGTSAM(Map* pMap, const cv::Mat Calib_K, 
                 (gtsam::Vector(6) << gtsam::Vector6::Constant(sigma2_cam)).finished()
             );
 
-            graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
-                PreFrameID,
-                CurFrameID,
-                rigid_motion,
-                edge_information
-            );
+            // graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
+            //     PreFrameID,
+            //     CurFrameID,
+            //     rigid_motion,
+            //     edge_information
+            // );
 
             //missing robust kernal
 

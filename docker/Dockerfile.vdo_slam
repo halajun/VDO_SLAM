@@ -3,6 +3,7 @@ FROM ubuntu:18.04
 
 
 ARG CHECKOUT_HASH=master
+ENV DEBIAN_FRONTEND=noninteractive
 
 ENV DIRPATH /root/
 WORKDIR $DIRPATH
@@ -11,16 +12,6 @@ WORKDIR $DIRPATH
 RUN apt-get update && apt-get install apt-utils sudo -y
 
 
-
-# RUN useradd --create-home --shell=/bin/bash user
-# RUN chown -R user /home/user/
-# RUN usermod -aG sudo user
-# # Give the user a password
-# RUN echo user:user | chpasswd
-
-# RUN mkdir /home/user/app
-
-# WORKDIR /home/user/app
 
 RUN apt update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends software-properties-common nano wget libgflags-dev \
@@ -49,15 +40,15 @@ RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 50 \
 	&& update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 50
 
 
-RUN add-apt-repository "deb http://security.ubuntu.com/ubuntu xenial-security main"
-RUN apt-get update
+# RUN add-apt-repository "deb http://security.ubuntu.com/ubuntu xenial-security main"
+# RUN apt-get update
 
-# Getting latest version of cmake for glogging
-RUN apt remove cmake
-RUN apt install build-essential libssl-dev -y
-RUN wget https://github.com/Kitware/CMake/releases/download/v3.20.0/cmake-3.20.0.tar.gz
-RUN tar -zxvf cmake-3.20.0.tar.gz && cd cmake-3.20.0 && ./bootstrap && \
-    make && make install 
+# # Getting latest version of cmake for glogging
+# RUN apt remove cmake
+# RUN apt install build-essential libssl-dev -y
+# RUN wget https://github.com/Kitware/CMake/releases/download/v3.20.0/cmake-3.20.0.tar.gz
+# RUN tar -zxvf cmake-3.20.0.tar.gz && cd cmake-3.20.0 && ./bootstrap && \
+#     make && make install 
 
 
 
@@ -67,40 +58,34 @@ RUN apt-get install -y git libgtk2.0-dev pkg-config libavcodec-dev \
     libjpeg-dev libpng-dev libtiff-dev libjasper1 libjasper-dev libdc1394-22-dev unzip
 
 
+# # get glogging module
+# RUN git clone https://github.com/google/glog.git \
+#     && cd glog \
+#     && mkdir build && cd build \
+#     && cmake -S .. -G "Unix Makefiles"
 
-RUN sudo apt upgrade -y
-RUN sudo apt update -y
-
-# get glogging module
-RUN git clone https://github.com/google/glog.git \
-    && cd glog \
-    && mkdir build && cd build \
-    && cmake -S .. -G "Unix Makefiles"
-
-RUN cd glog && cmake --build build --target install
+# RUN cd glog && cmake --build build --target install
 
 
-# get and build OpenCV 3.4
-RUN wget https://github.com/opencv/opencv/archive/3.4.0.zip \
-    && unzip 3.4.0.zip \
-    && cd opencv-3.4.0 \
-    && mkdir build \
-    && cd build \
-    && cmake .. \
-    && make -j8 \
-    && make install \
-    && cd \
-    && rm 3.4.0.zip
 
-# install and build opencv_contrib
-RUN wget https://github.com/opencv/opencv_contrib/archive/3.4.0.zip \
-    && unzip 3.4.0.zip \
-    && cd opencv-3.4.0/build \
-    && cmake -DOPENCV_EXTRA_MODULES_PATH=../../opencv_contrib-3.4.0/modules/ .. \
-    && make -j8 \
-    && make install \
-    && cd ../.. \
-    && rm 3.4.0.zip
+RUN git clone https://github.com/opencv/opencv.git
+RUN cd opencv && \
+      git checkout tags/3.4.0 && \
+      mkdir build
+
+RUN git clone https://github.com/opencv/opencv_contrib.git
+RUN cd opencv_contrib && \
+      git checkout tags/3.4.0
+
+RUN cd opencv/build && \
+      cmake -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=/usr/local \
+      -D BUILD_opencv_python=OFF \
+      -D BUILD_opencv_python2=OFF \
+      -D BUILD_opencv_python3=OFF \
+      -DOPENCV_EXTRA_MODULES_PATH=$DIRPATH/opencv_contrib/modules .. && \
+      make -j$(nproc) install
+
 
 # Install GTSAM
 RUN apt-get update && apt-get install -y libboost-all-dev libtbb-dev
@@ -115,8 +100,8 @@ RUN cd gtsam && \
     make -j$(nproc) install
 
 
-# Install Eigen3
-RUN apt install libeigen3-dev
+# Install glog, gflags
+RUN apt-get update && apt-get install -y libgflags2.2 libgflags-dev libgoogle-glog0v5 libgoogle-glog-dev
 
 # install CSparse
 RUN DEBIAN_FRONTEND=noninteractive apt install -y libsuitesparse-dev

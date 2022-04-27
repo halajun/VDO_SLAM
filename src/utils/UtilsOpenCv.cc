@@ -81,7 +81,15 @@ void drawCircleInPlace(
         const cv::KeyPoint& kp,
         const cv::Scalar& color) {
     CHECK(!img.empty());
-    cv::circle(img, cv::Point(kp.pt.x, kp.pt.y), 2, color, 1u);
+    cv::circle(img, cv::Point(kp.pt.x, kp.pt.y), 3, color, 1u);
+}
+
+cv::Affine3d matPoseToCvAffine3d(const cv::Mat& pose) {
+    CHECK(pose.rows == 4 && pose.cols == 4);
+    //convert to double
+    cv::Mat posed;
+    pose.convertTo(posed, CV_64F);
+    return cv::Affine3d(posed);
 }
 
 }

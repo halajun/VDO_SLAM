@@ -102,14 +102,14 @@ void OpenCvDisplay::drawFeatures(const cv::Mat& rgb, const Frame& frame, cv::Mat
     }
 
     //draw dynamic objects
-    for(int dynamic_label : frame.vObjLabel) {
+    for (int i = 0; i < frame.vObjLabel.size(); ++i) {
+        int dynamic_label = frame.vObjLabel[i];
         if(dynamic_label == -1 || dynamic_label == -2) {
             //log warning?
             continue;
         }
 
-        cv::KeyPoint object_kp = frame.mvObjKeys[dynamic_label];
-        LOG(INFO) << object_kp.pt;
+        cv::KeyPoint object_kp = frame.mvObjKeys[i];
         cv::Scalar colour = getObjectColour(dynamic_label);
         utils::drawCircleInPlace(frame_viz, object_kp, colour);
     }

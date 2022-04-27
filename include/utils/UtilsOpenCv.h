@@ -20,6 +20,8 @@ void drawCircleInPlace(
     const cv::KeyPoint& kp,
     const cv::Scalar& color);
 
+cv::Affine3d matPoseToCvAffine3d(const cv::Mat& pose);
+
 
 }
 }

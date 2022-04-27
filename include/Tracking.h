@@ -23,6 +23,7 @@
 #include "System.h"
 
 #include "visualizer/OpenCvDisplay.h"
+#include "visualizer/OpenCvVisualizer3D.h"
 
 #include <mutex>
 
@@ -205,6 +206,7 @@ public:
 protected:
 
     OpenCvDisplay::Ptr display;
+    OpenCvVisualizer3D::Ptr viz;
 
     // Main tracking function. It is independent of the input sensor.
     void Track();

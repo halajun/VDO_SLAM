@@ -15,5 +15,11 @@ cv::Mat concatenateImagesVertically(
     const cv::Mat& top_img,
     const cv::Mat& bottom_img);
 
+void drawCircleInPlace(
+    cv::Mat& img, 
+    const cv::KeyPoint& kp,
+    const cv::Scalar& color);
+
+
 }
 }

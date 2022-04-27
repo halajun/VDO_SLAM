@@ -26,12 +26,13 @@ void OpenCvDisplay::addFrame(const Frame& frame) {
     cv::Mat bottom_row = utils::concatenateImagesHorizontally(flow_viz, mask_viz);
     cv::Mat input_images = utils::concatenateImagesVertically(top_row, bottom_row);
 
-
     //reisize images to be the original image size
     cv::resize(input_images, input_images, cv::Size(rgb.cols,rgb.rows), 0, 0, CV_INTER_LINEAR);
     addDisplayImages(input_images, "Input Images");
 
-
+    cv::Mat frame_viz;
+    drawFeatures(rgb, frame, frame_viz);
+    addDisplayImages(frame_viz, "Current Frame");
 
 }
 
@@ -90,7 +91,15 @@ void OpenCvDisplay::drawSemanticInstances(const cv::Mat& rgb, const cv::Mat& mas
     }
 }
 void OpenCvDisplay::drawFeatures(const cv::Mat& rgb, const Frame& frame, cv::Mat& frame_viz) {
-    LOG(WARNING) << "To implement";
+    rgb.copyTo(frame_viz);
+    //Temporal match subset is used for static objects
+    //see renew frame for how the inlier outliers are used. Can categorise as inlier outliers?
+
+    //i think i could use the nStaInlierID to index the mvStatKeys which is equivalent to mvStatKeysTmp
+    for(int inlier : frame.nStaInlierID) {
+        const cv::KeyPoint& kp = frame.mvStatKeys[inlier];
+        utils::drawCircleInPlace(frame_viz, kp, cv::Scalar(0, 255, 0));
+    }
 }
 
 

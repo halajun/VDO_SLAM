@@ -76,5 +76,13 @@ cv::Mat concatenateImagesVertically(
     return dual_img;
 }
 
+void drawCircleInPlace(
+        cv::Mat& img, 
+        const cv::KeyPoint& kp,
+        const cv::Scalar& color) {
+    CHECK(!img.empty());
+    cv::circle(img, cv::Point(kp.pt.x, kp.pt.y), 2, color, 1u);
+}
+
 }
 }

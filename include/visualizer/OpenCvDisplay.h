@@ -1,7 +1,9 @@
 #pragma once
 
 #include "utils/macros.h"
+#include "utils/Color.h"
 #include "visualizer/Display.h"
+#include "visualizer/DisplayTypes.h"
 #include "Frame.h"
 
 #include <opencv2/opencv.hpp>
@@ -22,9 +24,16 @@ class OpenCvDisplay : public Display {
         void process() override;
 
     private:
-        void drawOpticalFlow(cv::Mat& flow);
-        void drawSemanticInstances(cv::Mat& mask);
-        void drawFeatures(cv::Mat& )
+        void drawOpticalFlow(const cv::Mat& flow, cv::Mat& flow_viz);
+        void drawSemanticInstances(const cv::Mat& rgb, const cv::Mat& mask, cv::Mat& mask_viz);
+        void drawFeatures(const cv::Mat& rgb, const Frame& frame, cv::Mat& frame_viz);
+
+        void addDisplayImages(const cv::Mat& image, const std::string& title);
+
+    private:
+        ImageToDisplay::Vector display_images;
+
+        static Color getColourFromInstanceMask(int value);
 };
     
 } // namespace VDO_SLAM 

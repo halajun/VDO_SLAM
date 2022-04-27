@@ -75,12 +75,16 @@ src/Frame.cc
 src/FactorGraph.cc
 
 src/utils/UtilsGTSAM.cc
+src/utils/UtilsOpenCv.cc
 
 src/cvplot/color.cc
 src/cvplot/figure.cc
 src/cvplot/highgui.cc
 src/cvplot/window.cc
 src/cvplot/internal.h
+
+src/visualizer/OpenCvDisplay.cc
+
 )
 
 target_link_libraries(${PROJECT_NAME}

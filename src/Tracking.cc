@@ -162,6 +162,7 @@ Tracking::Tracking(System *pSys, Map *pMap, const string &strSettingPath, const 
         cout << "- used detected feature for background scene..." << endl;
 
     graph = std::make_shared<FactorGraph>(pMap, mK);
+    display = std::make_shared<OpenCvDisplay>();
 
 }
 
@@ -497,6 +498,10 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
             cv::waitKey(1);
 
     }
+
+    //viz 
+    display->addFrame(mCurrentFrame);
+    display->process();
 
     // ************** show bounding box with speed ***************
     if(timestamp!=0 && bFrame2Frame == true && mTestData==KITTI)

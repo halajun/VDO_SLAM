@@ -22,6 +22,8 @@
 #include"ORBextractor.h"
 #include "System.h"
 
+#include "visualizer/OpenCvDisplay.h"
+
 #include <mutex>
 
 namespace VDO_SLAM
@@ -201,6 +203,8 @@ public:
     // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 protected:
+
+    OpenCvDisplay::Ptr display;
 
     // Main tracking function. It is independent of the input sensor.
     void Track();

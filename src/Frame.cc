@@ -68,10 +68,10 @@ Frame::Frame(const Frame &frame)
 Frame::Frame(const cv::Mat &imRGB, const cv::Mat &imDepth, const cv::Mat &imFlow, const cv::Mat &maskSEM,
     const double &timeStamp, ORBextractor* extractor,cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, 
     const float &thDepthObj, const int &UseSampleFea)
-    :   rgb(imRGB),
-        depth(imDepth),
-        flow(imFlow),
-        mask(maskSEM),
+    :   rgb(imRGB.clone()),
+        depth(imDepth.clone()),
+        flow(imFlow.clone()),
+        mask(maskSEM.clone()),
         mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
         mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth), mThDepthObj(thDepthObj) {
 
@@ -79,6 +79,7 @@ Frame::Frame(const cv::Mat &imRGB, const cv::Mat &imDepth, const cv::Mat &imFlow
     convertRGBToGreyScale();
 
     CHECK(!gray.empty());
+    CHECK_EQ(gray.channels(), 1);
 
     // Frame ID
     mnId=nNextId++;

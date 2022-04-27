@@ -15,8 +15,10 @@
 #include "Frame.h"
 #include "Converter.h"
 #include <thread>
-#include<time.h>
-#include<chrono>
+#include <time.h>
+#include <glog/logging.h>
+
+#include <chrono>
 
 namespace VDO_SLAM
 {
@@ -47,7 +49,12 @@ Frame::Frame(const Frame &frame)
      mTcw_gt(frame.mTcw_gt), vObjPose_gt(frame.vObjPose_gt), nSemPosi_gt(frame.nSemPosi_gt),
      vObjLabel(frame.vObjLabel), nModLabel(frame.nModLabel), nSemPosition(frame.nSemPosition),
      bObjStat(frame.bObjStat), vObjMod(frame.vObjMod), mvCorres(frame.mvCorres), mvObjCorres(frame.mvObjCorres),
-     mvFlowNext(frame.mvFlowNext), mvObjFlowNext(frame.mvObjFlowNext)
+     mvFlowNext(frame.mvFlowNext), mvObjFlowNext(frame.mvObjFlowNext),
+     rgb(frame.rgb.clone()), 
+     depth(frame.depth.clone()), 
+     flow(frame.flow.clone()), 
+     mask(frame.mask.clone()), 
+     gray(frame.gray.clone())
 {
     for(int i=0;i<FRAME_GRID_COLS;i++)
         for(int j=0; j<FRAME_GRID_ROWS; j++)
@@ -58,13 +65,20 @@ Frame::Frame(const Frame &frame)
 }
 
 
-Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlow, const cv::Mat &maskSEM,
-    const double &timeStamp, ORBextractor* extractor,cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, const float &thDepthObj, const int &UseSampleFea)
-    :mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
-     mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth), mThDepthObj(thDepthObj)
-{
+Frame::Frame(const cv::Mat &imRGB, const cv::Mat &imDepth, const cv::Mat &imFlow, const cv::Mat &maskSEM,
+    const double &timeStamp, ORBextractor* extractor,cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, 
+    const float &thDepthObj, const int &UseSampleFea)
+    :   rgb(imRGB),
+        depth(imDepth),
+        flow(imFlow),
+        mask(maskSEM),
+        mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
+        mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth), mThDepthObj(thDepthObj) {
 
     cout << "Start Constructing Frame......" << endl;
+    convertRGBToGreyScale();
+
+    CHECK(!gray.empty());
 
     // Frame ID
     mnId=nNextId++;
@@ -87,7 +101,7 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlo
     // double fea_det_time;
     // s_1 = clock();
     // ORB extraction
-    ExtractORB(0,imGray);
+    ExtractORB(0,gray);
     // e_1 = clock();
     // fea_det_time = (double)(e_1-s_1)/CLOCKS_PER_SEC*1000;
     // cout << "feature detection time: " << fea_det_time << endl;
@@ -118,7 +132,7 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlo
 
             if(flow_xe!=0 && flow_ye!=0)
             {
-                if(mvKeys[i].pt.x+flow_xe < imGray.cols && mvKeys[i].pt.y+flow_ye < imGray.rows && mvKeys[i].pt.x < imGray.cols && mvKeys[i].pt.y < imGray.rows)
+                if(mvKeys[i].pt.x+flow_xe < gray.cols && mvKeys[i].pt.y+flow_ye < gray.rows && mvKeys[i].pt.x < gray.cols && mvKeys[i].pt.y < gray.rows)
                 {
                     mvStatKeysTmp.push_back(mvKeys[i]);
                     mvCorres.push_back(cv::KeyPoint(mvKeys[i].pt.x+flow_xe,mvKeys[i].pt.y+flow_ye,0,0,0,mvKeys[i].octave,-1));
@@ -134,7 +148,7 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlo
         clock_t s_1, e_1;
         double fea_det_time;
         s_1 = clock();
-        std::vector<cv::KeyPoint> mvKeysSamp = SampleKeyPoints(imGray.rows, imGray.cols);
+        std::vector<cv::KeyPoint> mvKeysSamp = SampleKeyPoints(gray.rows, gray.cols);
         e_1 = clock();
         fea_det_time = (double)(e_1-s_1)/CLOCKS_PER_SEC*1000;
         std::cout << "feature detection time: " << fea_det_time << std::endl;
@@ -156,7 +170,7 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlo
 
             if(flow_xe!=0 && flow_ye!=0)
             {
-                if(mvKeysSamp[i].pt.x+flow_xe < imGray.cols && mvKeysSamp[i].pt.y+flow_ye < imGray.rows && mvKeysSamp[i].pt.x+flow_xe>0 && mvKeysSamp[i].pt.y+flow_ye>0)
+                if(mvKeysSamp[i].pt.x+flow_xe < gray.cols && mvKeysSamp[i].pt.y+flow_ye < gray.rows && mvKeysSamp[i].pt.x+flow_xe>0 && mvKeysSamp[i].pt.y+flow_ye>0)
                 {
                     mvStatKeysTmp.push_back(mvKeysSamp[i]);
                     mvCorres.push_back(cv::KeyPoint(mvKeysSamp[i].pt.x+flow_xe,mvKeysSamp[i].pt.y+flow_ye,0,0,0,mvKeysSamp[i].octave,-1));
@@ -171,7 +185,7 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlo
     // ---------------------------------------------------------------------------------------
 
     // cv::Mat img_show;
-    // cv::drawKeypoints(imGray, mvKeysSamp, img_show, cv::Scalar::all(-1), cv::DrawMatchesFlags::DEFAULT);
+    // cv::drawKeypoints(gray, mvKeysSamp, img_show, cv::Scalar::all(-1), cv::DrawMatchesFlags::DEFAULT);
     // cv::imshow("KeyPoints on Background", img_show);
     // cv::waitKey(0);
 
@@ -199,9 +213,9 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlo
 
     // semi-dense features on objects
     int step = 4; // 3
-    for (int i = 0; i < imGray.rows; i=i+step)
+    for (int i = 0; i < gray.rows; i=i+step)
     {
-        for (int j = 0; j < imGray.cols; j=j+step)
+        for (int j = 0; j < gray.cols; j=j+step)
         {
 
             // check ground truth motion mask
@@ -212,7 +226,7 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlo
                 const float flow_y = imFlow.at<cv::Vec2f>(i,j)[1];
 
                 //we are within the image bounds?
-                if(j+flow_x < imGray.cols && j+flow_x > 0 && i+flow_y < imGray.rows && i+flow_y > 0)
+                if(j+flow_x < gray.cols && j+flow_x > 0 && i+flow_y < gray.rows && i+flow_y > 0)
                 {
                     // save correspondences
                     mvObjFlowNext.push_back(cv::Point2f(flow_x,flow_y));
@@ -240,7 +254,7 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlo
     // This is done only for the first Frame (or after a change in the calibration)
     if(mbInitialComputations)
     {
-        ComputeImageBounds(imGray);
+        ComputeImageBounds(gray);
 
         mfGridElementWidthInv=static_cast<float>(FRAME_GRID_COLS)/static_cast<float>(mnMaxX-mnMinX);
         mfGridElementHeightInv=static_cast<float>(FRAME_GRID_ROWS)/static_cast<float>(mnMaxY-mnMinY);
@@ -379,6 +393,18 @@ bool Frame::PosInGrid(const cv::KeyPoint &kp, int &posX, int &posY)
         return false;
 
     return true;
+}
+
+void Frame::convertRGBToGreyScale() {
+    CHECK(!rgb.empty());
+    PLOG_IF(ERROR, rgb.channels()==1) << "Input image should be RGB (channels == 3), not 1";
+    // Transfer color image to grey image
+    if(rgb.channels()==3) {
+        cvtColor(rgb, gray,CV_RGB2GRAY);
+    }
+    else if(rgb.channels()==4) {
+            cvtColor(rgb,gray,CV_RGBA2GRAY);
+    }
 }
 
 void Frame::UndistortKeyPoints()

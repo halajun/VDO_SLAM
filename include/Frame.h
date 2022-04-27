@@ -75,6 +75,15 @@ public:
 
 public:
 
+    //original input images
+    cv::Mat rgb;
+    cv::Mat depth;
+    cv::Mat flow;
+    cv::Mat mask;
+
+    //converted rgb image. If input is grayscale this will be the same as the input
+    cv::Mat gray;
+
     // Feature extractor. The right is used only in the stereo case.
     ORBextractor* mpORBextractorLeft, *mpORBextractorRight;
 
@@ -236,6 +245,8 @@ public:
 
 
 private:
+
+    void convertRGBToGreyScale();
 
     // Undistort keypoints given OpenCV distortion parameters.
     // Only for the RGB-D case. Stereo must be already rectified!

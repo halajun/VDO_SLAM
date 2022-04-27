@@ -175,10 +175,10 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
     cv::RNG rng((unsigned)time(NULL));
 
     // Initialize Global ID
-    if (mState==NO_IMAGES_YET)
+    if (mState==NO_IMAGES_YET) {
         f_id = 0;
+    }
 
-    mImGray = imRGB;
 
     // preprocess depth  !!! important for kitti and oxford dataset
     for (int i = 0; i < imD.rows; i++)
@@ -209,21 +209,22 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
 
     cv::Mat imDepth = imD;
 
-    // Transfer color image to grey image
-    if(mImGray.channels()==3)
-    {
-        if(mbRGB)
-            cvtColor(mImGray,mImGray,CV_RGB2GRAY);
-        else
-            cvtColor(mImGray,mImGray,CV_BGR2GRAY);
-    }
-    else if(mImGray.channels()==4)
-    {
-        if(mbRGB)
-            cvtColor(mImGray,mImGray,CV_RGBA2GRAY);
-        else
-            cvtColor(mImGray,mImGray,CV_BGRA2GRAY);
-    }
+    ///This is now done in the frame object (so we can better viz)
+    // // Transfer color image to grey image
+    // if(mImGray.channels()==3)
+    // {
+    //     if(mbRGB)
+    //         cvtColor(mImGray,mImGray,CV_RGB2GRAY);
+    //     else
+    //         cvtColor(mImGray,mImGray,CV_BGR2GRAY);
+    // }
+    // else if(mImGray.channels()==4)
+    // {
+    //     if(mbRGB)
+    //         cvtColor(mImGray,mImGray,CV_RGBA2GRAY);
+    //     else
+    //         cvtColor(mImGray,mImGray,CV_BGRA2GRAY);
+    // }
 
     // Save map in the tracking head (new added Nov 14 2019)
     mDepthMap = imD;
@@ -232,6 +233,11 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
 
     // Initialize timing vector (Output)
     all_timing.resize(5,0);
+    mCurrentFrame = Frame(imRGB,imDepth,imFlow,maskSEM,timestamp,mpORBextractorLeft,mK,mDistCoef,mbf,mThDepth,mThDepthObj,nUseSampleFea);
+
+    //frame will have the greyscale image
+    mCurrentFrame.gray.copyTo(mImGray);
+
 
     // (new added Nov 21 2019)
     if (mState!=NO_IMAGES_YET)
@@ -247,7 +253,6 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
         // cout << "mask updating time: " << mask_upd_time << endl;
     }
 
-    mCurrentFrame = Frame(mImGray,imDepth,imFlow,maskSEM,timestamp,mpORBextractorLeft,mK,mDistCoef,mbf,mThDepth,mThDepthObj,nUseSampleFea);
 
     // ---------------------------------------------------------------------------------------
     // +++++++++++++++++++++++++ For sampled features ++++++++++++++++++++++++++++++++++++++++

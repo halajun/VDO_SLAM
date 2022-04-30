@@ -8,7 +8,9 @@
 
 #include <opencv2/opencv.hpp>
 #include <glog/logging.h>
+
 #include <map>
+#include <deque>
 
 namespace VDO_SLAM { 
 
@@ -23,11 +25,36 @@ class OpenCvVisualizer3D : public Display {
         void process() override;
 
     private:
+        //should only draw once
+        void drawWorldCoordinateSystem();
+        void setupModelViewMatrix();
+
         void drawCurrentCameraPose(WidgetsMap* widgets_map);
+        void followCurrentView();
+
+        void addToTrajectory();
         void drawTrajectory(WidgetsMap* widgets_map);
+
+        void drawStaticPointCloud(WidgetsMap* widgets_map);
 
         void markWidgetForRemoval(const std::string& widget_id);
         void removeWidgets();
+
+        //helpder functions
+        cv::Mat getLatestPose();
+
+        static cv::Mat ModelViewLookAt(
+                double ex, 
+                double ey, 
+                double ez, 
+                double lx, 
+                double ly, 
+                double lz, 
+                double ux, 
+                double uy, 
+                double uz);
+
+    private:
 
         cv::viz::Viz3d window;
         Map* map;
@@ -38,7 +65,18 @@ class OpenCvVisualizer3D : public Display {
         //todo widgets to remove?
         WidgetIds widgets_to_remove;
 
+        std::deque<cv::Affine3f> trajectory;
+
+        //viewer params -> eventually put in params
+        const double viewpointX = 0.0;
+        const double viewpointY = 0.7;
+        const double viewpointZ = -3.5;
+        const double viewpointF = 500.0;
+
+        cv::Mat model_view_matrix;
+
 };
+
 
 
 }

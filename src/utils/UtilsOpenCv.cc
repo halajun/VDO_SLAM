@@ -1,7 +1,49 @@
 #include "utils/UtilsOpenCv.h"
 
+#include <opencv2/core/eigen.hpp>
+
 namespace VDO_SLAM {
 namespace utils {
+
+
+std::string cvTypeToString(int type) {
+    std::string r;
+    uchar depth = type & CV_MAT_DEPTH_MASK;
+    uchar chans = 1 + (type >> CV_CN_SHIFT);
+    switch (depth) {
+    case CV_8U:
+        r = "8U";
+        break;
+    case CV_8S:
+        r = "8S";
+        break;
+    case CV_16U:
+        r = "16U";
+        break;
+    case CV_16S:
+        r = "16S";
+        break;
+    case CV_32S:
+        r = "32S";
+        break;
+    case CV_32F:
+        r = "32F";
+        break;
+    case CV_64F:
+        r = "64F";
+        break;
+    default:
+        r = "User";
+        break;
+    }
+    r += "C";
+    r += (chans + '0');
+    return r;
+}
+std::string cvTypeToString(const cv::Mat& mat) {
+    return cvTypeToString(mat.type());
+}
+
 
 
 cv::Mat concatenateImagesHorizontally(
@@ -90,6 +132,21 @@ cv::Affine3d matPoseToCvAffine3d(const cv::Mat& pose) {
     cv::Mat posed;
     pose.convertTo(posed, CV_64F);
     return cv::Affine3d(posed);
+}
+
+cv::Affine3d gtsamPose3ToCvAffine3d(const gtsam::Pose3& pose) {
+    cv::Mat RT(4, 4, CV_64F);
+    cv::eigen2cv(pose.matrix(), RT);
+    return cv::Affine3d(RT);
+}
+
+cv::Mat transformCameraPoseToWorld(const cv::Mat& pose) {
+    //note the rotation we care about is the 3,3 head part
+    static cv::Mat transform = (cv::Mat_<float>(4, 4) << 0, 0, 1, 0,
+                                                        -1, 0, 0, 0,
+                                                        0, -1, 0, 0,
+                                                        0, 0, 0, 1);
+    return transform * pose;
 }
 
 }

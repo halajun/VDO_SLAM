@@ -38,6 +38,8 @@ gtsam::Point3 cvMatToGtsamPoint3(const cv::Mat& cv_t);
 
 gtsam::Cal3_S2::shared_ptr cvMat2Cal3_S2(const cv::Mat& K); 
 
+
+
 // given two gtsam::Pose3 computes the relative rotation and translation
 // errors: rotError,tranError
 std::pair<double, double> computeRotationAndTranslationErrors(

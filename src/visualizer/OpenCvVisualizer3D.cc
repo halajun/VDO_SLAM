@@ -29,6 +29,7 @@ void OpenCvVisualizer3D::process() {
 
     // followCurrentView();
     drawStaticPointCloud(&widgets);
+    drawDynamicPointClouds(&widgets);
 
     for (auto it = widgets.begin(); it != widgets.end(); ++it) {
         CHECK(it->second);
@@ -127,7 +128,6 @@ void OpenCvVisualizer3D::markWidgetForRemoval(const std::string& widget_id) {
     const int N = map->vpFeatSta.size();
     const std::vector<std::vector<std::pair<int, int>>>& StaTracks = map->TrackletSta;
     std::vector<gtsam::Point3> points;
-    LOG(INFO) << "Here";
     if(N < 2) {
         return;
     }
@@ -141,7 +141,6 @@ void OpenCvVisualizer3D::markWidgetForRemoval(const std::string& widget_id) {
         std::vector<int>  vnFLS_tmp(map->vpFeatSta[i].size(),-1);
         vnFeaLabSta[i] = vnFLS_tmp;
     }
-    LOG(INFO) << "Here "<< StaTracks.size();
 
     // label static feature
     for (int i = 0; i < StaTracks.size(); ++i) {
@@ -166,8 +165,6 @@ void OpenCvVisualizer3D::markWidgetForRemoval(const std::string& widget_id) {
             vnFeaLabSta[StaTracks[i][j].first][StaTracks[i][j].second] = i;
         }
     }
-
-    LOG(INFO) << "Here";
 
     //loop over everything many times?
     for(int i = 0; i < N; i++) {
@@ -213,6 +210,121 @@ void OpenCvVisualizer3D::markWidgetForRemoval(const std::string& widget_id) {
 
     markWidgetForRemoval("Point cloud");
 
+
+}
+
+ void OpenCvVisualizer3D::drawDynamicPointClouds(WidgetsMap* widgets_map) {
+    const int N = map->vpFeatSta.size();
+    const std::vector<std::vector<std::pair<int, int>>>& DynTracks = map->TrackletDyn;
+    std::vector<gtsam::Point3> points;
+    std::vector<cv::Scalar> colours;
+    if(N < 2) {
+        return;
+    }
+    //copied from process in optimizer
+    // mark each feature if it is satisfied (valid) for usage
+    // here we use track length as threshold, for static >=3, dynamic >=3.
+    // label each feature of the position in TrackLets: -1(invalid) or >=0(TrackID);
+    // size: static: (N)xM_1, M_1 is the size of features in each frame
+    // std::vector<std::vector<int> > vnFeaLabDyn(N);
+    // for (int i = 0; i < N; ++i) {
+    //     std::vector<int>  vnFLS_tmp(map->vpFeatDyn[i].size(),-1);
+    //     vnFeaLabDyn[i] = vnFLS_tmp;
+    // }
+
+    //  // label dynamic feature
+    // for (int i = 0; i < DynTracks.size(); ++i) {
+    //     // filter the tracklets via threshold
+    //     if (DynTracks[i].size() < 3) { // 3 the length of track on objects.
+    //         continue;
+    //     }
+    //     // label them
+    //     for (int j = 0; j < DynTracks[i].size(); ++j){
+    //         //first -> frameId, second -> feature Id
+    //         if(DynTracks[i][j].first >= vnFeaLabDyn.size()) {
+    //             // LOG(WARNING) << "Static feature tracks longer than frames";
+    //             continue;
+    //         }
+
+    //         if(DynTracks[i][j].second >= vnFeaLabDyn[DynTracks[i][j].first].size()) {
+    //             // LOG(WARNING) << "Static feature tracks greater than feature Id for frame " << StaTracks[i][j].first;
+    //             continue;
+    //         }  
+    //         vnFeaLabDyn[DynTracks[i][j].first][DynTracks[i][j].second] = i;
+    //     }
+    // }
+
+    //do previous frame if not tracked yet?
+    for(int i = N -2; i < N - 1; i++) {
+        for(int j = 0; j < map->vnFeatLabel[i].size(); j++) {
+            int dynamic_label = map->vnFeatLabel[i][j];
+            if(dynamic_label == -1 || dynamic_label == 0) {
+                //log warning?
+                continue;
+            }
+
+            gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[i][j]);
+            // cv::Scalar colour = getObjectColour(dynamic_label);
+        }
+    }
+
+    // //actually just want the last one... for now
+    //  //loop over everything many times?
+    // for(int i = N-1; i < N; i++) {
+    //     // loop for static features
+
+    //     for (int j = 0; j < vnFeaLabDyn[i].size(); j++) {
+    //         int dynamic_label = vnFeaLabDyn[i][j];
+    //         //is outlier
+    //         if(dynamic_label == -1) {
+    //             continue;
+    //         }
+    //         if(dynamic_label == 0) {
+    //             LOG(WARNING) << "Dynamic label shoudlnt be -1 (outlier) or static 0";
+    //             continue;
+    //         }
+    //         gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[i][j]);
+    //         LOG(INFO) << "dynamic label " << map->vnFeatLabel[i][j];
+    //         cv::Scalar colour = getObjectColour(dynamic_label);
+    //         // points.push_back(X_w);
+    //         // colours.push_back(colour);
+    //     }
+    // }
+
+     if(points.size() == 0) {
+        LOG(WARNING) << "Dynamic Point Cloud empty. Not vizualising";
+        return;
+    }
+
+    LOG(INFO) << "Making dynamic point cloud of size " << points.size();
+    CHECK_EQ(points.size(), colours.size());
+
+    // Populate cloud structure with 3D points.
+    cv::Mat point_cloud(1, points.size(), CV_32FC3);
+    //default dynamic object?
+    cv::Mat point_cloud_color(
+        1, colours.size(), CV_8UC3);
+
+    cv::Point3f* data = point_cloud.ptr<cv::Point3f>();
+    size_t i = 0;
+    for(const gtsam::Point3& point : points) {
+        data[i].x = static_cast<float>(point.x());
+        data[i].y = static_cast<float>(point.y());
+        data[i].z = static_cast<float>(point.z());
+
+        point_cloud_color.col(i) = colours.at(i);
+
+        i++;
+    }
+
+    // Create a cloud widget.
+    std::unique_ptr<cv::viz::WCloud> cloud_widget =
+                VDO_SLAM::make_unique<cv::viz::WCloud>(point_cloud, point_cloud_color);
+    cloud_widget->setRenderingProperty(cv::viz::POINT_SIZE, 2);
+
+    (*widgets_map)["Dynamic Point cloud"] = std::move(cloud_widget);
+
+    markWidgetForRemoval("Dynamic Point cloud");
 
  }
 

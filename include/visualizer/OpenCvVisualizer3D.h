@@ -36,6 +36,7 @@ class OpenCvVisualizer3D : public Display {
         void drawTrajectory(WidgetsMap* widgets_map);
 
         void drawStaticPointCloud(WidgetsMap* widgets_map);
+        void drawDynamicPointClouds(WidgetsMap* widgets_map);
 
         void markWidgetForRemoval(const std::string& widget_id);
         void removeWidgets();

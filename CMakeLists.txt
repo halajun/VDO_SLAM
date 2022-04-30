@@ -120,6 +120,15 @@ add_executable(gtsam_basic_test
 target_link_libraries(gtsam_basic_test
    gtsam
    ${GFLAGS_LIBRARIES}
-   ${GLOG_LIBRARIES} )
+   ${GLOG_LIBRARIES} 
+)
 
+
+add_executable(opencv_viz3d_test
+   test/opencv_viz3d_test.cc
+)
+
+target_link_libraries(opencv_viz3d_test
+   ${OpenCV_LIBS}
+)
 

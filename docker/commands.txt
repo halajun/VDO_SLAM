@@ -1,0 +1,1 @@
+GLOG_v=7 GLOG_logtostderr=1 ./example/vdo_slam example/kitti-0000-0013.yaml ~/data/vdo_slam/kitti/kitti/0000

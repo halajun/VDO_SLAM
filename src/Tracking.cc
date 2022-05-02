@@ -1080,6 +1080,7 @@ void Tracking::Track()
         mpMap->vnFeatLabel.push_back(mCurrentFrame.vObjLabel);         // (new added Nov 20 2019)
 
 
+
         //we should have optimized for the camera pose so update the MlastFrame and mCurrentFrame
 
 
@@ -1186,11 +1187,11 @@ void Tracking::Track()
     // =================================================================================================
     // ============== Partial batch optimize on all the measurements (local optimization) ==============
     // =================================================================================================
-    graph->stepAndOptimize();
+    // graph->stepAndOptimize();
     //what about all the other thigns we have to udpate for?
-    cv::Mat updated_pose = graph->getLatestCameraPose();
-    mCurrentFrame.SetPose(updated_pose);
-    mLastFrame.SetPose(updated_pose);
+    // cv::Mat updated_pose = graph->getLatestCameraPose();
+    // mCurrentFrame.SetPose(updated_pose);
+    // mLastFrame.SetPose(updated_pose);
 
     bLocalBatch = true;
     if ( (f_id-nOVERLAP_SIZE+1)%(nWINDOW_SIZE-nOVERLAP_SIZE)==0 && f_id>=nWINDOW_SIZE-1 && bLocalBatch)

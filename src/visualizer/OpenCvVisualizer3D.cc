@@ -225,17 +225,33 @@ void OpenCvVisualizer3D::markWidgetForRemoval(const std::string& widget_id) {
 
     //do previous frame if not tracked yet?
     for(int i = N -2; i < N - 1; i++) {
-        CHECK_EQ(map->vp3DPointDyn[i].size(), map->vnFeatLabel[i].size());
-        for(int j = 0; j < map->vp3DPointDyn[i].size(); j++) {
+        LOG(INFO) << map->vnFeatLabel[i].size();
+        CHECK_EQ(map->vnAssoDyn[i].size(), map->vnFeatLabel[i].size());
+        for(int j = 0; j < map->vnAssoDyn[i].size(); j++) {
             
+            int dynamic_index = map->vnAssoDyn[i][j];
+
+            if(dynamic_index == -1) {
+                //can we even get here?
+                continue;
+            }
+
+            // CHECK_LT(dynamic_index, map->vnFeatLabel[i].size());
+
             int dynamic_label = map->vnFeatLabel[i][j];
-            if(dynamic_label == -1 || dynamic_label == 0) {
+            if(dynamic_label == -1 || dynamic_label == 0 || dynamic_label == -2) {
                 //log warning?
                 continue;
             }
 
-            gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[i][j]);
-            // cv::Scalar colour = getObjectColour(dynamic_label);
+
+
+            gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[i][dynamic_index]);
+            cv::Scalar colour = getObjectColour(dynamic_label);
+
+            points.push_back(X_w);
+            colours.push_back(colour);
+
         }
     }
 

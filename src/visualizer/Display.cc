@@ -64,6 +64,9 @@ cv::Scalar Display::getObjectColour(int label) {
             return cv::Scalar(45, 82, 160, 255);          
         case 41:
             return cv::Scalar(60, 20, 220, 255);
+        default:
+            LOG(WARNING) << "Label is " << label;
+            return cv::Scalar(60, 20, 220, 255);
             
     }
 }

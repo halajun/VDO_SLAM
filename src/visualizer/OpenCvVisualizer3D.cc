@@ -221,42 +221,13 @@ void OpenCvVisualizer3D::markWidgetForRemoval(const std::string& widget_id) {
     if(N < 2) {
         return;
     }
-    //copied from process in optimizer
-    // mark each feature if it is satisfied (valid) for usage
-    // here we use track length as threshold, for static >=3, dynamic >=3.
-    // label each feature of the position in TrackLets: -1(invalid) or >=0(TrackID);
-    // size: static: (N)xM_1, M_1 is the size of features in each frame
-    // std::vector<std::vector<int> > vnFeaLabDyn(N);
-    // for (int i = 0; i < N; ++i) {
-    //     std::vector<int>  vnFLS_tmp(map->vpFeatDyn[i].size(),-1);
-    //     vnFeaLabDyn[i] = vnFLS_tmp;
-    // }
 
-    //  // label dynamic feature
-    // for (int i = 0; i < DynTracks.size(); ++i) {
-    //     // filter the tracklets via threshold
-    //     if (DynTracks[i].size() < 3) { // 3 the length of track on objects.
-    //         continue;
-    //     }
-    //     // label them
-    //     for (int j = 0; j < DynTracks[i].size(); ++j){
-    //         //first -> frameId, second -> feature Id
-    //         if(DynTracks[i][j].first >= vnFeaLabDyn.size()) {
-    //             // LOG(WARNING) << "Static feature tracks longer than frames";
-    //             continue;
-    //         }
-
-    //         if(DynTracks[i][j].second >= vnFeaLabDyn[DynTracks[i][j].first].size()) {
-    //             // LOG(WARNING) << "Static feature tracks greater than feature Id for frame " << StaTracks[i][j].first;
-    //             continue;
-    //         }  
-    //         vnFeaLabDyn[DynTracks[i][j].first][DynTracks[i][j].second] = i;
-    //     }
-    // }
 
     //do previous frame if not tracked yet?
     for(int i = N -2; i < N - 1; i++) {
-        for(int j = 0; j < map->vnFeatLabel[i].size(); j++) {
+        CHECK_EQ(map->vp3DPointDyn[i].size(), map->vnFeatLabel[i].size());
+        for(int j = 0; j < map->vp3DPointDyn[i].size(); j++) {
+            
             int dynamic_label = map->vnFeatLabel[i][j];
             if(dynamic_label == -1 || dynamic_label == 0) {
                 //log warning?

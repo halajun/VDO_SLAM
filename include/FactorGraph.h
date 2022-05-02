@@ -89,10 +89,10 @@ class FactorGraph {
 
         //measurement information that we updated every step
         // mark each feature if it is satisfied (valid) for usage
-    // here we use track length as threshold, for static >=3, dynamic >=3.
-    // label each feature of the position in TrackLets: -1(invalid) or >=0(TrackID);
-    // size: static: (N)xM_1, M_1 is the size of features in each frame
-    // size: dynamic: (N)xM_2, M_2 is the size of features in each frame
+        // here we use track length as threshold, for static >=3, dynamic >=3.
+        // label each feature of the position in TrackLets: -1(invalid) or >=0(TrackID);
+        // size: static: (N)xM_1, M_1 is the size of features in each frame
+        // size: dynamic: (N)xM_2, M_2 is the size of features in each frame
         std::vector<std::vector<int>> vnFeaLabSta;
         std::vector<std::vector<int>> vnFeaMakSta;
         std::vector<std::vector<int>> vnFeaLabDyn;

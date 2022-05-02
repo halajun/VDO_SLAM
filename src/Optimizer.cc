@@ -412,47 +412,6 @@ void Optimizer::PartialBatchOptimizationGTSAM(Map* pMap, const cv::Mat Calib_K, 
 
     }
 
-    // //now we do object motion and dynamic features
-    // for (int i = N-WINDOW_SIZE; i < N; ++i) {
-
-    //     if(i == N - WINDOW_SIZE) {
-    //         //loop dynamic features
-    //         for (int j = 0; j < vnFeaLabDyn[i].size(); ++j) {
-    //             // check feature validation
-    //             if (vnFeaLabDyn[i][j]==-1) {
-    //                 continue;
-    //             }
-
-    //             // get the TrackID of current feature
-    //             int TrackID = vnFeaLabDyn[i][j];
-
-    //             // get the position of current feature in the tracklet
-    //             int PositionID = -1;
-    //             for (int k = 0; k < DynTracks[TrackID].size(); ++k) {
-    //                 if (DynTracks[TrackID][k].first==i && DynTracks[TrackID][k].second==j) {
-    //                     PositionID = k;
-    //                     break;
-    //                 }
-    //             }
-    //             if (PositionID==-1){
-    //                 LOG(WARNING) << "cannot find the position of current feature in the tracklet !!!";
-    //                 continue;
-    //             }
-
-    //             const int TrLength = DynTracks[TrackID].size();
-    //             if ( TrLength-PositionID<FeaLengthThresDyn ) {
-    //                 continue;
-    //             }
-
-    //             //save vertex point
-    //             gtsam::Point3 dynamic_point = utils::cvMatToGtsamPoint3(pMap->vp3DPointDyn[i][j]);
-    //             values.insert(count_unique_id, dynamic_point);
-
-    //             //add factor between visual point and observed camera pose
-
-    //         }
-    //     }
-    // }
 
 
     LOG(INFO) << "Trying to solve for gtsam LM...";
@@ -639,7 +598,7 @@ void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const
     }
     // assign the ObjCheck ......
     for (int i = N-WINDOW_SIZE; i < N-1; ++i)
-    {
+    {   
         for (int j = 1; j < pMap->vnRMLabel[i].size(); ++j)
         {
             for (int k = 0; k < UniLab.size(); ++k)
@@ -647,6 +606,7 @@ void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const
                 if (UniLab[k]==pMap->vnRMLabel[i][j] && LabCount[k]>=ObjLength)
                 {
                     ObjCheck[i][j]= true;
+                    LOG(INFO) << LabCount[k];
                     break;
                 }
             }

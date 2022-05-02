@@ -74,6 +74,8 @@ src/Optimizer.cc
 src/Frame.cc
 src/FactorGraph.cc
 
+
+src/backend/VdoSlamBackend.cc
 src/utils/UtilsGTSAM.cc
 src/utils/UtilsOpenCv.cc
 

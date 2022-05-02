@@ -162,6 +162,7 @@ Tracking::Tracking(System *pSys, Map *pMap, const string &strSettingPath, const 
         cout << "- used detected feature for background scene..." << endl;
 
     graph = std::make_shared<FactorGraph>(pMap, mK);
+    backend = std::make_shared<VdoSlamBackend>(pMap, mK);
     viz = std::make_shared<OpenCvVisualizer3D>(pMap);
     display = std::make_shared<OpenCvDisplay>();
 
@@ -1188,6 +1189,7 @@ void Tracking::Track()
     // ============== Partial batch optimize on all the measurements (local optimization) ==============
     // =================================================================================================
     // graph->stepAndOptimize();
+    backend->process();
     //what about all the other thigns we have to udpate for?
     // cv::Mat updated_pose = graph->getLatestCameraPose();
     // mCurrentFrame.SetPose(updated_pose);

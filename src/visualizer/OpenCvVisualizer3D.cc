@@ -93,7 +93,7 @@ void OpenCvVisualizer3D::addToTrajectory() {
     cv::Affine3d camera_pose  = utils::matPoseToCvAffine3d(camera_pose_mat);
     trajectory.push_back(camera_pose);
     //hardcoded size for now
-    while (trajectory.size() > 20) {
+    while (trajectory.size() > 100) {
         trajectory.pop_front();
     }
 }
@@ -244,8 +244,6 @@ void OpenCvVisualizer3D::markWidgetForRemoval(const std::string& widget_id) {
                 continue;
             }
 
-
-
             gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[i][dynamic_index]);
             cv::Scalar colour = getObjectColour(dynamic_label);
 
@@ -254,29 +252,6 @@ void OpenCvVisualizer3D::markWidgetForRemoval(const std::string& widget_id) {
 
         }
     }
-
-    // //actually just want the last one... for now
-    //  //loop over everything many times?
-    // for(int i = N-1; i < N; i++) {
-    //     // loop for static features
-
-    //     for (int j = 0; j < vnFeaLabDyn[i].size(); j++) {
-    //         int dynamic_label = vnFeaLabDyn[i][j];
-    //         //is outlier
-    //         if(dynamic_label == -1) {
-    //             continue;
-    //         }
-    //         if(dynamic_label == 0) {
-    //             LOG(WARNING) << "Dynamic label shoudlnt be -1 (outlier) or static 0";
-    //             continue;
-    //         }
-    //         gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[i][j]);
-    //         LOG(INFO) << "dynamic label " << map->vnFeatLabel[i][j];
-    //         cv::Scalar colour = getObjectColour(dynamic_label);
-    //         // points.push_back(X_w);
-    //         // colours.push_back(colour);
-    //     }
-    // }
 
      if(points.size() == 0) {
         LOG(WARNING) << "Dynamic Point Cloud empty. Not vizualising";

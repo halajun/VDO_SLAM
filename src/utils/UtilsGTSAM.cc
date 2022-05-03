@@ -32,6 +32,13 @@ gtsam::Pose3 cvMatsToGtsamPose3(const cv::Mat& R, const cv::Mat& T) {
     return gtsam::Pose3(cvMatToGtsamRot3(R), cvMatToGtsamPoint3(T));
 }
 
+cv::Mat gtsamPose3ToCvMat(const gtsam::Pose3& pose) {
+    cv::Mat RT(4, 4, CV_32F);
+    cv::eigen2cv(pose.matrix(), RT);
+    RT.convertTo(RT, CV_32F);
+    return RT;
+}
+
 gtsam::Rot3 cvMatToGtsamRot3(const cv::Mat& R) {
     CHECK_EQ(R.rows, 3);
     CHECK_EQ(R.cols, 3);
@@ -47,6 +54,13 @@ gtsam::Point3 cvMatToGtsamPoint3(const cv::Mat& cv_t) {
     gtsam_t << cv_t.at<CvMatAccessType>(0, 0), cv_t.at<CvMatAccessType>(1, 0),
         cv_t.at<CvMatAccessType>(2, 0);
     return gtsam_t;
+}
+
+cv::Mat gtsamPoint3ToCvMat(const gtsam::Point3& point) {
+    cv::Mat T = cv::Mat(3, 1, CV_32F);
+    cv::eigen2cv(point, T);
+    T.convertTo(T, CV_32F);
+    return T;
 }
 
 gtsam::Cal3_S2::shared_ptr cvMat2Cal3_S2(const cv::Mat& K) {

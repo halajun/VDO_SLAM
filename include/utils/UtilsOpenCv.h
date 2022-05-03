@@ -6,8 +6,9 @@
 #include <string>
 
 #define CHECK_MAT_TYPES(mat1, mat2) \
+    using namespace VDO_SLAM::utils;    \
     CHECK_EQ(mat1.type(), mat2.type()) << "Matricies should be of the same type ( " \
-        <<  cvTypeToString(mat1.type()) << " vs. " << cvTypeToString(mat2.type()) << ").";
+        <<  cvTypeToString(mat1.type()) << " vs. " << cvTypeToString(mat2.type()) << ")."
 
 namespace VDO_SLAM {
 namespace utils {
@@ -29,6 +30,8 @@ void drawCircleInPlace(
     const cv::Scalar& color);
 
 cv::Affine3d matPoseToCvAffine3d(const cv::Mat& pose);
+
+//should be in utils GTSAM but meh
 cv::Affine3d gtsamPose3ToCvAffine3d(const gtsam::Pose3& pose);
 
 //applies a rotation to a pose in the camera frame (z forward)

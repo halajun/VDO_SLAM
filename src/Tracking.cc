@@ -1194,24 +1194,26 @@ void Tracking::Track()
     // cv::Mat updated_pose = graph->getLatestCameraPose();
     // mCurrentFrame.SetPose(updated_pose);
     // mLastFrame.SetPose(updated_pose);
-
-    bLocalBatch = true;
-    if ( (f_id-nOVERLAP_SIZE+1)%(nWINDOW_SIZE-nOVERLAP_SIZE)==0 && f_id>=nWINDOW_SIZE-1 && bLocalBatch)
-    {
-        cout << "-------------------------------------------" << endl;
-        cout << "! ! ! ! Partial Batch Optimization ! ! ! ! " << endl;
-        cout << "-------------------------------------------" << endl;
-        clock_t s_5, e_5;
-        double loc_ba_time;
-        s_5 = clock();
-        // Get Partial Batch Optimization
-        Optimizer::PartialBatchOptimization(mpMap,mK,nWINDOW_SIZE);
-        Optimizer::PartialBatchOptimizationGTSAM(mpMap,mK,nWINDOW_SIZE);
-        e_5 = clock();
-        loc_ba_time = (double)(e_5-s_5)/CLOCKS_PER_SEC*1000;
-        mpMap->fLBA_time.push_back(loc_ba_time);
-        // cout << "local optimization time: " << loc_ba_time << endl;
+    if(f_id > 2) {
+        GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
+                        mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
     }
+    bLocalBatch = true;
+    // if ( (f_id-nOVERLAP_SIZE+1)%(nWINDOW_SIZE-nOVERLAP_SIZE)==0 && f_id>=nWINDOW_SIZE-1 && bLocalBatch)
+    // {
+    //     cout << "-------------------------------------------" << endl;
+    //     cout << "! ! ! ! Partial Batch Optimization ! ! ! ! " << endl;
+    //     cout << "-------------------------------------------" << endl;
+    //     clock_t s_5, e_5;
+    //     double loc_ba_time;
+    //     s_5 = clock();
+    //     // Get Partial Batch Optimization
+    //     Optimizer::PartialBatchOptimization(mpMap,mK,nWINDOW_SIZE);
+    //     e_5 = clock();
+    //     loc_ba_time = (double)(e_5-s_5)/CLOCKS_PER_SEC*1000;
+    //     mpMap->fLBA_time.push_back(loc_ba_time);
+    //     // cout << "local optimization time: " << loc_ba_time << endl;
+    // }
 
     // =================================================================================================
     // ============== Full batch optimize on all the measurements (global optimization) ================

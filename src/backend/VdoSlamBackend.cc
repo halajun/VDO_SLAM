@@ -1,5 +1,6 @@
 #include "backend/VdoSlamBackend.h"
 #include "utils/UtilsGTSAM.h"
+#include "utils/UtilsOpenCv.h"
 
 #include <glog/logging.h>
 #include <memory>
@@ -11,7 +12,10 @@
 #include <gtsam/geometry/Pose3.h>
 
 #include "utils/macros.h"
+#include "factors/Projection3DFactor.h"
 #include "Map.h"
+#include "Optimizer.h"
+#include "Converter.h"
 
 namespace VDO_SLAM {
 
@@ -20,7 +24,9 @@ VdoSlamBackend::VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_)
         K(Calib_K_),
         count_unique_id(1),
         pre_camera_pose_vertex(-1),
-        curr_camera_pose_vertex(0) {
+        curr_camera_pose_vertex(0),
+        current_frame(-1),
+        key_to_unique_vertices() {
 
         gtsam::ISAM2Params parameters;
         parameters.relinearizeThreshold = 0.01;
@@ -39,7 +45,7 @@ void VdoSlamBackend::process() {
     const std::vector<std::vector<std::pair<int, int>>>& StaTracks = map->TrackletSta;
     const std::vector<std::vector<std::pair<int, int>>>& DynTracks = map->TrackletDyn;
 
-    const int current_frame = N - 1;
+    current_frame = N - 1;
 
     std::vector<int>  vnFLS_tmp(map->vpFeatSta[current_frame].size(),-1);
     vnFeaLabSta.push_back(vnFLS_tmp);
@@ -111,7 +117,7 @@ void VdoSlamBackend::process() {
     const GtsamAccesType sigma2_3d_dyn = 16; // 50 100 16
     const GtsamAccesType sigma2_alti = 1;
 
-    const GtsamAccesType camera_pose_prior_sigma = 0.00001;
+    const GtsamAccesType camera_pose_prior_sigma = 0.0000001;
     // gtsam::noiseModel::Diagonal::shared_ptr camera_pose_prior_n = 
     auto camera_pose_prior_n = gtsam::noiseModel::Diagonal::Sigmas(
         (gtsam::Vector(6) << gtsam::Vector6::Constant(camera_pose_prior_sigma)).finished()
@@ -128,6 +134,7 @@ void VdoSlamBackend::process() {
     // (1) save <VERTEX_POSE_R3_SO3>
     gtsam::Pose3 camera_pose = utils::cvMatToGtsamPose3(map->vmCameraPose[current_frame]);
     values.insert(count_unique_id, camera_pose);
+    addToKeyVertexMapping(count_unique_id, current_frame, 0, kSymbolCameraPose3Key);
 
     //is first
     if(count_unique_id == 1) {
@@ -200,21 +207,16 @@ void VdoSlamBackend::process() {
 
             gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointSta[current_frame][j]);
             values.insert(count_unique_id, X_w);
+            addToKeyVertexMapping(count_unique_id, current_frame, j, kSymbolPoint3Key);
 
-            //changed from 3 -> 2 dimensions
-            auto camera_projection_noise = gtsam::noiseModel::Diagonal::Sigmas(
-                (gtsam::Vector(2) << gtsam::Vector2::Constant(1.0/sigma2_3d_sta)).finished()
+             auto camera_projection_noise = gtsam::noiseModel::Diagonal::Sigmas(
+                (gtsam::Vector(3) << gtsam::Vector2::Constant(1.0/sigma2_3d_sta)).finished()
             );
 
-            //now add factor
-            cv::KeyPoint kp = map->vpFeatSta[current_frame][j];
-            gtsam::Point2 projection_measurement(kp.pt.x, kp.pt.y);
-            graph.emplace_shared<
-                gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3_S2>>(
-                    projection_measurement, camera_projection_noise,
-                    curr_camera_pose_vertex, count_unique_id, 
-                    K_calib
-                );
+            //TODO: make camera class or equivalent
+            cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatSta[current_frame][j],map->vfDepSta[current_frame][j],K);
+            gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
+            graph.emplace_shared<Projection3DFactor>(curr_camera_pose_vertex, count_unique_id, X_c_point, camera_projection_noise);
 
             vnFeaMakSta[current_frame][j] = count_unique_id;
             count_unique_id++;
@@ -232,9 +234,8 @@ void VdoSlamBackend::process() {
                 continue;
             }
 
-            //changed from 3 -> 2 dimensions
-            auto camera_projection_noise = gtsam::noiseModel::Diagonal::Sigmas(
-                (gtsam::Vector(2) << gtsam::Vector2::Constant(1.0/sigma2_3d_sta)).finished()
+           auto camera_projection_noise = gtsam::noiseModel::Diagonal::Sigmas(
+                (gtsam::Vector(3) << gtsam::Vector2::Constant(1.0/sigma2_3d_sta)).finished()
             );
 
             //base logic checks
@@ -245,14 +246,10 @@ void VdoSlamBackend::process() {
             // if(it == values.end()) { LOG(ERROR) << "Camera frame ID Key is not a valid variable";};
 
             //now add factor
-            cv::KeyPoint kp = map->vpFeatSta[current_frame][j];
-            gtsam::Point2 projection_measurement(kp.pt.x, kp.pt.y);
-            graph.emplace_shared<
-                gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3_S2>>(
-                    projection_measurement, camera_projection_noise,
-                    curr_camera_pose_vertex, FeaMakTmp, 
-                    K_calib
-                );
+             //TODO: make camera class or equivalent
+            cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatSta[current_frame][j],map->vfDepSta[current_frame][j],K);
+            gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
+            graph.emplace_shared<Projection3DFactor>(curr_camera_pose_vertex, FeaMakTmp, X_c_point, camera_projection_noise);
 
             vnFeaMakSta[current_frame][j] = FeaMakTmp;
         }
@@ -262,17 +259,105 @@ void VdoSlamBackend::process() {
     pre_camera_pose_vertex = curr_camera_pose_vertex;
 
     result = isam->update(graph, values);
+    isam->update();
+    // updateMap();
 
 
 }
 
 void VdoSlamBackend::updateMap() {
+    //first disp comparision to GT
+    //go over all the frames?
+    double t_sum_refined = 0, r_sum_refined  = 0;
+    double t_sum_original = 0, r_sum_original  = 0;
+    const size_t N = getMapSize();
+    for (int i = 0; i < N; ++i) {
+        //get camera poses
+        gtsam::Key pose_key = unique_vertices[i][0];
+        gtsam::Pose3 refined_camera_pose = isam->calculateEstimate<gtsam::Pose3>(pose_key);
+
+        gtsam::Pose3 original_camera_pose = utils::cvMatToGtsamPose3(map->vmCameraPose[i]);
+        gtsam::Pose3 gt_camera_pose = utils::cvMatToGtsamPose3(map->vmCameraPose_GT[i]);
+
+        std::pair<double, double> errors_original = utils::computeRotationAndTranslationErrors(
+                                                        gt_camera_pose, original_camera_pose);
+
+        r_sum_original += errors_original.first;
+        t_sum_original += errors_original.second;
+
+        std::pair<double, double> errors_refined = utils::computeRotationAndTranslationErrors(
+                                                        gt_camera_pose, refined_camera_pose);
+
+        r_sum_refined += errors_refined.first;
+        t_sum_refined += errors_refined.second;
+    }
+
+    r_sum_original /= (N);
+    t_sum_original /= (N);
+    r_sum_refined /= (N);
+    t_sum_refined /= (N);
+
+    LOG(INFO) << "Average camera error GTSAM\n"
+              << "Original R: " << r_sum_original << " T: " << t_sum_original << "\n"
+              << "Refined R: " << r_sum_refined << " T: " << t_sum_refined;
+
+    const gtsam::KeyVector& observed_keys = result.observedKeys;
+
+    LOG(INFO) << "Observed keys size " << observed_keys.size();
+
+    for(const gtsam::Key& key : observed_keys) {
+        IJSymbol vertex_pair = key_to_unique_vertices[key];
+        const int frame_id = vertex_pair.i;
+        const int feature_id = vertex_pair.j;
+        //we have updated a pose
+        if(vertex_pair.symbol == kSymbolCameraPose3Key) {
+            gtsam::Pose3 camea_pose_refined = isam->calculateEstimate<gtsam::Pose3>(key);
+            map->vmCameraPose[frame_id] = utils::gtsamPose3ToCvMat(camea_pose_refined);
+            
+            if(frame_id > 0) {
+
+                CHECK_MAT_TYPES(Converter::toInvMatrix(
+                    map->vmCameraPose[frame_id-1]), map->vmCameraPose[frame_id]);
+
+                map->vmRigidMotion[frame_id-1][0] = Converter::toInvMatrix(
+                    map->vmCameraPose[frame_id-1])*map->vmCameraPose[frame_id];
+            }
+        }
+
+        if(vertex_pair.symbol == kSymbolPoint3Key) {
+            gtsam::Point3 point = isam->calculateEstimate<gtsam::Point3>(key);
+            if(vnFeaMakSta[frame_id][feature_id] != -1) {
+                map->vp3DPointSta[frame_id][feature_id] = utils::gtsamPoint3ToCvMat(point);
+            }
+            else {
+                //log warning?
+            }
+        }
+
+
+    }
+
+
+
 
 }
 
 gtsam::Values VdoSlamBackend::calculateCurrentEstimate() const {
     return isam->calculateEstimate();
 
+}
+
+const size_t VdoSlamBackend::getMapSize() const { return map->vpFeatSta.size(); }
+
+void VdoSlamBackend::addToKeyVertexMapping(const gtsam::Key& key, int i, int j, unsigned char symbol) {
+    auto it = key_to_unique_vertices.find(key);
+    CHECK(it == key_to_unique_vertices.end()) << "gtsam key is not unique in the key to vertex map";
+
+    IJSymbol ij_symbol;
+    ij_symbol.i = i;
+    ij_symbol.j = j;
+    ij_symbol.symbol = symbol;
+    key_to_unique_vertices.insert({key, ij_symbol});
 }
 
 }

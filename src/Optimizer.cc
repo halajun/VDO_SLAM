@@ -606,7 +606,6 @@ void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const
                 if (UniLab[k]==pMap->vnRMLabel[i][j] && LabCount[k]>=ObjLength)
                 {
                     ObjCheck[i][j]= true;
-                    LOG(INFO) << LabCount[k];
                     break;
                 }
             }

@@ -5,7 +5,7 @@ CONTAINER_IMAGE_NAME=docker_vdo_slam
 
 ### EDIT THIS TO WHEREVER YOU'RE STORING YOU DATA ###
 # folder should exist before you mount it
-LOCAL_DATA_FOLDER=/media/jesse/T72/datasets
+LOCAL_DATA_FOLDER=/media/jesse/T73/datasets
 LOCAL_SSH_KEY_FOLDER=~/.ssh
 
 

@@ -17,13 +17,16 @@ class OpenCvDisplay : public Display {
     public:
         VDO_SLAM_POINTER_TYPEDEFS(OpenCvDisplay);
 
-        OpenCvDisplay() = default;
+        OpenCvDisplay(DisplayParams::Ptr params_);
         ~OpenCvDisplay() = default;
 
         void addFrame(const Frame& frame);
         void process() override;
 
     private:
+        void drawInputImages(const Frame& frame);
+        void drawFrame(const Frame& frame);
+
         void drawOpticalFlow(const cv::Mat& flow, cv::Mat& flow_viz);
         void drawSemanticInstances(const cv::Mat& rgb, const cv::Mat& mask, cv::Mat& mask_viz);
         void drawFeatures(const cv::Mat& rgb, const Frame& frame, cv::Mat& frame_viz);

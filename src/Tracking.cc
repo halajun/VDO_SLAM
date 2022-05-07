@@ -163,8 +163,12 @@ Tracking::Tracking(System *pSys, Map *pMap, const string &strSettingPath, const 
 
     graph = std::make_shared<FactorGraph>(pMap, mK);
     backend = std::make_shared<VdoSlamBackend>(pMap, mK);
-    viz = std::make_shared<OpenCvVisualizer3D>(pMap);
-    display = std::make_shared<OpenCvDisplay>();
+
+    DisplayParams::Ptr display_params = DisplayParams::loadFromCvFileStorage(fsettings);
+    CHECK_NOTNULL(display_params); 
+
+    viz = std::make_shared<OpenCvVisualizer3D>(display_params, pMap);
+    display = std::make_shared<OpenCvDisplay>(display_params);
 
 }
 

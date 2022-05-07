@@ -31,6 +31,8 @@
 *.out
 *.app
 
+.vscode
+
 build
 Examples/RGB-D/rgbd_tum
 Thirdparty/DBoW2/build/

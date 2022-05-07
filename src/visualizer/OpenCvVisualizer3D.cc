@@ -9,18 +9,27 @@
 
 namespace VDO_SLAM {
 
-OpenCvVisualizer3D::OpenCvVisualizer3D(Map* map_)
-    : map(CHECK_NOTNULL(map_)) {
+OpenCvVisualizer3D::OpenCvVisualizer3D(DisplayParams::Ptr params_, Map* map_)
+    :   Display(params_),
+        map(CHECK_NOTNULL(map_)) {
 
-        window.setWindowSize(cv::Size(800, 600));
-        window.setBackgroundColor(cv::viz::Color::white());
+        if(params->use_3d_viz) {
+            window.setWindowSize(cv::Size(800, 600));
+            window.setBackgroundColor(cv::viz::Color::white());
 
-        drawWorldCoordinateSystem();
-        setupModelViewMatrix();
+            drawWorldCoordinateSystem();
+            setupModelViewMatrix();
+        }
+
 
     }
 
 void OpenCvVisualizer3D::process() {
+
+    if(!params->use_3d_viz) {
+        return;
+    }
+
     WidgetsMap widgets;
     drawCurrentCameraPose(&widgets);
 

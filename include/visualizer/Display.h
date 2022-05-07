@@ -1,6 +1,7 @@
 #pragma once
 
 #include "utils/macros.h"
+#include "visualizer/DisplayParams.h"
 #include <opencv2/opencv.hpp>
 
 
@@ -11,13 +12,14 @@ class Display {
     public:
         VDO_SLAM_POINTER_TYPEDEFS(Display);
 
-        Display() = default;
+        Display(DisplayParams::Ptr params_);
         virtual ~Display() = default;
 
         virtual void process() = 0;
 
     protected:
         cv::Scalar getObjectColour(int label);
+        DisplayParams::Ptr params;
 
 
 };

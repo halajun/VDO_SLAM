@@ -4,6 +4,8 @@
 
 namespace VDO_SLAM {
 
+Display::Display(DisplayParams::Ptr params_) : params(CHECK_NOTNULL(params_)) {}
+
 cv::Scalar Display::getObjectColour(int label) {
     if (label > 25) {
         label = label/2;

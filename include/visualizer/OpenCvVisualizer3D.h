@@ -19,7 +19,7 @@ class OpenCvVisualizer3D : public Display {
     public:
         VDO_SLAM_POINTER_TYPEDEFS(OpenCvVisualizer3D);
 
-        OpenCvVisualizer3D(Map* map_);
+        OpenCvVisualizer3D(DisplayParams::Ptr params_, Map* map_);
         ~OpenCvVisualizer3D() = default;
 
         void process() override;

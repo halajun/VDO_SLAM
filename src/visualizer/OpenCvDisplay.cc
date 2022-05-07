@@ -3,7 +3,25 @@
 
 namespace VDO_SLAM {
 
+OpenCvDisplay::OpenCvDisplay(DisplayParams::Ptr params_)
+    :   Display(params_) {}
+
 void OpenCvDisplay::addFrame(const Frame& frame) {
+    if(!params->use_2d_viz) {
+        return;
+    }
+
+    if(params->display_input) {
+        drawInputImages(frame);
+    }
+
+    if(params->display_frame) {
+        drawFrame(frame);
+    }
+
+}
+
+void OpenCvDisplay::drawInputImages(const Frame& frame) {
     //draw each portion of the inputs
     cv::Mat rgb, depth, flow, mask;
     frame.rgb.copyTo(rgb);
@@ -30,10 +48,15 @@ void OpenCvDisplay::addFrame(const Frame& frame) {
     cv::resize(input_images, input_images, cv::Size(rgb.cols,rgb.rows), 0, 0, CV_INTER_LINEAR);
     addDisplayImages(input_images, "Input Images");
 
-    cv::Mat frame_viz;
+}
+
+void OpenCvDisplay::drawFrame(const Frame& frame) {
+    cv::Mat frame_viz, rgb;
+    frame.rgb.copyTo(rgb);
+    CHECK(rgb.channels() == 3) << "Expecting rgb in frame to gave 3 channels";
+
     drawFeatures(rgb, frame, frame_viz);
     addDisplayImages(frame_viz, "Current Frame");
-
 }
 
 

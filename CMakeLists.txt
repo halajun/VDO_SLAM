@@ -88,6 +88,7 @@ src/cvplot/internal.h
 src/visualizer/OpenCvDisplay.cc
 src/visualizer/OpenCvVisualizer3D.cc
 src/visualizer/Display.cc
+src/visualizer/DisplayParams.cc
 
 )
 

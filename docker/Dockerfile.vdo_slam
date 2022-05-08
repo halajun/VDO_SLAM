@@ -101,11 +101,6 @@ RUN cd gtsam && \
 
 # Install glog, gflags
 RUN apt-get update && apt-get install -y libgflags2.2 libgflags-dev libgoogle-glog0v5 libgoogle-glog-dev
-# For opengl drivers for Opencv Viz
-RUN apt install libnvidia-gl-440
-
-# Adding user to groups
-RUN usermod -a -G video
 
 # install CSparse
 RUN DEBIAN_FRONTEND=noninteractive apt install -y libsuitesparse-dev

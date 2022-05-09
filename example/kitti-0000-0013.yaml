@@ -74,6 +74,14 @@ ORBextractor.nLevels: 8
 ORBextractor.iniThFAST: 20
 ORBextractor.minThFAST: 7
 
+## Viz params
+# use_2d must be on for the display Input and Frame params to do anything
+Viz.use_2d: 0
+Viz.displayInput: 0
+Viz.displayFrame: 1
+
+Viz.use_3d: 0
+
 
 
 

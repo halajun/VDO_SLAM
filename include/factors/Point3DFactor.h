@@ -1,8 +1,9 @@
 /**
- * @file Projection3DFactor.h
+ * @file Point3DFactor.h
  * @brief 3D projection factor
  * @date Mar 25, 2019
  * @author Mina Henein
+ * @author Jesse Morris
  */
 
 
@@ -23,7 +24,7 @@
 // you can custom namespace (if needed for your project)
 namespace VDO_SLAM {
 
-  class Projection3DFactor: public gtsam::NoiseModelFactor2<gtsam::Pose3,gtsam::Point3> {
+  class Point3DFactor: public gtsam::NoiseModelFactor2<gtsam::Pose3,gtsam::Point3> {
 
 private:
   // measurement information
@@ -37,7 +38,7 @@ public:
    * @param model    noise model for ternary factor
    * @param m        Vector measurement
    */
-  Projection3DFactor(gtsam::Key poseKey, gtsam::Key pointKey,
+  Point3DFactor(gtsam::Key poseKey, gtsam::Key pointKey,
           const gtsam::Point3& m, gtsam::SharedNoiseModel model) :
             gtsam::NoiseModelFactor2<gtsam::Pose3,gtsam::Point3>(model,poseKey,pointKey),
                     mx_(m.x()), my_(m.y()), mz_(m.z()) {}

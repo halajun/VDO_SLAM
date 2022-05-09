@@ -741,7 +741,6 @@ void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const
                     continue;
                 }
 
-
                 // (3) save <VERTEX_POINT_3D>
                 g2o::VertexPointXYZ *v_p = new g2o::VertexPointXYZ();
                 v_p->setId(count_unique_id);

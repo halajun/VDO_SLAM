@@ -40,8 +40,10 @@ class VdoSlamBackend {
 
         gtsam::Values calculateCurrentEstimate() const;
 
-    private:
+        void calculateError();
         void updateMap();
+
+    private:
 
         //some helper functions
         const size_t getMapSize() const;

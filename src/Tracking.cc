@@ -165,7 +165,7 @@ Tracking::Tracking(System *pSys, Map *pMap, const string &strSettingPath, const 
     backend = std::make_shared<VdoSlamBackend>(pMap, mK);
 
     DisplayParams::Ptr display_params = DisplayParams::loadFromCvFileStorage(fSettings);
-    CHECK_NOTNULL(display_params); 
+    CHECK_NOTNULL(display_params)->print(); 
 
     viz = std::make_shared<OpenCvVisualizer3D>(display_params, pMap);
     display = std::make_shared<OpenCvDisplay>(display_params);
@@ -1198,26 +1198,51 @@ void Tracking::Track()
     // cv::Mat updated_pose = graph->getLatestCameraPose();
     // mCurrentFrame.SetPose(updated_pose);
     // mLastFrame.SetPose(updated_pose);
-    if(f_id > 2) {
-        GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
-                        mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
-    }
-    bLocalBatch = true;
-    // if ( (f_id-nOVERLAP_SIZE+1)%(nWINDOW_SIZE-nOVERLAP_SIZE)==0 && f_id>=nWINDOW_SIZE-1 && bLocalBatch)
-    // {
-    //     cout << "-------------------------------------------" << endl;
-    //     cout << "! ! ! ! Partial Batch Optimization ! ! ! ! " << endl;
-    //     cout << "-------------------------------------------" << endl;
-    //     clock_t s_5, e_5;
-    //     double loc_ba_time;
-    //     s_5 = clock();
-    //     // Get Partial Batch Optimization
-    //     Optimizer::PartialBatchOptimization(mpMap,mK,nWINDOW_SIZE);
-    //     e_5 = clock();
-    //     loc_ba_time = (double)(e_5-s_5)/CLOCKS_PER_SEC*1000;
-    //     mpMap->fLBA_time.push_back(loc_ba_time);
-    //     // cout << "local optimization time: " << loc_ba_time << endl;
+    // if(f_id > 2) {
+    //     GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
+    //                     mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
     // }
+
+    static int num_batch_update = 0;
+    bLocalBatch = true;
+    if ( (f_id-nOVERLAP_SIZE+1)%(nWINDOW_SIZE-nOVERLAP_SIZE)==0 && f_id>=nWINDOW_SIZE-1 && bLocalBatch)
+    {
+        cout << "-------------------------------------------" << endl;
+        cout << "! ! ! ! Partial Batch Optimization ! ! ! ! " << endl;
+        cout << "-------------------------------------------" << endl;
+        clock_t s_5, e_5;
+        double loc_ba_time;
+        s_5 = clock();
+
+        LOG(INFO) << "Error before";
+        GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
+                    mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
+
+        // Get Partial Batch Optimization
+        Optimizer::PartialBatchOptimization(mpMap,mK,nWINDOW_SIZE);
+        e_5 = clock();
+        loc_ba_time = (double)(e_5-s_5)/CLOCKS_PER_SEC*1000;
+        mpMap->fLBA_time.push_back(loc_ba_time);
+
+        LOG(INFO) << "Error after";
+        GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
+                    mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
+
+
+        num_batch_update++;
+
+        if(num_batch_update > 2) {
+            backend->updateMap();
+            LOG(INFO) << "Error after incremental update";
+            GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
+                        mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
+            throw std::invalid_argument("Stop");
+        }
+        
+
+
+        // cout << "local optimization time: " << loc_ba_time << endl;
+    }
 
     // =================================================================================================
     // ============== Full batch optimize on all the measurements (global optimization) ================

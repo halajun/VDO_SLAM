@@ -26,6 +26,7 @@ struct DisplayParams {
     void print() const;
 
     static DisplayParams::Ptr loadFromCvFileStorage(const cv::FileStorage& fs);
+    static bool cvFileNodeBoolCast(const cv::FileNode& node);
 
 };
 

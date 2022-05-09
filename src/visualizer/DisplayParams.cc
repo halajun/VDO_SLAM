@@ -21,10 +21,16 @@ void DisplayParams::print() const {
 
 DisplayParams::Ptr DisplayParams::loadFromCvFileStorage(const cv::FileStorage& fs) {
     DisplayParams::Ptr params = std::make_shared<DisplayParams>();
-//     params->use_2d_viz = fs["Viz.use_2d"];
-//     params->use_3d_viz = fs["Viz.use_3d"];
-//     params->display_input = fs["Viz.displayInput"];
-//     params->display_frame = fs["Viz.displayFrame"];
+    params->use_2d_viz = cvFileNodeBoolCast(fs["Viz.use_2d"]);
+    params->use_3d_viz = cvFileNodeBoolCast(fs["Viz.use_3d"]);
+    params->display_input = cvFileNodeBoolCast(fs["Viz.displayInput"]);
+    params->display_frame = cvFileNodeBoolCast(fs["Viz.displayFrame"]);
+
+    return params;
+}
+
+bool DisplayParams::cvFileNodeBoolCast(const cv::FileNode& node) {
+    return static_cast<int>(node) != 0;
 }
 
 }

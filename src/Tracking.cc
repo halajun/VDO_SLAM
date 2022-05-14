@@ -12,8 +12,8 @@
 #include <Eigen/Core>
 #include <glog/logging.h>
 
-#include<opencv2/core/core.hpp>
-#include<opencv2/features2d/features2d.hpp>
+#include <opencv2/core/core.hpp>
+#include <opencv2/features2d/features2d.hpp>
 #include <opencv2/highgui.hpp>
 #include <cvplot/cvplot.h>
 
@@ -505,8 +505,13 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
 
     }
 
+    Display2DInput display_input;
+    display_input.frame = mCurrentFrame;
+    display_input.static_tracklets = mpMap->TrackletSta;
+
+
     //viz 
-    display->addFrame(mCurrentFrame);
+    display->addInput(display_input);
     display->process();
 
     viz->process();

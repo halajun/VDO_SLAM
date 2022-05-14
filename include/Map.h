@@ -38,6 +38,7 @@ public:
     // index of temporal matching. (k-1)*n
     std::vector<std::vector<int> > vnAssoSta;
     // feature tracklets: pair.first = frameID; pair.second = featureID;
+    //length is k -1. So index 0 is assocations between frame 0 and 1
     std::vector<std::vector<std::pair<int, int> > > TrackletSta;
 
 

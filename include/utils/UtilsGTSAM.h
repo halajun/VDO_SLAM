@@ -1,5 +1,7 @@
 #pragma once
 
+#include "utils/types.h"
+
 #include <iostream>
 #include <string>
 
@@ -17,9 +19,6 @@
 #include <gtsam/geometry/Cal3_S2.h>
 
 namespace VDO_SLAM {
-
-typedef float CvMatAccessType;
-typedef double GtsamAccesType;
 
 namespace utils {
 

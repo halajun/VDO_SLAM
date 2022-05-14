@@ -76,6 +76,7 @@ src/FactorGraph.cc
 
 
 src/backend/VdoSlamBackend.cc
+src/backend/VdoSlamBackend-types.cc
 src/utils/UtilsGTSAM.cc
 src/utils/UtilsOpenCv.cc
 

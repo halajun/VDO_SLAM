@@ -6,17 +6,17 @@ namespace VDO_SLAM {
 OpenCvDisplay::OpenCvDisplay(DisplayParams::Ptr params_)
     :   Display(params_) {}
 
-void OpenCvDisplay::addFrame(const Frame& frame) {
+void OpenCvDisplay::addInput(const Display2DInput& input) {
     if(!params->use_2d_viz) {
         return;
     }
 
     if(params->display_input) {
-        drawInputImages(frame);
+        drawInputImages(input.frame);
     }
 
     if(params->display_frame) {
-        drawFrame(frame);
+        drawFrame(input);
     }
 
 }
@@ -50,7 +50,8 @@ void OpenCvDisplay::drawInputImages(const Frame& frame) {
 
 }
 
-void OpenCvDisplay::drawFrame(const Frame& frame) {
+void OpenCvDisplay::drawFrame(const Display2DInput& input) {
+    const Frame& frame = input.frame;
     cv::Mat frame_viz, rgb;
     frame.rgb.copyTo(rgb);
     CHECK(rgb.channels() == 3) << "Expecting rgb in frame to gave 3 channels";
@@ -58,6 +59,32 @@ void OpenCvDisplay::drawFrame(const Frame& frame) {
     drawFeatures(rgb, frame, frame_viz);
     addDisplayImages(frame_viz, "Current Frame");
 }
+
+void OpenCvDisplay::drawFeatures(const cv::Mat& rgb, const Frame& frame, cv::Mat& frame_viz) {
+    rgb.copyTo(frame_viz);
+    //Temporal match subset is used for static objects
+    //see renew frame for how the inlier outliers are used. Can categorise as inlier outliers?
+
+    //i think i could use the nStaInlierID to index the mvStatKeys which is equivalent to mvStatKeysTmp
+    for(int inlier : frame.nStaInlierID) {
+        const cv::KeyPoint& kp = frame.mvStatKeys[inlier];
+        utils::drawCircleInPlace(frame_viz, kp, cv::Scalar(0, 255, 0));
+    }
+
+    //draw dynamic objects
+    for (int i = 0; i < frame.vObjLabel.size(); ++i) {
+        int dynamic_label = frame.vObjLabel[i];
+        if(dynamic_label == -1 || dynamic_label == -2) {
+            //log warning?
+            continue;
+        }
+
+        cv::KeyPoint object_kp = frame.mvObjKeys[i];
+        cv::Scalar colour = getObjectColour(dynamic_label);
+        utils::drawCircleInPlace(frame_viz, object_kp, colour);
+    }
+}
+
 
 
 void OpenCvDisplay::process() {
@@ -113,30 +140,7 @@ void OpenCvDisplay::drawSemanticInstances(const cv::Mat& rgb, const cv::Mat& mas
         }
     }
 }
-void OpenCvDisplay::drawFeatures(const cv::Mat& rgb, const Frame& frame, cv::Mat& frame_viz) {
-    rgb.copyTo(frame_viz);
-    //Temporal match subset is used for static objects
-    //see renew frame for how the inlier outliers are used. Can categorise as inlier outliers?
 
-    //i think i could use the nStaInlierID to index the mvStatKeys which is equivalent to mvStatKeysTmp
-    for(int inlier : frame.nStaInlierID) {
-        const cv::KeyPoint& kp = frame.mvStatKeys[inlier];
-        utils::drawCircleInPlace(frame_viz, kp, cv::Scalar(0, 255, 0));
-    }
-
-    //draw dynamic objects
-    for (int i = 0; i < frame.vObjLabel.size(); ++i) {
-        int dynamic_label = frame.vObjLabel[i];
-        if(dynamic_label == -1 || dynamic_label == -2) {
-            //log warning?
-            continue;
-        }
-
-        cv::KeyPoint object_kp = frame.mvObjKeys[i];
-        cv::Scalar colour = getObjectColour(dynamic_label);
-        utils::drawCircleInPlace(frame_viz, object_kp, colour);
-    }
-}
 
 
 

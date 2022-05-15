@@ -36,7 +36,7 @@ VdoSlamBackend::VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_)
         K_calib =  utils::cvMat2Cal3_S2(K);
 
         point3DNoiseModel = gtsam::noiseModel::Diagonal::Sigmas(
-                    (gtsam::Vector(3) << gtsam::Vector2::Constant(1.0/sigma2_3d_sta)).finished()
+                    (gtsam::Vector(3) << gtsam::Vector3::Constant(1.0/sigma2_3d_sta)).finished()
                 );
 
         CHECK_NOTNULL(K_calib);
@@ -51,6 +51,7 @@ void VdoSlamBackend::process() {
 
 
     current_frame = N - 1;
+
 
     std::vector<int>  vnFLS_tmp(map->vpFeatSta[current_frame].size(),-1);
     vnFeaLabSta.push_back(vnFLS_tmp);
@@ -120,7 +121,7 @@ void VdoSlamBackend::process() {
 
     CHECK_EQ(unique_vertices.size(), N);
 
-    const GtsamAccesType sigma2_cam = 0.001; // 0.005 0.001 0.0001
+    const GtsamAccesType sigma2_cam = 0.01; // 0.005 0.001 0.0001
     const GtsamAccesType sigma2_obj_smo = 0.1; // 0.1
     const GtsamAccesType sigma2_obj = 20; // 0.5 1 10 20
     const GtsamAccesType sigma2_3d_dyn = 16; // 50 100 16
@@ -188,8 +189,8 @@ void VdoSlamBackend::process() {
         int PositionID = -1;
         //trackets require at least one prior frame to exist to track the feature through
         //so the first frame that we can track the the features is 
-        for (int k = 0; k < StaTracks[TrackID].size(); ++k)
-        {
+        for (int k = 0; k < StaTracks[TrackID].size(); ++k) {
+            // LOG(INFO) << StaTracks[TrackID][k].first;
             //if we're not looping through all the frames (eg i becomes start_frame is this going to be a problem?)
             if (StaTracks[TrackID][k].first==current_frame && StaTracks[TrackID][k].second==j) {
                 // LOG(INFO) << current_frame;
@@ -221,8 +222,39 @@ void VdoSlamBackend::process() {
                 continue;
             }
 
+            //but there is also at least one track we dont have? becuase we only add the third track
+            int prev_1_frame = StaTracks[TrackID][PositionID-1].first;
+            int prev_1_lmk_id = StaTracks[TrackID][PositionID-1].second;
+            gtsam::Point3 X_w_prev1 = utils::cvMatToGtsamPoint3(
+                map->vp3DPointSta[prev_1_frame][prev_1_lmk_id]);
+            //get the camera pose vertex at this time
+            addLandmarkToGraph(X_w_prev1, count_unique_id, prev_1_frame, prev_1_lmk_id);
+            vnFeaMakSta[prev_1_frame][prev_1_lmk_id] = count_unique_id;
+
+            cv::Mat Xc_prev_1 = Optimizer::Get3DinCamera(map->vpFeatSta[prev_1_frame][prev_1_lmk_id],map->vfDepSta[prev_1_frame][prev_1_lmk_id],K);
+            gtsam::Point3 X_c_prev_1_point = utils::cvMatToGtsamPoint3(Xc_prev_1);
+            int camera_pose_vertex_prev1 = unique_vertices[prev_1_frame][0];
+            addPoint3DFactor(X_c_prev_1_point, camera_pose_vertex_prev1, count_unique_id);
+            count_unique_id++;
+
+
+            int prev_2_frame = StaTracks[TrackID][PositionID-2].first;
+            int prev_2_lmk_id = StaTracks[TrackID][PositionID-2].second;
+            gtsam::Point3 X_w_prev2 = utils::cvMatToGtsamPoint3(
+                map->vp3DPointSta[prev_2_frame][prev_2_lmk_id]);
+
+            addLandmarkToGraph(X_w_prev2, count_unique_id, prev_2_frame, prev_2_lmk_id);
+            vnFeaMakSta[prev_1_frame][prev_1_lmk_id] = count_unique_id;
+
+            cv::Mat Xc_prev_2 = Optimizer::Get3DinCamera(map->vpFeatSta[prev_2_frame][prev_2_lmk_id],map->vfDepSta[prev_2_frame][prev_2_lmk_id],K);
+            gtsam::Point3 X_c_prev_2_point = utils::cvMatToGtsamPoint3(Xc_prev_2);
+            int camera_pose_vertex_prev2 = unique_vertices[prev_2_frame][0];
+            addPoint3DFactor(X_c_prev_2_point, camera_pose_vertex_prev2, count_unique_id);
+            count_unique_id++;
+
+
             gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointSta[current_frame][j]);
-            // addLandmarkToGraph(X_w, count_unique_id, current_frame, j);
+            addLandmarkToGraph(X_w, count_unique_id, current_frame, j);
 
             // values.insert(count_unique_id, X_w);
             // addToKeyVertexMapping(count_unique_id, current_frame, j, kSymbolPoint3Key);
@@ -234,7 +266,7 @@ void VdoSlamBackend::process() {
             cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatSta[current_frame][j],map->vfDepSta[current_frame][j],K);
             gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
             // graph.emplace_shared<Point3DFactor>(curr_camera_pose_vertex, count_unique_id, X_c_point, camera_projection_noise);
-            // addPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
+            addPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
 
             vnFeaMakSta[current_frame][j] = count_unique_id;
             count_unique_id++;
@@ -269,7 +301,7 @@ void VdoSlamBackend::process() {
             cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatSta[current_frame][j],map->vfDepSta[current_frame][j],K);
             gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
             // graph.emplace_shared<Point3DFactor>(curr_camera_pose_vertex, FeaMakTmp, X_c_point, camera_projection_noise);
-            // addPoint3DFactor(X_c_point, curr_camera_pose_vertex, FeaMakTmp);
+            addPoint3DFactor(X_c_point, curr_camera_pose_vertex, FeaMakTmp);
             vnFeaMakSta[current_frame][j] = FeaMakTmp;
         }
 
@@ -279,8 +311,6 @@ void VdoSlamBackend::process() {
     pre_camera_pose_vertex = curr_camera_pose_vertex;
     optimize();
     // 
-    // updateMap();
-
 
 }
 
@@ -497,6 +527,7 @@ void VdoSlamBackend::optimize() {
         try {
             isam->update(graph, values);
             graph.resize(0);
+            // updateMap();
         }
         catch (const gtsam::ValuesKeyDoesNotExist& e) {
             LOG(WARNING) << e.what();

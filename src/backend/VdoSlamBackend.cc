@@ -12,6 +12,7 @@
 #include <gtsam/geometry/Pose3.h>
 
 #include "utils/macros.h"
+#include "utils/timing.h"
 #include "factors/Point3DFactor.h"
 #include "Map.h"
 #include "Optimizer.h"
@@ -39,6 +40,11 @@ VdoSlamBackend::VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_)
                     (gtsam::Vector(3) << gtsam::Vector3::Constant(1.0/sigma2_3d_sta)).finished()
                 );
 
+
+        //TODO: for 3d Points only. See optimzier.
+        robust_noise_model =  gtsam::noiseModel::Robust::Create(
+            gtsam::noiseModel::mEstimator::Huber::Create(0.0001), point3DNoiseModel);  // robust
+            
         CHECK_NOTNULL(K_calib);
     }
 
@@ -121,13 +127,13 @@ void VdoSlamBackend::process() {
 
     CHECK_EQ(unique_vertices.size(), N);
 
-    const GtsamAccesType sigma2_cam = 0.01; // 0.005 0.001 0.0001
+    const GtsamAccesType sigma2_cam = 0.0001; // 0.005 0.001 0.0001
     const GtsamAccesType sigma2_obj_smo = 0.1; // 0.1
     const GtsamAccesType sigma2_obj = 20; // 0.5 1 10 20
     const GtsamAccesType sigma2_3d_dyn = 16; // 50 100 16
     const GtsamAccesType sigma2_alti = 1;
 
-    const GtsamAccesType camera_pose_prior_sigma = 0.0001;
+    const GtsamAccesType camera_pose_prior_sigma = 0.000001;
     auto camera_pose_prior_n = gtsam::noiseModel::Diagonal::Sigmas(
         (gtsam::Vector(6) << gtsam::Vector6::Constant(camera_pose_prior_sigma)).finished()
     );
@@ -351,58 +357,46 @@ void VdoSlamBackend::calculateError() {
               << "Refined R: " << r_sum_refined << " T: " << t_sum_refined;
 }
 
-void VdoSlamBackend::updateMap() {
+void VdoSlamBackend::updateMapFromIncremental() {
     
 
     const gtsam::KeySet& observed_keys = result.markedKeys;
     int num_poses_update = 0;
     int num_points_updated = 0;
 
-    LOG(INFO) << "Observed keys size " << observed_keys.size();
+    LOG(INFO) << "Starting incremental map udpate with keys size " << observed_keys.size();
+
+    for(const gtsam::Key& key : observed_keys) {
+        IJSymbol vertex_pair = key_to_unique_vertices[key];
+        updateMapFromSymbol(key, vertex_pair);
+
+    }
+
+    
+
+    // LOG(INFO) << "Num poses updated " << num_poses_update << " and num points updated " << num_points_updated;
+
+}
+
+
+void VdoSlamBackend::updateMapFull() {
+    LOG(INFO) << "Starting full map update with " << key_to_unique_vertices.size() << " keys";
+    const auto& total_start_time = utils::Timer::tic();
 
     for(const auto& pair : key_to_unique_vertices) {
         const gtsam::Key& key = pair.first;
         const IJSymbol& vertex_pair = pair.second;
-    // for(const gtsam::Key& key : observed_keys) {
-    //     IJSymbol vertex_pair = key_to_unique_vertices[key];
-        const int frame_id = vertex_pair.i;
-        const int feature_id = vertex_pair.j;
 
-        //we have updated a pose
-        if(vertex_pair.symbol == kSymbolCameraPose3Key) {
-            gtsam::Pose3 camea_pose_refined = isam->calculateEstimate<gtsam::Pose3>(key);
-            map->vmCameraPose[frame_id] = utils::gtsamPose3ToCvMat(camea_pose_refined);
-            num_poses_update++;
-            
-            if(frame_id > 0) {
-
-                CHECK_MAT_TYPES(Converter::toInvMatrix(
-                    map->vmCameraPose[frame_id-1]), map->vmCameraPose[frame_id]);
-
-                map->vmRigidMotion[frame_id-1][0] = Converter::toInvMatrix(
-                    map->vmCameraPose[frame_id-1])*map->vmCameraPose[frame_id];
-            }
+        //issue with the addToKeyVertexMapping function being called before
+        //we add to isam. FOr now just do a check
+        if(isam->valueExists(key)) {
+            updateMapFromSymbol(key, vertex_pair);
         }
-
-        if(vertex_pair.symbol == kSymbolPoint3Key) {
-            num_points_updated++;
-            gtsam::Point3 point = isam->calculateEstimate<gtsam::Point3>(key);
-            if(vnFeaMakSta[frame_id][feature_id] != -1) {
-                map->vp3DPointSta[frame_id][feature_id] = utils::gtsamPoint3ToCvMat(point);
-                // num_points_updated++;
-            }
-            else {
-                //log warning?
-            }
-        }
-
 
     }
 
-    LOG(INFO) << "Num poses updated " << num_poses_update << " and num points updated " << num_points_updated;
-
-
-
+    auto end_time = utils::Timer::toc<std::chrono::milliseconds>(total_start_time).count();
+    LOG(INFO) << "Full map update took: " << end_time << " milliseconds";
 
 }
 
@@ -413,39 +407,44 @@ gtsam::Values VdoSlamBackend::calculateCurrentEstimate() const {
 
 const size_t VdoSlamBackend::getMapSize() const { return map->vpFeatSta.size(); }
 
-void VdoSlamBackend::addToKeyVertexMapping(const gtsam::Key& key, int i, int j, unsigned char symbol) {
+void VdoSlamBackend::addToKeyVertexMapping(const gtsam::Key& key, FrameId curr_frame, FeatureId feature_id, unsigned char symbol) {
     auto it = key_to_unique_vertices.find(key);
     CHECK(it == key_to_unique_vertices.end()) << "gtsam key is not unique in the key to vertex map";
 
     IJSymbol ij_symbol;
-    ij_symbol.i = i;
-    ij_symbol.j = j;
+    ij_symbol.i = curr_frame;
+    ij_symbol.j = feature_id;
     ij_symbol.symbol = symbol;
     key_to_unique_vertices.insert({key, ij_symbol});
 }
 
-void VdoSlamBackend::addCameraPoseToGraph(const gtsam::Pose3& pose, int key, int i) {
+void VdoSlamBackend::addCameraPoseToGraph(const gtsam::Pose3& pose, gtsam::Key key, FrameId curr_frame) {
     new_camera_poses.insert(key, pose);
-    addToKeyVertexMapping(key, i, 0, kSymbolCameraPose3Key);
+    addToKeyVertexMapping(key, curr_frame, 0, kSymbolCameraPose3Key);
 }
 
 
-void VdoSlamBackend::addLandmarkToGraph(const gtsam::Point3& landmark, int key, int i, int j) {
+void VdoSlamBackend::addLandmarkToGraph(const gtsam::Point3& landmark, gtsam::Key key, FrameId curr_frame, FeatureId feature_id) {
     auto it = observed_landmarks.find(key);
     //if not in map then first time observed here so we set observation to 0.
     //also assume that if its never been seen here then it is not in new_values
     if (it == observed_landmarks.end()) {
+        //sanity check. if not in observed should definitely not be in isam
+        CHECK(!isam->valueExists(key));
         observed_landmarks[key] = {};
         CHECK(!new_lmks.exists(key));
         new_lmks.insert(key, landmark);
-        addToKeyVertexMapping(key, i, j, kSymbolPoint3Key);
+        //TODO: THIS IS BAD: we're not actually adding the lmk to isam2 yet (it may not have enough measurements)
+        //so when we try and opt this key is actually not in the map
+        //for now we'll add a check in update map full but this needs to be changed
+        addToKeyVertexMapping(key, curr_frame, feature_id, kSymbolPoint3Key);
     }
     else {
         CHECK(new_lmks.exists(key));
     }
 }
 
-void VdoSlamBackend::addPoint3DFactor(const gtsam::Point3& measurement, int pose_key, int landmark_key) {
+void VdoSlamBackend::addPoint3DFactor(const gtsam::Point3& measurement, gtsam::Key pose_key, gtsam::Key landmark_key) {
     // graph.emplace_shared<Point3DFactor>(pose_key, landmark_key, measurement, point3DNoiseModel);
     //look for landmark key
     auto it = observed_landmarks.find(landmark_key);
@@ -456,7 +455,7 @@ void VdoSlamBackend::addPoint3DFactor(const gtsam::Point3& measurement, int pose
             pose_key,
             landmark_key,
             measurement,
-            point3DNoiseModel
+            robust_noise_model
         )
     );
 
@@ -471,7 +470,7 @@ gtsam::Values VdoSlamBackend::collectValuesToAdd() {
     //yeah thhis search grows expontially until we start to marginalize out variables
     //becuase we look through all the observed variables. 
     //Dont add them unless they are already in the map and clear the factors
-    size_t graph_size_before = graph.size();
+    debug_info.graph_size_before_collection = graph.size();
     for(auto& x : observed_landmarks) {
         const gtsam::Key& landmark_key = x.first;
         // LOG(INFO) << "looking at " << landmark_key;
@@ -486,6 +485,7 @@ gtsam::Values VdoSlamBackend::collectValuesToAdd() {
             gtsam::Point3 landmark = new_lmks.at<gtsam::Point3>(landmark_key);
             new_lmks.erase(landmark_key);
             values_to_add.insert(landmark_key, landmark);
+            debug_info.num_new_static_points++;
 
             // LOG(INFO) << "Adding " << factors.size() << " Point3D Factors";
 
@@ -494,6 +494,9 @@ gtsam::Values VdoSlamBackend::collectValuesToAdd() {
             factors.clear();
 
         }
+        //imlicit logic here -> if the landmark is in isam 
+        //then we assume that at some point prior it must have had at least two landmarks and
+        //we have added those factors and cleared the array. 
         if(isam->valueExists(landmark_key)) {
             // LOG(INFO) << "key: " << landmark_key << " exists.";
             // LOG(INFO) << "Adding " << factors.size() << " Point3D Factors";
@@ -504,8 +507,7 @@ gtsam::Values VdoSlamBackend::collectValuesToAdd() {
         }
     }
 
-    size_t graph_size_after = graph.size();
-    LOG(INFO) << "Graph before: " << graph_size_before << " and after  " << graph_size_after;
+    debug_info.graph_size_before_collection = graph.size();
 
     //now also add camera poses
     //I mean... this will always be one.. presumably
@@ -513,10 +515,14 @@ gtsam::Values VdoSlamBackend::collectValuesToAdd() {
     for(const gtsam::Key& key : cam_pose_keys) {
         gtsam::Pose3 pose = new_camera_poses.at<gtsam::Pose3>(key);
         values_to_add.insert(key, pose);
-        LOG(INFO) << "added cam pose: " << key;
+        debug_info.num_new_poses++;
     }
 
     new_camera_poses.clear();
+
+    debug_info.total_new_values = values_to_add.size();
+    //also update debug frame info here...?
+    debug_info.frame = current_frame;
     return values_to_add;
 }
 
@@ -525,9 +531,15 @@ void VdoSlamBackend::optimize() {
     if(current_frame > 1) {
         gtsam::Values values = collectValuesToAdd();
         try {
-            isam->update(graph, values);
+            result = isam->update(graph, values);
+            isam->update();
+            isam->update();
+            isam->update();
             graph.resize(0);
-            // updateMap();
+
+            debug_info.print();
+            debug_info.reset();
+            // updateMapFromIncremental();
         }
         catch (const gtsam::ValuesKeyDoesNotExist& e) {
             LOG(WARNING) << e.what();
@@ -557,6 +569,41 @@ void VdoSlamBackend::optimize() {
     
 
 }
+
+void VdoSlamBackend::updateMapFromSymbol(const gtsam::Key& key, const IJSymbol& vertex_symbol) {
+    const int frame_id = vertex_symbol.i;
+    const int feature_id = vertex_symbol.j;
+
+
+    //we have updated a pose
+    if(vertex_symbol.symbol == kSymbolCameraPose3Key) {
+        gtsam::Pose3 camea_pose_refined = isam->calculateEstimate<gtsam::Pose3>(key);
+        map->vmCameraPose[frame_id] = utils::gtsamPose3ToCvMat(camea_pose_refined);
+        // num_poses_update++;
+        
+        if(frame_id > 0) {
+
+            CHECK_MAT_TYPES(Converter::toInvMatrix(
+                map->vmCameraPose[frame_id-1]), map->vmCameraPose[frame_id]);
+
+            map->vmRigidMotion[frame_id-1][0] = Converter::toInvMatrix(
+                map->vmCameraPose[frame_id-1])*map->vmCameraPose[frame_id];
+        }
+    }
+
+    if(vertex_symbol.symbol == kSymbolPoint3Key) {
+        // num_points_updated++;
+        gtsam::Point3 point = isam->calculateEstimate<gtsam::Point3>(key);
+        if(vnFeaMakSta[frame_id][feature_id] != -1) {
+            map->vp3DPointSta[frame_id][feature_id] = utils::gtsamPoint3ToCvMat(point);
+            // num_points_updated++;
+        }
+        else {
+            //log warning?
+        }
+    }
+}
+
 
 
 

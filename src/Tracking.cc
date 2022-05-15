@@ -1207,7 +1207,6 @@ void Tracking::Track()
     //     GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
     //                     mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
     // }
-
     static int num_batch_update = 0;
     bLocalBatch = true;
     if ( (f_id-nOVERLAP_SIZE+1)%(nWINDOW_SIZE-nOVERLAP_SIZE)==0 && f_id>=nWINDOW_SIZE-1 && bLocalBatch)
@@ -1223,24 +1222,27 @@ void Tracking::Track()
         GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
                     mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
 
-        // Get Partial Batch Optimization
-        Optimizer::PartialBatchOptimization(mpMap,mK,nWINDOW_SIZE);
-        e_5 = clock();
-        loc_ba_time = (double)(e_5-s_5)/CLOCKS_PER_SEC*1000;
-        mpMap->fLBA_time.push_back(loc_ba_time);
+        backend->calculateError();
 
-        LOG(INFO) << "Error after";
-        GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
-                    mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
+        // // Get Partial Batch Optimization
+        // Optimizer::PartialBatchOptimization(mpMap,mK,nWINDOW_SIZE);
+        // e_5 = clock();
+        // loc_ba_time = (double)(e_5-s_5)/CLOCKS_PER_SEC*1000;
+        // mpMap->fLBA_time.push_back(loc_ba_time);
+
+        // LOG(INFO) << "Error after";
+        // GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
+        //             mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
 
 
         num_batch_update++;
 
         if(num_batch_update > 2) {
-            backend->updateMap();
+            backend->updateMapFull();
             LOG(INFO) << "Error after incremental update";
             GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
                         mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
+            backend->calculateError();
             throw std::invalid_argument("Stop");
         }
         

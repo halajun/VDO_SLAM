@@ -43,7 +43,10 @@ class VdoSlamBackend {
         gtsam::Values calculateCurrentEstimate() const;
 
         void calculateError();
-        void updateMap();
+        //this updates the map from the last set of marked variables in the isam2 results object
+        void updateMapFromIncremental();
+        //updates the map using all values ever seen (as stored in key_to_unique_vertices)
+        void updateMapFull();
 
     private:
 
@@ -53,15 +56,18 @@ class VdoSlamBackend {
         //could totally make this templated and add the type itself to the values variable
         //but there is some logic about incrementing the curr_camera_pose_vertex and other vertex
         //counters that may make this difficult
-        void addToKeyVertexMapping(const gtsam::Key& key, int i, int j, unsigned char symbol);
+        void addToKeyVertexMapping(const gtsam::Key& key, FrameId curr_frame, FeatureId feature_id, unsigned char symbol);
 
-        void addCameraPoseToGraph(const gtsam::Pose3& pose, int key, int i);
+        void addCameraPoseToGraph(const gtsam::Pose3& pose, gtsam::Key key, FrameId curr_frame);
 
-        void addLandmarkToGraph(const gtsam::Point3& landmark, int key, int i, int j);
-        void addPoint3DFactor(const gtsam::Point3& measurement, int pose_key, int landmark_key);
+        void addLandmarkToGraph(const gtsam::Point3& landmark, gtsam::Key key, FrameId curr_frame, FeatureId feature_id);
+        void addPoint3DFactor(const gtsam::Point3& measurement, gtsam::Key pose_key, gtsam::Key landmark_key);
 
         gtsam::Values collectValuesToAdd();
         void optimize();
+
+
+        void updateMapFromSymbol(const gtsam::Key& key, const IJSymbol& vertex_symbol);
 
     private:
         Map* map;
@@ -69,7 +75,7 @@ class VdoSlamBackend {
         gtsam::ISAM2Result result;
 
         std::vector<std::vector<int>> unique_vertices;
-        int count_unique_id;
+        gtsam::Key count_unique_id;
 
         //reverse loook up so given a unique key we can find the i, j pairining in the unique_vertices
         //which will tell us how tp put this back into the map... if we know the type...
@@ -77,16 +83,16 @@ class VdoSlamBackend {
 
         //I think this is the id of the camera pose vertex saved at the previous and current frames
         //the frame id solved for previously
-        int pre_camera_pose_vertex;
+        gtsam::Key pre_camera_pose_vertex;
         //the frame id to be solving for. I guess we only need one of them 
         //this starts at 0
-        int curr_camera_pose_vertex;
+        gtsam::Key curr_camera_pose_vertex;
 
         //make optimizer using gtsam
         gtsam::NonlinearFactorGraph graph;
         gtsam::Values new_camera_poses;
 
-        // gtsam::NonlinearFactorGraph point_3d_factors;
+        //new landmarks that have not been added to isam yet.
         gtsam::Values new_lmks;
 
         //how many times a value has been observed. Ie, has a factor on it.
@@ -123,7 +129,15 @@ class VdoSlamBackend {
         gtsam::noiseModel::Diagonal::shared_ptr point3DNoiseModel;
         const GtsamAccesType sigma2_3d_sta = 16; // 50 80 16
 
+        //robust noise model
+        gtsam::noiseModel::Base::shared_ptr robust_noise_model;
+
+        BackendDebugInfo debug_info;
+
 };
+
+
+
 
 
 } //VDO_SLAM

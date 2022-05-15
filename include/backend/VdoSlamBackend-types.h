@@ -12,10 +12,11 @@ namespace VDO_SLAM {
 typedef boost::shared_ptr<Point3DFactor> Point3DFactorPtr;
 typedef std::vector<Point3DFactorPtr> Point3DFactors;
 
+
 //quick reverse lookup for unique vertices
 struct IJSymbol {
-    int i;
-    int j;
+    FrameId i;
+    FeatureId j;
     unsigned char symbol;
     
     IJSymbol()

@@ -222,7 +222,8 @@ void VdoSlamBackend::process() {
             }
 
             gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointSta[current_frame][j]);
-            addLandmarkToGraph(X_w, count_unique_id, current_frame, j);
+            // addLandmarkToGraph(X_w, count_unique_id, current_frame, j);
+
             // values.insert(count_unique_id, X_w);
             // addToKeyVertexMapping(count_unique_id, current_frame, j, kSymbolPoint3Key);
             // // LOG(INFO) << "Added point3 key to vertex mapping " << count_unique_id << " " << kSymbolPoint3Key;
@@ -233,7 +234,7 @@ void VdoSlamBackend::process() {
             cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatSta[current_frame][j],map->vfDepSta[current_frame][j],K);
             gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
             // graph.emplace_shared<Point3DFactor>(curr_camera_pose_vertex, count_unique_id, X_c_point, camera_projection_noise);
-            addPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
+            // addPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
 
             vnFeaMakSta[current_frame][j] = count_unique_id;
             count_unique_id++;
@@ -268,7 +269,7 @@ void VdoSlamBackend::process() {
             cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatSta[current_frame][j],map->vfDepSta[current_frame][j],K);
             gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
             // graph.emplace_shared<Point3DFactor>(curr_camera_pose_vertex, FeaMakTmp, X_c_point, camera_projection_noise);
-            addPoint3DFactor(X_c_point, curr_camera_pose_vertex, FeaMakTmp);
+            // addPoint3DFactor(X_c_point, curr_camera_pose_vertex, FeaMakTmp);
             vnFeaMakSta[current_frame][j] = FeaMakTmp;
         }
 

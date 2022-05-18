@@ -85,6 +85,8 @@ Viz.use_3d: 0
 
 ## Backend Params
 Backend.use_robust_kernel: 1
+Backend.var_camera: 0.001
+Backend.var_3d_static: 0.1
 
 
 

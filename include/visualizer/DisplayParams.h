@@ -1,10 +1,10 @@
 #pragma once
 
-
 #include "utils/macros.h"
-
+#include "utils/ParamParser.h"
 #include <glog/logging.h>
 #include <opencv2/core/core.hpp>
+
 
 
 
@@ -25,7 +25,7 @@ struct DisplayParams {
 
     void print() const;
 
-    static DisplayParams::Ptr loadFromCvFileStorage(const cv::FileStorage& fs);
+    static DisplayParams::Ptr loadFromParamParser(const utils::ParamParser& pp);
 
 };
 

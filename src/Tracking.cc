@@ -50,12 +50,18 @@ Tracking::Tracking(System *pSys, Map *pMap, const string &strSettingPath, const 
     mState(NO_IMAGES_YET), mSensor(sensor), mpSystem(pSys), mpMap(pMap)
 {
     // Load camera parameters from settings file
-
+    param_parser = std::make_shared<utils::ParamParser>(strSettingPath);
+    //TODO: change everything over to param parser
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
-    float fx = fSettings["Camera.fx"];
-    float fy = fSettings["Camera.fy"];
-    float cx = fSettings["Camera.cx"];
-    float cy = fSettings["Camera.cy"];
+    // float fx = fSettings["Camera.fx"];
+    // float fy = fSettings["Camera.fy"];
+    // float cx = fSettings["Camera.cx"];
+    // float cy = fSettings["Camera.cy"];
+    float fx, fy, cx, cy;
+    param_parser->getParam("Camera.fx", &fx);
+    param_parser->getParam("Camera.fy", &fy);
+    param_parser->getParam("Camera.cx", &cx);
+    param_parser->getParam("Camera.cy", &cy);
 
     cv::Mat K = cv::Mat::eye(3,3,CV_32F);
     K.at<float>(0,0) = fx;
@@ -65,11 +71,18 @@ Tracking::Tracking(System *pSys, Map *pMap, const string &strSettingPath, const 
     K.copyTo(mK);
 
     cv::Mat DistCoef(4,1,CV_32F);
-    DistCoef.at<float>(0) = fSettings["Camera.k1"];
-    DistCoef.at<float>(1) = fSettings["Camera.k2"];
-    DistCoef.at<float>(2) = fSettings["Camera.p1"];
-    DistCoef.at<float>(3) = fSettings["Camera.p2"];
-    const float k3 = fSettings["Camera.k3"];
+   // DistCoef.at<float>(0) = fSettings["Camera.k1"];
+    // // DistCoef.at<float>(1) = fSettings["Camera.k2"];
+    // // DistCoef.at<float>(2) = fSettings["Camera.p1"];
+    // // DistCoef.at<float>(3) = fSettings["Camera.p2"];
+    // // const float k3 = fSettings["Camera.k3"];
+    param_parser->getParam("Camera.k1", &DistCoef.at<float>(0));
+    param_parser->getParam("Camera.k2", &DistCoef.at<float>(1));
+    param_parser->getParam("Camera.p1", &DistCoef.at<float>(2));
+    param_parser->getParam("Camera.p2", &DistCoef.at<float>(3));
+
+    float k3 = 0;
+    param_parser->getParam("Camera.k3", &k3);
     if(k3!=0)
     {
         DistCoef.resize(5);
@@ -162,9 +175,12 @@ Tracking::Tracking(System *pSys, Map *pMap, const string &strSettingPath, const 
         cout << "- used detected feature for background scene..." << endl;
 
     graph = std::make_shared<FactorGraph>(pMap, mK);
-    backend = std::make_shared<VdoSlamBackend>(pMap, mK);
 
-    DisplayParams::Ptr display_params = DisplayParams::loadFromCvFileStorage(fSettings);
+    BackendParams::Ptr backend_params = BackendParams::loadFromParamParser(*param_parser);
+    CHECK_NOTNULL(backend_params)->print(); 
+    backend = std::make_shared<VdoSlamBackend>(pMap, mK, backend_params);
+
+    DisplayParams::Ptr display_params = DisplayParams::loadFromParamParser(*param_parser);
     CHECK_NOTNULL(display_params)->print(); 
 
     viz = std::make_shared<OpenCvVisualizer3D>(display_params, pMap);

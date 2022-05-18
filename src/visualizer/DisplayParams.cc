@@ -12,6 +12,7 @@ namespace VDO_SLAM {
 
 void DisplayParams::print() const {
     std::stringstream out;
+    out << "\n -----------Display Params ---------- \n";
     out << " Using 2D viz " << use_2d_viz << "\n";
     out << " Using 3D viz " << use_3d_viz << "\n";
     out << " Display Input " << display_input << "\n";
@@ -20,14 +21,14 @@ void DisplayParams::print() const {
 
 }
 
-DisplayParams::Ptr DisplayParams::loadFromCvFileStorage(const cv::FileStorage& fs) {
+DisplayParams::Ptr DisplayParams::loadFromParamParser(const utils::ParamParser& pp) {
     DisplayParams::Ptr params = std::make_shared<DisplayParams>();
-    params->use_2d_viz = utils::cvFileNodeBoolCast(fs["Viz.use_2d"]);
-    params->use_3d_viz = utils::cvFileNodeBoolCast(fs["Viz.use_3d"]);
-    params->display_input = utils::cvFileNodeBoolCast(fs["Viz.displayInput"]);
-    params->display_frame = utils::cvFileNodeBoolCast(fs["Viz.displayFrame"]);
-
+    pp.getParam("Viz.use_2d", &params->use_2d_viz);
+    pp.getParam("Viz.use_3d", &params->use_3d_viz);
+    pp.getParam("Viz.displayInput", &params->display_input);
+    pp.getParam("Viz.displayFrame", &params->display_frame);
     return params;
+
 }
 
 

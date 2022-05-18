@@ -38,8 +38,6 @@ cv::Affine3d gtsamPose3ToCvAffine3d(const gtsam::Pose3& pose);
 //to get it to align with the standard axis
 cv::Mat transformCameraPoseToWorld(const cv::Mat& pose);
 
-//helper function to convert (yaml) settings to bool
-bool cvFileNodeBoolCast(const cv::FileNode& node);
 
 
 

@@ -25,6 +25,7 @@
 #include "visualizer/OpenCvDisplay.h"
 #include "visualizer/OpenCvVisualizer3D.h"
 #include "backend/VdoSlamBackend.h"
+#include "utils/ParamParser.h"
 
 #include <mutex>
 
@@ -210,6 +211,8 @@ protected:
     OpenCvVisualizer3D::Ptr viz;
 
     VdoSlamBackend::Ptr backend;
+
+    utils::ParamParser::Ptr param_parser;
 
     // Main tracking function. It is independent of the input sensor.
     void Track();

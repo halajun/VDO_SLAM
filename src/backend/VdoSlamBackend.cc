@@ -20,14 +20,18 @@
 
 namespace VDO_SLAM {
 
-VdoSlamBackend::VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_) 
+VdoSlamBackend::VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_, BackendParams::Ptr params_) 
     :   map(CHECK_NOTNULL(map_)),
         K(Calib_K_),
+        params(CHECK_NOTNULL(params_)),
         count_unique_id(1),
         pre_camera_pose_vertex(-1),
         curr_camera_pose_vertex(0),
         current_frame(-1),
-        key_to_unique_vertices() {
+        key_to_unique_vertices(),
+        cameraPosePrior(nullptr),
+        odometryNoiseModel(nullptr),
+        point3DNoiseModel(nullptr) {
 
         gtsam::ISAM2Params parameters;
         parameters.relinearizeThreshold = 0.01;
@@ -36,15 +40,19 @@ VdoSlamBackend::VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_)
         isam = VDO_SLAM::make_unique<gtsam::ISAM2>(parameters);
         K_calib =  utils::cvMat2Cal3_S2(K);
 
-        point3DNoiseModel = gtsam::noiseModel::Diagonal::Sigmas(
-                    (gtsam::Vector(3) << gtsam::Vector3::Constant(1.0/sigma2_3d_sta)).finished()
-                );
+        setupNoiseModels();        
 
+        // //TODO: for 3d Points only. See optimzier.
+        // robust_noise_model =  gtsam::noiseModel::Robust::Create(
+        //     gtsam::noiseModel::mEstimator::Huber::Create(0.0001), point3DNoiseModel);  // robust
 
-        //TODO: for 3d Points only. See optimzier.
-        robust_noise_model =  gtsam::noiseModel::Robust::Create(
-            gtsam::noiseModel::mEstimator::Huber::Create(0.0001), point3DNoiseModel);  // robust
-            
+        CHECK_NOTNULL(cameraPosePrior);
+        CHECK_NOTNULL(odometryNoiseModel);
+        CHECK_NOTNULL(point3DNoiseModel);
+
+        cameraPosePrior->print("Camera Pose Prior ");
+        odometryNoiseModel->print("Odometry Noise Model ");
+        point3DNoiseModel->print("3D Point Noise Model ");
         CHECK_NOTNULL(K_calib);
     }
 
@@ -127,16 +135,16 @@ void VdoSlamBackend::process() {
 
     CHECK_EQ(unique_vertices.size(), N);
 
-    const GtsamAccesType sigma2_cam = 0.0001; // 0.005 0.001 0.0001
-    const GtsamAccesType sigma2_obj_smo = 0.1; // 0.1
-    const GtsamAccesType sigma2_obj = 20; // 0.5 1 10 20
-    const GtsamAccesType sigma2_3d_dyn = 16; // 50 100 16
-    const GtsamAccesType sigma2_alti = 1;
+    // const GtsamAccesType sigma2_cam = 0.0001; // 0.005 0.001 0.0001
+    // const GtsamAccesType sigma2_obj_smo = 0.1; // 0.1
+    // const GtsamAccesType sigma2_obj = 20; // 0.5 1 10 20
+    // const GtsamAccesType sigma2_3d_dyn = 16; // 50 100 16
+    // const GtsamAccesType sigma2_alti = 1;
 
-    const GtsamAccesType camera_pose_prior_sigma = 0.000001;
-    auto camera_pose_prior_n = gtsam::noiseModel::Diagonal::Sigmas(
-        (gtsam::Vector(6) << gtsam::Vector6::Constant(camera_pose_prior_sigma)).finished()
-    );
+    // const GtsamAccesType camera_pose_prior_sigma = 0.000001;
+    // auto camera_pose_prior_n = gtsam::noiseModel::Diagonal::Sigmas(
+    //     (gtsam::Vector(6) << gtsam::Vector6::Constant(camera_pose_prior_sigma)).finished()
+    // );
 
 
     int FeaLengthThresSta = 3;
@@ -151,7 +159,7 @@ void VdoSlamBackend::process() {
 
     //is first (or current_frame == 0?)
     if(count_unique_id == 1) {
-        graph.addPrior(count_unique_id, camera_pose, camera_pose_prior_n);
+        graph.addPrior(count_unique_id, camera_pose, cameraPosePrior);
         LOG(INFO) << "Added camera prior";
     }
 
@@ -166,15 +174,15 @@ void VdoSlamBackend::process() {
         //like I guess?
         //pretty sure we want to optimize for the rigid motion too...? This should become a variable?
         gtsam::Pose3 rigid_motion = utils::cvMatToGtsamPose3(map->vmRigidMotion[current_frame-1][0]);
-        auto edge_information = gtsam::noiseModel::Diagonal::Sigmas(
-            (gtsam::Vector(6) << gtsam::Vector6::Constant(sigma2_cam)).finished()
-        );
+        // auto edge_information = gtsam::noiseModel::Diagonal::Sigmas(
+        //     (gtsam::Vector(6) << gtsam::Vector6::Constant(sigma2_cam)).finished()
+        // );
 
         graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
             pre_camera_pose_vertex,
             curr_camera_pose_vertex,
             rigid_motion,
-            edge_information
+            odometryNoiseModel
         );
         LOG(INFO) << "Added factor between id: " <<pre_camera_pose_vertex << " " << curr_camera_pose_vertex;
 
@@ -407,6 +415,42 @@ gtsam::Values VdoSlamBackend::calculateCurrentEstimate() const {
 
 const size_t VdoSlamBackend::getMapSize() const { return map->vpFeatSta.size(); }
 
+void VdoSlamBackend::setupNoiseModels() {
+
+    //robust noise model
+    //this is on the odom noise model
+    gtsam::noiseModel::Base::shared_ptr huberCameraMotion;
+    gtsam::noiseModel::Base::shared_ptr huberObjectMotion;
+    gtsam::noiseModel::Base::shared_ptr huberPoint3D;
+    CHECK_NOTNULL(params);
+    LOG(INFO) << "Setting up noise models for backend";
+    cameraPosePrior = gtsam::noiseModel::Diagonal::Sigmas(
+        (gtsam::Vector(6) << gtsam::Vector6::Constant(params->var_camera_prior)).finished());
+
+    point3DNoiseModel = gtsam::noiseModel::Diagonal::Sigmas(
+                    (gtsam::Vector(3) << gtsam::Vector3::Constant(params->var_3d_static)).finished());
+
+    odometryNoiseModel = gtsam::noiseModel::Diagonal::Sigmas(
+                (gtsam::Vector(6) << gtsam::Vector6::Constant(params->var_camera)).finished());
+
+    if(params->use_robust_kernel) {
+        LOG(INFO) << "Using robust kernal";
+        //assuming that this doesnt mess with with original pointer as we're reassigning the member ptrs
+        odometryNoiseModel = huberCameraMotion = gtsam::noiseModel::Robust::Create(
+            gtsam::noiseModel::mEstimator::Huber::Create(params->k_huber_cam_motion), odometryNoiseModel);
+
+        point3DNoiseModel = gtsam::noiseModel::Robust::Create(
+            gtsam::noiseModel::mEstimator::Huber::Create(params->k_huber_3d_points), point3DNoiseModel);
+
+        //TODO: not using dynamic points yet
+        // huberObjectMotion = gtsam::noiseModel::Robust::Create(
+        //     gtsam::noiseModel::mEstimator::Huber::Create(params->k_huber_obj_motion), odometryNoiseModel);
+    }
+
+
+    
+}
+
 void VdoSlamBackend::addToKeyVertexMapping(const gtsam::Key& key, FrameId curr_frame, FeatureId feature_id, unsigned char symbol) {
     auto it = key_to_unique_vertices.find(key);
     CHECK(it == key_to_unique_vertices.end()) << "gtsam key is not unique in the key to vertex map";
@@ -455,7 +499,7 @@ void VdoSlamBackend::addPoint3DFactor(const gtsam::Point3& measurement, gtsam::K
             pose_key,
             landmark_key,
             measurement,
-            robust_noise_model
+            point3DNoiseModel
         )
     );
 

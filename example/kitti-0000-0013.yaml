@@ -83,5 +83,9 @@ Viz.displayFrame: 1
 Viz.use_3d: 0
 
 
+## Backend Params
+Backend.use_robust_kernel: 1
+
+
 
 

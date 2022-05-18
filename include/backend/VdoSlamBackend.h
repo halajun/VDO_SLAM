@@ -24,6 +24,7 @@
 #include "utils/macros.h"
 #include "utils/types.h"
 #include "backend/VdoSlamBackend-types.h"
+#include "backend/VdoSlamBackendParams.h"
 #include "Map.h"
 
 
@@ -35,7 +36,7 @@ class VdoSlamBackend {
         VDO_SLAM_POINTER_TYPEDEFS(VdoSlamBackend);
 
 
-        VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_);
+        VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_, BackendParams::Ptr params_);
         ~VdoSlamBackend() = default;
 
         void process();
@@ -52,6 +53,9 @@ class VdoSlamBackend {
 
         //some helper functions
         const size_t getMapSize() const;
+
+        //initliases covariances/robust kernals used for isam2 opt
+        void setupNoiseModels();
 
         //could totally make this templated and add the type itself to the values variable
         //but there is some logic about incrementing the curr_camera_pose_vertex and other vertex
@@ -73,6 +77,9 @@ class VdoSlamBackend {
         Map* map;
         std::unique_ptr<gtsam::ISAM2> isam;
         gtsam::ISAM2Result result;
+        BackendParams::Ptr params;
+
+
 
         std::vector<std::vector<int>> unique_vertices;
         gtsam::Key count_unique_id;
@@ -125,12 +132,12 @@ class VdoSlamBackend {
         const unsigned char kSymbolCameraPose3Key = 'X';
         const unsigned char kSymbolPoint3Key = 'm';
 
-        //noise models
-        gtsam::noiseModel::Diagonal::shared_ptr point3DNoiseModel;
-        const GtsamAccesType sigma2_3d_sta = 16; // 50 80 16
 
-        //robust noise model
-        gtsam::noiseModel::Base::shared_ptr robust_noise_model;
+        //Final noise models to use. Set when calling setup Noise Models
+        //either diagonal or robust + diagonal (depending on params)
+        gtsam::noiseModel::Diagonal::shared_ptr cameraPosePrior;
+        gtsam::noiseModel::Base::shared_ptr odometryNoiseModel;
+        gtsam::noiseModel::Base::shared_ptr point3DNoiseModel;
 
         BackendDebugInfo debug_info;
 

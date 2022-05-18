@@ -76,7 +76,10 @@ src/FactorGraph.cc
 
 
 src/backend/VdoSlamBackend.cc
+src/backend/VdoSlamBackendParams.cc
 src/backend/VdoSlamBackend-types.cc
+
+src/utils/ParamParser.cc
 src/utils/UtilsGTSAM.cc
 src/utils/UtilsOpenCv.cc
 

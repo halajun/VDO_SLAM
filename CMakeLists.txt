@@ -83,6 +83,8 @@ src/utils/ParamParser.cc
 src/utils/UtilsGTSAM.cc
 src/utils/UtilsOpenCv.cc
 
+src/logger/logger.cc
+
 src/cvplot/color.cc
 src/cvplot/figure.cc
 src/cvplot/highgui.cc

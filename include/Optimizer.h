@@ -10,7 +10,7 @@
 #define OPTIMIZER_H
 
 #include "Map.h"
-#include "Frame.h"
+#include "frontend/Frame.h"
 #include "dependencies/g2o/g2o/types/types_six_dof_expmap.h"
 
 namespace VDO_SLAM

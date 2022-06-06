@@ -66,13 +66,14 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
 
 add_library(${PROJECT_NAME} SHARED
 src/System.cc
-src/Tracking.cc
-src/ORBextractor.cc
 src/Converter.cc
 src/Map.cc
 src/Optimizer.cc
-src/Frame.cc
 src/FactorGraph.cc
+
+src/frontend/Frame.cc
+src/frontend/Tracking.cc
+src/frontend/ORBextractor.cc
 
 
 src/backend/VdoSlamBackend.cc

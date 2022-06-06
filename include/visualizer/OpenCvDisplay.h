@@ -5,7 +5,7 @@
 #include "utils/Color.h"
 #include "visualizer/Display.h"
 #include "visualizer/DisplayTypes.h"
-#include "Frame.h"
+#include "frontend/Frame.h"
 
 #include <opencv2/opencv.hpp>
 #include <glog/logging.h>
@@ -32,8 +32,9 @@ class OpenCvDisplay : public Display {
         void process() override;
 
     private:
-        void drawInputImages(const Frame& frame);
         void drawFrame(const Display2DInput& input);
+        void drawInputImages(const Frame& frame);
+        // void drawFrameTextInfo()
 
         void drawOpticalFlow(const cv::Mat& flow, cv::Mat& flow_viz);
         void drawSemanticInstances(const cv::Mat& rgb, const cv::Mat& mask, cv::Mat& mask_viz);

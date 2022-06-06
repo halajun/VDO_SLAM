@@ -7,7 +7,7 @@
 **/
 
 
-#include "Tracking.h"
+#include "frontend/Tracking.h"
 
 #include <Eigen/Core>
 #include <glog/logging.h>
@@ -17,9 +17,9 @@
 #include <opencv2/highgui.hpp>
 #include <cvplot/cvplot.h>
 
-#include"Converter.h"
-#include"Map.h"
-#include"Optimizer.h"
+#include "Converter.h"
+#include "Map.h"
+#include "Optimizer.h"
 
 #include<iostream>
 #include<string>

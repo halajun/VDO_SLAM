@@ -1,6 +1,5 @@
 #include "logger/logger.h"
 
-#include "kimera-vio/logging/Logger.h"
 
 #include <fstream>
 #include <memory>
@@ -25,15 +24,15 @@ OfstreamWrapper::OfstreamWrapper(const std::string& output_file_, bool append_fi
 
 OfstreamWrapper::~OfstreamWrapper() {
     LOG(INFO) << "Closing output file: " << output_file;
-    ofsteam.close();
+    ofstream.close();
 }
 
 
 void OfstreamWrapper::openLogFile(const std::string& output_file_, bool append_file_) {
     CHECK(!output_file_.empty());
     LOG(INFO) << "Opening output file: " << output_file_;
-    OpenFile(output_folder + '/' + output_file_,
-        ofstream_,
+    openFile(output_folder + '/' + output_file_,
+        ofstream,
         append_file_);
 }
 

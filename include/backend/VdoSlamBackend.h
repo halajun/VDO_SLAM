@@ -25,6 +25,7 @@
 #include "utils/types.h"
 #include "backend/VdoSlamBackend-types.h"
 #include "backend/VdoSlamBackendParams.h"
+#include "backend/DynamicObjectManager.h"
 #include "Map.h"
 
 
@@ -79,6 +80,8 @@ class VdoSlamBackend {
         gtsam::ISAM2Result result;
         BackendParams::Ptr params;
 
+        DynamicObjectManager::UniquePtr do_manager;
+
 
 
         std::vector<std::vector<int>> unique_vertices;
@@ -125,6 +128,7 @@ class VdoSlamBackend {
         std::vector<std::vector<int>> vnFeaMakSta;
         std::vector<std::vector<int>> vnFeaLabDyn;
         std::vector<std::vector<int>> vnFeaMakDyn;
+        std::vector<std::vector<bool>> objCheck; //same size as frames with inner vector the same size as map->vnRMLabel 
 
        
         std::vector<std::vector<bool>> obj_check;

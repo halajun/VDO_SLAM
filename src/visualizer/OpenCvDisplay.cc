@@ -72,9 +72,10 @@ void OpenCvDisplay::drawFeatures(const cv::Mat& rgb, const Frame& frame, cv::Mat
     }
 
     //draw dynamic objects
+    //TODO: should be drawing object inliers?
     for (int i = 0; i < frame.vObjLabel.size(); ++i) {
         int dynamic_label = frame.vObjLabel[i];
-        if(dynamic_label == -1 || dynamic_label == -2) {
+        if(dynamic_label == -1 || dynamic_label == -2 ) {
             //log warning?
             continue;
         }

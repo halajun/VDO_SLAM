@@ -54,15 +54,23 @@ VdoSlamBackend::VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_, BackendParams
         odometryNoiseModel->print("Odometry Noise Model ");
         point3DNoiseModel->print("3D Point Noise Model ");
         CHECK_NOTNULL(K_calib);
+
+        do_manager = VDO_SLAM::make_unique<DynamicObjectManager>(map_);
     }
 
 void VdoSlamBackend::process() {
     const int N = map->vpFeatSta.size(); // Number of Frames
     LOG(INFO) << "Running incremental update on frame " << N;
 
+    //first vector is number of static tracklets
     const std::vector<std::vector<std::pair<int, int>>>& StaTracks = map->TrackletSta;
+    //length of DynTracks is ALL the features which are clasififed as dynamic  and then the corresponding
+    //vector (ef. DynTracks[i] gives what frame and what feature Id it appeared in)
+    //not sure how this vector changes -> once an object is no longer tracked will we ever go back 
+    //and change the track or can I assume that the map either operatos on the current tracks or ONLY
+    //new tracks with a greater ID?
     const std::vector<std::vector<std::pair<int, int>>>& DynTracks = map->TrackletDyn;
-
+    LOG(INFO) << "Number of objects tracked is " << DynTracks.size();
 
     current_frame = N - 1;
 
@@ -83,11 +91,6 @@ void VdoSlamBackend::process() {
     CHECK_EQ(vnFeaLabDyn.size(), N);
     CHECK_EQ(vnFeaMakDyn.size(), N);
 
-    
-    //they are not N, they are N-1
-    // CHECK_EQ(StaTracks.size(), N);
-    // CHECK_EQ(DynTracks.size(), N);
-    // CHECK_EQ(obj_check.size(), N);
 
 
     int valid_sta = 0, valid_dyn = 0;
@@ -122,6 +125,75 @@ void VdoSlamBackend::process() {
             vnFeaLabDyn[DynTracks[i][j].first][DynTracks[i][j].second] = i;
         }
     }
+
+
+    // check if objects has the required tracking length in current window
+    // const int ObjLength = WINDOW_SIZE-1;
+    //only do this i
+    // std::vector<std::vector<bool> > ObjCheck(N-1);
+    // for (int i = 0; i < N-1; ++i)
+    // {
+    //     std::vector<bool>  ObjCheck_tmp(pMap->vnRMLabel[i].size(),false);
+    //     ObjCheck[i] = ObjCheck_tmp;
+    // }
+    // collect unique object label and how many times it appears
+    do_manager->process(current_frame);
+    // std::vector<int> UniLab, LabCount;
+    // for (int i = N-WINDOW_SIZE; i < N-1; ++i)
+    // {
+    //     //first 
+    //     if (i == N-WINDOW_SIZE) {
+    //         //start at j = 1 because 0 is camera motion and 1 ... l is rigid motion
+    //         for (int j = 1; j < pMap->vnRMLabel[i].size(); ++j)
+    //         {
+    //             //guarantee that all labels are unique?
+    //             //frame i and rigid body motion j
+    //             //for the first one we just go through and all labels for this frame
+    //             UniLab.push_back(pMap->vnRMLabel[i][j]);
+    //             LabCount.push_back(1);
+    //         }
+    //     }
+    //     else
+    //     {
+    //         for (int j = 1; j < pMap->vnRMLabel[i].size(); ++j)
+    //         {
+    //             bool used = false;
+    //             for (int k = 0; k < UniLab.size(); ++k)
+    //             {
+    //                 //if the unique label at index k is the same as this
+    //                 //rigid body motion, label it it has used and inncrease count
+    //                 if (UniLab[k]==pMap->vnRMLabel[i][j])
+    //                 {
+    //                     used = true;
+    //                     LabCount[k] = LabCount[k] + 1;
+    //                     break;
+    //                 }
+    //             }
+    //             if (used==false)
+    //             {
+    //                 UniLab.push_back(pMap->vnRMLabel[i][j]);
+    //                 LabCount.push_back(1);
+    //             }
+    //         }
+    //     }
+    // }
+    // // assign the ObjCheck ......
+    // for (int i = N-WINDOW_SIZE; i < N-1; ++i)
+    // {   
+    //     for (int j = 1; j < pMap->vnRMLabel[i].size(); ++j)
+    //     {
+    //         for (int k = 0; k < UniLab.size(); ++k)
+    //         {
+    //             if (UniLab[k]==pMap->vnRMLabel[i][j] && LabCount[k]>=ObjLength)
+    //             {
+    //                 ObjCheck[i][j]= true;
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // }
+
+
 
     if(current_frame == 0) {
         CHECK_EQ(N, 1);
@@ -419,7 +491,6 @@ void VdoSlamBackend::setupNoiseModels() {
 
     //robust noise model
     //this is on the odom noise model
-    gtsam::noiseModel::Base::shared_ptr huberCameraMotion;
     gtsam::noiseModel::Base::shared_ptr huberObjectMotion;
     gtsam::noiseModel::Base::shared_ptr huberPoint3D;
     CHECK_NOTNULL(params);
@@ -436,12 +507,10 @@ void VdoSlamBackend::setupNoiseModels() {
     if(params->use_robust_kernel) {
         LOG(INFO) << "Using robust kernal";
         //assuming that this doesnt mess with with original pointer as we're reassigning the member ptrs
-        odometryNoiseModel = huberCameraMotion = gtsam::noiseModel::Robust::Create(
-            gtsam::noiseModel::mEstimator::Huber::Create(params->k_huber_cam_motion), odometryNoiseModel);
-
-        point3DNoiseModel = gtsam::noiseModel::Robust::Create(
+        auto pose3dNoiseModelTemp = gtsam::noiseModel::Robust::Create(
             gtsam::noiseModel::mEstimator::Huber::Create(params->k_huber_3d_points), point3DNoiseModel);
 
+        point3DNoiseModel =pose3dNoiseModelTemp;
         //TODO: not using dynamic points yet
         // huberObjectMotion = gtsam::noiseModel::Robust::Create(
         //     gtsam::noiseModel::mEstimator::Huber::Create(params->k_huber_obj_motion), odometryNoiseModel);
@@ -576,9 +645,9 @@ void VdoSlamBackend::optimize() {
         gtsam::Values values = collectValuesToAdd();
         try {
             result = isam->update(graph, values);
-            isam->update();
-            isam->update();
-            isam->update();
+            // isam->update();
+            // isam->update();
+            // isam->update();
             graph.resize(0);
 
             debug_info.print();

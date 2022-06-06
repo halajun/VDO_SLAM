@@ -1241,7 +1241,7 @@ void Tracking::Track()
         backend->calculateError();
 
         // Get Partial Batch Optimization
-        Optimizer::PartialBatchOptimization(mpMap,mK,nWINDOW_SIZE);
+        // Optimizer::PartialBatchOptimization(mpMap,mK,nWINDOW_SIZE);
         e_5 = clock();
         loc_ba_time = (double)(e_5-s_5)/CLOCKS_PER_SEC*1000;
         mpMap->fLBA_time.push_back(loc_ba_time);

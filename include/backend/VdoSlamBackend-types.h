@@ -58,7 +58,7 @@ struct BackendDebugInfo {
     }
 
     void print() const {
-        LOG(INFO) << "-------- BackendDebugInfo: --------\n"
+        LOG(INFO) << "\n-------- BackendDebugInfo: --------\n"
                   << " frame: " << frame << "\n"
                   << " num_marked_keys: " << num_marked_keys << "\n"
                   << " num_new_poses: " << num_new_poses << "\n"

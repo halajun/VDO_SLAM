@@ -168,7 +168,7 @@ public:
     std::vector<cv::Mat> vObjMod;
     std::vector<cv::Mat> vObjPosePre;
     std::vector<cv::Point2f> vSpeed;
-    std::vector<int> nModLabel;
+    std::vector<int> nModLabel; //unique tracking label across frames
     std::vector<int> nSemPosition;
     std::vector<int> vObjBoxID; // bounding box for each object
     std::vector<std::vector<int> > vnObjID; // object id in current frame

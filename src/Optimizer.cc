@@ -181,6 +181,7 @@ void Optimizer::PartialBatchOptimizationGTSAM(Map* pMap, const cv::Mat Calib_K, 
         }
     }
     // assign the ObjCheck ......
+    //if the object has been tracked in numner of framws as windowSize
     for (int i = N-WINDOW_SIZE; i < N-1; ++i)
     {
         for (int j = 1; j < pMap->vnRMLabel[i].size(); ++j)
@@ -2068,6 +2069,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                             vpEdgeSE3Smooth.push_back(ep);
                         }
                     }
+                    //obj unique iD is the id of the object motion vetex (like camera pose)
                     ObjUniqueID[j-1]=count_unique_id;
                     VertexID[i-1][j]=count_unique_id;
                     count_unique_id++;
@@ -2105,6 +2107,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                     for (int k = 1; k < pMap->vnRMLabel[i-1].size(); ++k)
                     {
                         if (pMap->vnRMLabel[i-1][k]==pMap->nObjID[TrackID]){
+                            //the vertex used to store the rigid motion of the point
                             ObjPositionID = ObjUniqueID[k-1];
                             break;
                         }

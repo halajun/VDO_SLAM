@@ -30,7 +30,7 @@ struct BackendParams {
     //if true will use robust Huber noise model 
     bool use_robust_kernel = true;
     //used to initalise the various robust huber kernals (only if true)
-    double k_huber_cam_motion = 0.001;
+    // double k_huber_cam_motion = 0.001; #dont want to apply to camera motion as these should not have the same model
     double k_huber_obj_motion = 0.001;
     double k_huber_3d_points = 0.001;
 

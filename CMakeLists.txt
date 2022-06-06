@@ -79,6 +79,7 @@ src/frontend/ORBextractor.cc
 src/backend/VdoSlamBackend.cc
 src/backend/VdoSlamBackendParams.cc
 src/backend/VdoSlamBackend-types.cc
+src/backend/DynamicObjectManager.cc
 
 src/utils/ParamParser.cc
 src/utils/UtilsGTSAM.cc

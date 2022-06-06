@@ -17,7 +17,7 @@ void BackendParams::print() const {
               << " var_3d_dyn: " << var_3d_dyn << "\n"
               << " var_camera_prior: " << var_camera_prior << "\n"
               << " use_robust_kernel: " << use_robust_kernel << "\n"
-              << " k_huber_cam_motion: " << k_huber_cam_motion << "\n"
+            //   << " k_huber_cam_motion: " << k_huber_cam_motion << "\n"
               << " k_huber_obj_motion: " << k_huber_obj_motion << "\n"
               << " k_huber_3d_points: " << k_huber_3d_points;
 }
@@ -32,7 +32,7 @@ BackendParams::Ptr BackendParams::loadFromParamParser(const utils::ParamParser& 
     pp.getParam("Backend.var_camera_prior", &params->var_camera_prior);
 
     pp.getParam("Backend.use_robust_kernel", &params->use_robust_kernel);
-    pp.getParam("Backend.k_huber_cam_motion", &params->k_huber_cam_motion);
+    // pp.getParam("Backend.k_huber_cam_motion", &params->k_huber_cam_motion);
     pp.getParam("Backend.k_huber_obj_motion", &params->k_huber_obj_motion);
     pp.getParam("Backend.k_huber_3d_points", &params->k_huber_3d_points);
     return params;

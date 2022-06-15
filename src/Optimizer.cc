@@ -32,6 +32,8 @@
 #include<Eigen/StdVector>
 
 #include "Converter.h"
+#include "Map.h"
+#include "frontend/Frame.h"
 
 #include<mutex>
 
@@ -2382,6 +2384,8 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     }
 
     optimizer.save("dynamic_slam_graph_before_opt.g2o");
+    //just get the save so we can compare
+    return;
     optimizer.optimize(300);
     optimizer.save("dynamic_slam_graph_after_opt.g2o");
 

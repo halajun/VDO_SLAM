@@ -6,8 +6,7 @@
 *
 **/
 
-#ifndef CONVERTER_H
-#define CONVERTER_H
+#pragma once
 
 #include<opencv2/core/core.hpp>
 
@@ -44,4 +43,4 @@ public:
 
 }// namespace VDO_SLAM
 
-#endif // CONVERTER_H
+// #endif // CONVERTER_H

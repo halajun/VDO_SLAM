@@ -28,7 +28,8 @@ namespace VDO_SLAM {
 
 private:
   // measurement information
-  double mx_, my_, mz_;
+  // double mx_, my_, mz_;
+  gtsam::Point3 measured_;
 
 public:
 
@@ -41,7 +42,8 @@ public:
   Point3DFactor(gtsam::Key poseKey, gtsam::Key pointKey,
           const gtsam::Point3& m, gtsam::SharedNoiseModel model) :
             gtsam::NoiseModelFactor2<gtsam::Pose3,gtsam::Point3>(model,poseKey,pointKey),
-                    mx_(m.x()), my_(m.y()), mz_(m.z()) {}
+                    // mx_(m.x()), my_(m.y()), mz_(m.z()) {}
+                    measured_(m.x(), m.y(), m.z()) {}
 
   // error function
   gtsam::Vector evaluateError(const gtsam::Pose3& X, const gtsam::Point3& l,
@@ -105,7 +107,12 @@ public:
     if (J2) *J2 = (gtsam::Matrix33() << H2).finished();  
     
     // return error vector
-    return (gtsam::Vector3() << expected.x()-mx_, expected.y()-my_, expected.z()-mz_).finished();
+    // return (gtsam::Vector3() << expected.x()-mx_, expected.y()-my_, expected.z()-mz_).finished();
+    return (gtsam::Vector3() << expected - measured_).finished();
+  }
+
+  const gtsam::Point3& measured() const {
+    return measured_;
   }
 
 };

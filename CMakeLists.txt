@@ -85,6 +85,7 @@ src/utils/ParamParser.cc
 src/utils/UtilsGTSAM.cc
 src/utils/UtilsOpenCv.cc
 src/utils/dataset.cc
+src/utils/camera.cc
 
 src/logger/logger.cc
 

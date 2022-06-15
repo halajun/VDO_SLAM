@@ -9,12 +9,17 @@
 #ifndef OPTIMIZER_H
 #define OPTIMIZER_H
 
-#include "Map.h"
-#include "frontend/Frame.h"
-#include "dependencies/g2o/g2o/types/types_six_dof_expmap.h"
+#include<opencv2/core/core.hpp>
 
-namespace VDO_SLAM
-{
+// #include "Map.h"
+// #include "frontend/Frame.h"
+// #include "dependencies/g2o/g2o/types/types_six_dof_expmap.h"
+
+namespace VDO_SLAM {
+
+class Frame;
+class Map;
+
 
 using namespace std;
 

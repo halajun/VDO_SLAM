@@ -44,6 +44,7 @@
 using namespace gtsam;
 
 namespace VDO_SLAM {
+namespace utils {
 
 /**
  * Find the full path to an example dataset distributed with gtsam.  The name
@@ -244,4 +245,6 @@ GTSAM_EXPORT GraphAndValues GTSAM_DEPRECATED
 load2D_robust(const std::string& filename,
               const noiseModel::Base::shared_ptr& model, size_t maxIndex = 0);
 #endif
+} //namespace utils
 }  // namespace gtsam
+

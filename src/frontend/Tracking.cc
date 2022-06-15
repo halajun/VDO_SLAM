@@ -1283,7 +1283,9 @@ void Tracking::Track()
         if (bGlobalBatch && mTestData==KITTI)
         {
             // Get Full Batch Optimization
-            // Optimizer::FullBatchOptimization(mpMap,mK);
+            //we run this to get the full map saved to another g2o file (using the original g2o code)
+            //curently, we return before we get the optimization
+            Optimizer::FullBatchOptimization(mpMap,mK);
 
             // Metric Error AFTER Optimization
             GetMetricError(mpMap->vmCameraPose_RF,mpMap->vmRigidMotion_RF, mpMap->vmObjPosePre,

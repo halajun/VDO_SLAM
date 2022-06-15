@@ -23,6 +23,7 @@
 
 #include "utils/macros.h"
 #include "utils/types.h"
+#include "utils/camera.h"
 #include "backend/VdoSlamBackend-types.h"
 #include "backend/VdoSlamBackendParams.h"
 #include "backend/DynamicObjectManager.h"
@@ -87,7 +88,7 @@ class VdoSlamBackend {
 
         DynamicObjectManager::UniquePtr do_manager;
 
-
+        Camera::Ptr camera;
 
         std::vector<std::vector<int>> unique_vertices;
         gtsam::Key count_unique_id;

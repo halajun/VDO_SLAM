@@ -62,6 +62,7 @@ using gtsam::symbol_shorthand::L;
 using namespace gtsam;
 
 namespace VDO_SLAM {
+namespace utils {
 
 /* ************************************************************************* */
 string findExampleDataFile(const string &name) {
@@ -743,6 +744,40 @@ void writeG2o(const NonlinearFactorGraph &graph, const Values &estimate,
     //VDO_SLAM mods
     auto factor3DPoint = boost::dynamic_pointer_cast<Point3DFactor>(factor_);
 
+    if(factor3DPoint) {
+        SharedNoiseModel model = factor3DPoint->noiseModel();
+
+        boost::shared_ptr<noiseModel::Gaussian> gaussianModel =
+            boost::dynamic_pointer_cast<noiseModel::Gaussian>(model);
+
+        boost::shared_ptr<noiseModel::Robust> robustModel =
+            boost::dynamic_pointer_cast<noiseModel::Robust>(model);
+
+        if (!gaussianModel && !robustModel) {
+            model->print("model\n");
+            throw invalid_argument("writeG2o: invalid noise model!");
+        }
+
+        if(robustModel) {
+            gaussianModel = boost::dynamic_pointer_cast<noiseModel::Gaussian>(
+                robustModel->noise());
+        }
+
+        //could not just use gaussianModel->information?
+        Matrix3 Info = gaussianModel->R().transpose() * gaussianModel->R();
+        const Point3 point3D = factor3DPoint->measured();
+        //key1 -> pose key, key2 -> measurement key
+        stream << "EDGE_SE3_TRACKXYZ: " << index(factor3DPoint->key1()) << " "
+               << index(factor3DPoint->key2()) << " " << point3D.x() << " " << point3D.y() << " " << point3D.z();
+        
+        for (size_t i = 0; i < 3; i++) {
+            for (size_t j = i; j < 3; j++) {
+                stream << " " << Info(i, j);
+            }
+        }
+        stream << endl;
+    }
+
   }
   stream.close();
 }
@@ -981,4 +1016,5 @@ parse3DLandmarks(const std::string &filename, size_t maxIndex) {
   return parseVariables<Point3>(filename, maxIndex);
 }
 #endif
+} //namespace utils
 } // namespace gtsam

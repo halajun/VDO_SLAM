@@ -10,14 +10,14 @@
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/base/Vector.h>
 #include <gtsam/geometry/Pose3.h>
-#include <gtsam/slam/dataset.h>
 
 #include "utils/macros.h"
 #include "utils/timing.h"
 #include "factors/Point3DFactor.h"
+#include "utils/dataset.h"
 #include "Map.h"
 #include "Optimizer.h"
-#include "Converter.h"
+// #include "Converter.h"
 
 namespace VDO_SLAM {
 
@@ -40,6 +40,13 @@ VdoSlamBackend::VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_, BackendParams
 
         isam = VDO_SLAM::make_unique<gtsam::ISAM2>(parameters);
         K_calib =  utils::cvMat2Cal3_S2(K);
+
+        //parsed in as float but we want it as a double... cuz gtsam
+        //will this mess up all our other data types?
+        cv::Mat K_d;
+        K.convertTo(K_d, CV_64F);
+        camera = std::make_shared<Camera>(K_d);
+        camera->print();
 
         setupNoiseModels();        
 
@@ -309,36 +316,7 @@ void VdoSlamBackend::process() {
                 continue;
             }
 
-            // //but there is also at least one track we dont have? becuase we only add the third track
-            // int prev_1_frame = StaTracks[TrackID][PositionID-1].first;
-            // int prev_1_lmk_id = StaTracks[TrackID][PositionID-1].second;
-            // gtsam::Point3 X_w_prev1 = utils::cvMatToGtsamPoint3(
-            //     map->vp3DPointSta[prev_1_frame][prev_1_lmk_id]);
-            // //get the camera pose vertex at this time
-            // addLandmarkToGraph(X_w_prev1, count_unique_id, prev_1_frame, prev_1_lmk_id);
-            // vnFeaMakSta[prev_1_frame][prev_1_lmk_id] = count_unique_id;
-
-            // cv::Mat Xc_prev_1 = Optimizer::Get3DinCamera(map->vpFeatSta[prev_1_frame][prev_1_lmk_id],map->vfDepSta[prev_1_frame][prev_1_lmk_id],K);
-            // gtsam::Point3 X_c_prev_1_point = utils::cvMatToGtsamPoint3(Xc_prev_1);
-            // int camera_pose_vertex_prev1 = unique_vertices[prev_1_frame][0];
-            // addPoint3DFactor(X_c_prev_1_point, camera_pose_vertex_prev1, count_unique_id);
-            // count_unique_id++;
-
-
-            // int prev_2_frame = StaTracks[TrackID][PositionID-2].first;
-            // int prev_2_lmk_id = StaTracks[TrackID][PositionID-2].second;
-            // gtsam::Point3 X_w_prev2 = utils::cvMatToGtsamPoint3(
-            //     map->vp3DPointSta[prev_2_frame][prev_2_lmk_id]);
-
-            // addLandmarkToGraph(X_w_prev2, count_unique_id, prev_2_frame, prev_2_lmk_id);
-            // vnFeaMakSta[prev_1_frame][prev_1_lmk_id] = count_unique_id;
-
-            // cv::Mat Xc_prev_2 = Optimizer::Get3DinCamera(map->vpFeatSta[prev_2_frame][prev_2_lmk_id],map->vfDepSta[prev_2_frame][prev_2_lmk_id],K);
-            // gtsam::Point3 X_c_prev_2_point = utils::cvMatToGtsamPoint3(Xc_prev_2);
-            // int camera_pose_vertex_prev2 = unique_vertices[prev_2_frame][0];
-            // addPoint3DFactor(X_c_prev_2_point, camera_pose_vertex_prev2, count_unique_id);
-            // count_unique_id++;
-
+           
 
             gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointSta[current_frame][j]);
             addLandmarkToGraph(X_w, count_unique_id, current_frame, j);
@@ -387,6 +365,8 @@ void VdoSlamBackend::process() {
              //TODO: make camera class or equivalent
             cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatSta[current_frame][j],map->vfDepSta[current_frame][j],K);
             gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
+
+
             // graph.emplace_shared<Point3DFactor>(curr_camera_pose_vertex, FeaMakTmp, X_c_point, camera_projection_noise);
             addPoint3DFactor(X_c_point, curr_camera_pose_vertex, FeaMakTmp);
             vnFeaMakSta[current_frame][j] = FeaMakTmp;
@@ -697,7 +677,7 @@ void VdoSlamBackend::optimize() {
 }
 
 void VdoSlamBackend::writeG2o(const std::string& file_name) {
-    gtsam::writeG2o(graph, all_values, file_name);
+    VDO_SLAM::utils::writeG2o(graph, all_values, file_name);
 }
 
 void VdoSlamBackend::updateMapFromSymbol(const gtsam::Key& key, const IJSymbol& vertex_symbol) {
@@ -713,11 +693,11 @@ void VdoSlamBackend::updateMapFromSymbol(const gtsam::Key& key, const IJSymbol& 
         
         if(frame_id > 0) {
 
-            CHECK_MAT_TYPES(Converter::toInvMatrix(
-                map->vmCameraPose[frame_id-1]), map->vmCameraPose[frame_id]);
+            // CHECK_MAT_TYPES(Converter::toInvMatrix(
+            //     map->vmCameraPose[frame_id-1]), map->vmCameraPose[frame_id]);
 
-            map->vmRigidMotion[frame_id-1][0] = Converter::toInvMatrix(
-                map->vmCameraPose[frame_id-1])*map->vmCameraPose[frame_id];
+            // map->vmRigidMotion[frame_id-1][0] = Converter::toInvMatrix(
+            //     map->vmCameraPose[frame_id-1])*map->vmCameraPose[frame_id];
         }
     }
 

@@ -10,6 +10,7 @@
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/base/Vector.h>
 #include <gtsam/geometry/Pose3.h>
+#include <gtsam/slam/dataset.h>
 
 #include "utils/macros.h"
 #include "utils/timing.h"
@@ -543,7 +544,9 @@ void VdoSlamBackend::addLandmarkToGraph(const gtsam::Point3& landmark, gtsam::Ke
     //also assume that if its never been seen here then it is not in new_values
     if (it == observed_landmarks.end()) {
         //sanity check. if not in observed should definitely not be in isam
-        CHECK(!isam->valueExists(key));
+        //removing only for testing with g2o files as we dont add to the isam2
+        // CHECK(!isam->valueExists(key));
+
         observed_landmarks[key] = {};
         CHECK(!new_lmks.exists(key));
         new_lmks.insert(key, landmark);
@@ -579,6 +582,19 @@ gtsam::Values VdoSlamBackend::collectValuesToAdd() {
     //go through all observed values and see which ones have been observed two.
     //if yes, remove them from the new_values and add then to the values to add
     gtsam::Values values_to_add;
+
+    //now also add camera poses
+    //I mean... this will always be one.. presumably
+    const gtsam::KeyVector& cam_pose_keys = new_camera_poses.keys();
+    for(const gtsam::Key& key : cam_pose_keys) {
+        gtsam::Pose3 pose = new_camera_poses.at<gtsam::Pose3>(key);
+        values_to_add.insert(key, pose);
+        debug_info.num_new_poses++;
+    }
+
+    new_camera_poses.clear();
+
+
     const int kMinObservations = 2;
     //yeah thhis search grows expontially until we start to marginalize out variables
     //becuase we look through all the observed variables. 
@@ -592,7 +608,9 @@ gtsam::Values VdoSlamBackend::collectValuesToAdd() {
         Point3DFactors& factors = x.second;
         //if we have at least n factors or the key is already in the graph
         if(factors.size() >= kMinObservations) {
-            CHECK(!isam->valueExists(landmark_key));
+            //removing only for testing with g2o files as we dont add to the isam2
+            // CHECK(!isam->valueExists(landmark_key));
+
             // LOG(INFO) << "Adding key: " << landmark_key << " to isam 2";
             //for now eveything will be a Point3
             gtsam::Point3 landmark = new_lmks.at<gtsam::Point3>(landmark_key);
@@ -610,9 +628,12 @@ gtsam::Values VdoSlamBackend::collectValuesToAdd() {
         //imlicit logic here -> if the landmark is in isam 
         //then we assume that at some point prior it must have had at least two landmarks and
         //we have added those factors and cleared the array. 
-        if(isam->valueExists(landmark_key)) {
+
+        if(all_values.exists(landmark_key) && factors.size()> 0) {
+
+        // if(isam->valueExists(landmark_key)) {
             // LOG(INFO) << "key: " << landmark_key << " exists.";
-            // LOG(INFO) << "Adding " << factors.size() << " Point3D Factors";
+            LOG(INFO) << "Adding " << factors.size() << " Point3D Factors";
             //sanity check that this landmark does not exist in new lmsks?
             graph.push_back(factors.begin(), factors.end());
             factors.clear();
@@ -622,16 +643,6 @@ gtsam::Values VdoSlamBackend::collectValuesToAdd() {
 
     debug_info.graph_size_before_collection = graph.size();
 
-    //now also add camera poses
-    //I mean... this will always be one.. presumably
-    const gtsam::KeyVector& cam_pose_keys = new_camera_poses.keys();
-    for(const gtsam::Key& key : cam_pose_keys) {
-        gtsam::Pose3 pose = new_camera_poses.at<gtsam::Pose3>(key);
-        values_to_add.insert(key, pose);
-        debug_info.num_new_poses++;
-    }
-
-    new_camera_poses.clear();
 
     debug_info.total_new_values = values_to_add.size();
     //also update debug frame info here...?
@@ -643,12 +654,14 @@ void VdoSlamBackend::optimize() {
     ///failure is always on previous camera pose
     if(current_frame > 1) {
         gtsam::Values values = collectValuesToAdd();
+        //will throw KeyAlreadyExists<J> so a good test to see if the front end -> backend processing is working
+        all_values.insert(values);
         try {
-            result = isam->update(graph, values);
+            // result = isam->update(graph, values);
             // isam->update();
             // isam->update();
             // isam->update();
-            graph.resize(0);
+            // graph.resize(0);
 
             debug_info.print();
             debug_info.reset();
@@ -681,6 +694,10 @@ void VdoSlamBackend::optimize() {
     }
     
 
+}
+
+void VdoSlamBackend::writeG2o(const std::string& file_name) {
+    gtsam::writeG2o(graph, all_values, file_name);
 }
 
 void VdoSlamBackend::updateMapFromSymbol(const gtsam::Key& key, const IJSymbol& vertex_symbol) {

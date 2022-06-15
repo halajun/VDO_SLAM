@@ -84,6 +84,7 @@ src/backend/DynamicObjectManager.cc
 src/utils/ParamParser.cc
 src/utils/UtilsGTSAM.cc
 src/utils/UtilsOpenCv.cc
+src/utils/dataset.cc
 
 src/logger/logger.cc
 

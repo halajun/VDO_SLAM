@@ -26,6 +26,7 @@
 #include "backend/VdoSlamBackend-types.h"
 #include "backend/VdoSlamBackendParams.h"
 #include "backend/DynamicObjectManager.h"
+#include "backend/TrackedObservation.h"
 #include "Map.h"
 
 
@@ -40,6 +41,7 @@ class VdoSlamBackend {
         VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_, BackendParams::Ptr params_);
         ~VdoSlamBackend() = default;
 
+        //probably should be called process frontend of something like that
         void process();
 
         gtsam::Values calculateCurrentEstimate() const;
@@ -49,6 +51,8 @@ class VdoSlamBackend {
         void updateMapFromIncremental();
         //updates the map using all values ever seen (as stored in key_to_unique_vertices)
         void updateMapFull();
+
+        void writeG2o(const std::string& file_name);
 
     private:
 
@@ -73,6 +77,7 @@ class VdoSlamBackend {
 
 
         void updateMapFromSymbol(const gtsam::Key& key, const IJSymbol& vertex_symbol);
+
 
     private:
         Map* map;
@@ -101,6 +106,12 @@ class VdoSlamBackend {
         //make optimizer using gtsam
         gtsam::NonlinearFactorGraph graph;
         gtsam::Values new_camera_poses;
+
+        gtsam::Values all_values; //currently used for writing out to g2o
+
+        //just used currently while writing to g2o so we can add values to an "optimizer"
+        //and then check if so all the previous sanity checks hold
+        gtsam::Values fake_isam_poses; 
 
         //new landmarks that have not been added to isam yet.
         gtsam::Values new_lmks;

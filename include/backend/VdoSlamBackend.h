@@ -21,6 +21,7 @@
 #include <map>
 #include <memory>
 
+#include "factors/LandmarkMotionTernaryFactor.h"
 #include "utils/macros.h"
 #include "utils/types.h"
 #include "utils/camera.h"
@@ -69,9 +70,19 @@ class VdoSlamBackend {
         void addToKeyVertexMapping(const gtsam::Key& key, FrameId curr_frame, FeatureId feature_id, unsigned char symbol);
 
         void addCameraPoseToGraph(const gtsam::Pose3& pose, gtsam::Key key, FrameId curr_frame);
+        void addMotionToGraph(const gtsam::Pose3& motion, gtsam::Key key, FrameId curr_frame, FeatureId object_id);
+
 
         void addLandmarkToGraph(const gtsam::Point3& landmark, gtsam::Key key, FrameId curr_frame, FeatureId feature_id);
+
+        //need to separate dyanmic and static becuase dynamic points are given new keys so we just
+        //at least one motion to say that a point has been observed twice
+        void addDynamicLandmarkToGraph(const gtsam::Point3& landmark, gtsam::Key key, FrameId curr_frame, FeatureId feature_id);
+
         void addPoint3DFactor(const gtsam::Point3& measurement, gtsam::Key pose_key, gtsam::Key landmark_key);
+
+        void addLandmarkMotionFactor(const gtsam::Point3& measurement, gtsam::Key current_point_key, 
+            gtsam::Key previous_point_key, gtsam::Key motion_key);
 
         gtsam::Values collectValuesToAdd();
         void optimize();
@@ -107,6 +118,7 @@ class VdoSlamBackend {
         //make optimizer using gtsam
         gtsam::NonlinearFactorGraph graph;
         gtsam::Values new_camera_poses;
+        gtsam::Values new_object_motions;
 
         gtsam::Values all_values; //currently used for writing out to g2o
 
@@ -117,10 +129,17 @@ class VdoSlamBackend {
         //new landmarks that have not been added to isam yet.
         gtsam::Values new_lmks;
 
+        //new dynamic landmarks that have not been added to isam2 yet
+        //or do we want this ot be a new motion...?
+        gtsam::Values new_dynamic_lmks;
+
         //how many times a value has been observed. Ie, has a factor on it.
         //use add3DPointFactorToGraph. We collect the factors until their are at least
         //2 point3D Factors on a landmark
         std::map<gtsam::Key, Point3DFactors> observed_landmarks;
+        //Unsure if this is necessary as if we have a motion the point has been obserted twice?
+        //the Key should be on the motion as it is the key that joins all the vertices together
+        std::map<gtsam::Key, LandmarkMotionTernaryFactors> observed_motions;
 
 
         //the frame count.The size of the map (N) - 1. Assuming we call update every iteration
@@ -143,10 +162,10 @@ class VdoSlamBackend {
         std::vector<std::vector<bool>> objCheck; //same size as frames with inner vector the same size as map->vnRMLabel 
 
        
-        std::vector<std::vector<bool>> obj_check;
-
         const unsigned char kSymbolCameraPose3Key = 'X';
         const unsigned char kSymbolPoint3Key = 'm';
+        const unsigned char kSymbolMotion3Key = 'H';
+        const unsigned char kSymbolDynamicPoint3Key = 'l';
 
 
         //Final noise models to use. Set when calling setup Noise Models
@@ -154,6 +173,7 @@ class VdoSlamBackend {
         gtsam::noiseModel::Diagonal::shared_ptr cameraPosePrior;
         gtsam::noiseModel::Base::shared_ptr odometryNoiseModel;
         gtsam::noiseModel::Base::shared_ptr point3DNoiseModel;
+        gtsam::noiseModel::Base::shared_ptr dynamicPoint3DNoiseModel;
 
         BackendDebugInfo debug_info;
 

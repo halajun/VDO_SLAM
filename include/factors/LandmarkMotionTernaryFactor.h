@@ -50,11 +50,11 @@ public:
     // only calculate jacobian matrix when non-null pointer exists                                    
     
     gtsam::Matrix H2, H3;
-    gtsam::Vector l2H = H.transform_to(l2, H3, H2);
+    gtsam::Vector l2H = H.transformTo(l2, H3, H2);
     //gtsam::Matrix H1, H3;
     //gtsam::Vector Hl1 = H.transform_from(l1, H3, H1);
     
-    gtsam::Vector3 expected = l1.vector() - l2H;
+    gtsam::Vector3 expected = l1 - l2H;
     //gtsam::Vector3 expected = l2.vector() - Hl1;
                                                                         
     if (J1) *J1 = (gtsam::Matrix33() << 1.0, 0.0, 0.0, 
@@ -78,6 +78,11 @@ public:
     // return error vector
     return (gtsam::Vector3() << expected.x()-mx_, expected.y()-my_, expected.z()-mz_).finished();
   }
+
+  //I think this is the correct ordering
+  inline gtsam::Key getPreviousPointKey() const { return key1(); }
+  inline gtsam::Key getCurrentPointKey() const { return key2(); }
+  inline gtsam::Key getMotionKey() const { return key3(); }
 
 };
 

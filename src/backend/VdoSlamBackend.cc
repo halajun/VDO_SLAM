@@ -14,6 +14,7 @@
 #include "utils/macros.h"
 #include "utils/timing.h"
 #include "factors/Point3DFactor.h"
+#include "factors/LandmarkMotionTernaryFactor.h"
 #include "utils/dataset.h"
 #include "Map.h"
 #include "Optimizer.h"
@@ -133,6 +134,7 @@ void VdoSlamBackend::process() {
             vnFeaLabDyn[DynTracks[i][j].first][DynTracks[i][j].second] = i;
         }
     }
+    LOG(INFO) << "Tagged dynamic and static features";
 
 
     // check if objects has the required tracking length in current window
@@ -144,62 +146,79 @@ void VdoSlamBackend::process() {
     //     std::vector<bool>  ObjCheck_tmp(pMap->vnRMLabel[i].size(),false);
     //     ObjCheck[i] = ObjCheck_tmp;
     // }
+    CHECK_EQ(map->vnRMLabel.size(), current_frame);
+    if(map->vnRMLabel.size() < 1) {
+        // std::vector<bool> ObjCheck_tmp(1,false);
+        // objCheck.push_back(ObjCheck_tmp);
+        
+    } 
+    else {
+        //current frame should start to be valid
+        std::vector<bool> ObjCheck_tmp(map->vnRMLabel[current_frame-1].size(),false);
+        objCheck.push_back(ObjCheck_tmp);
+    }
+    
+    CHECK_EQ(objCheck.size(), current_frame);
+    
+    //we go back the last TS frames to check if the object has been tracked over this period
+    const int TRACKING_SIZE = 5;
+    const int OBJ_TRACK_LENGTH = TRACKING_SIZE-1;
+    LOG(INFO) << "Tracking object size: " << TRACKING_SIZE << " and track length " << OBJ_TRACK_LENGTH;
+
     // collect unique object label and how many times it appears
-    do_manager->process(current_frame);
-    // std::vector<int> UniLab, LabCount;
-    // for (int i = N-WINDOW_SIZE; i < N-1; ++i)
-    // {
-    //     //first 
-    //     if (i == N-WINDOW_SIZE) {
-    //         //start at j = 1 because 0 is camera motion and 1 ... l is rigid motion
-    //         for (int j = 1; j < pMap->vnRMLabel[i].size(); ++j)
-    //         {
-    //             //guarantee that all labels are unique?
-    //             //frame i and rigid body motion j
-    //             //for the first one we just go through and all labels for this frame
-    //             UniLab.push_back(pMap->vnRMLabel[i][j]);
-    //             LabCount.push_back(1);
-    //         }
-    //     }
-    //     else
-    //     {
-    //         for (int j = 1; j < pMap->vnRMLabel[i].size(); ++j)
-    //         {
-    //             bool used = false;
-    //             for (int k = 0; k < UniLab.size(); ++k)
-    //             {
-    //                 //if the unique label at index k is the same as this
-    //                 //rigid body motion, label it it has used and inncrease count
-    //                 if (UniLab[k]==pMap->vnRMLabel[i][j])
-    //                 {
-    //                     used = true;
-    //                     LabCount[k] = LabCount[k] + 1;
-    //                     break;
-    //                 }
-    //             }
-    //             if (used==false)
-    //             {
-    //                 UniLab.push_back(pMap->vnRMLabel[i][j]);
-    //                 LabCount.push_back(1);
-    //             }
-    //         }
-    //     }
-    // }
-    // // assign the ObjCheck ......
-    // for (int i = N-WINDOW_SIZE; i < N-1; ++i)
-    // {   
-    //     for (int j = 1; j < pMap->vnRMLabel[i].size(); ++j)
-    //     {
-    //         for (int k = 0; k < UniLab.size(); ++k)
-    //         {
-    //             if (UniLab[k]==pMap->vnRMLabel[i][j] && LabCount[k]>=ObjLength)
-    //             {
-    //                 ObjCheck[i][j]= true;
-    //                 break;
-    //             }
-    //         }
-    //     }
-    // }
+    //for current naive implementation wait till current frame > TRACKING_SIZE otherwise segfault
+    if (current_frame >= TRACKING_SIZE) {
+
+        std::vector<int> UniLab, LabCount;
+         LOG(INFO) << map->vnRMLabel.size();
+        for(int i = N - TRACKING_SIZE; i < current_frame; i++) {
+            LOG(INFO) << i << " " << map->vnRMLabel[i].size();
+            if(i == N - TRACKING_SIZE) {
+                for (int j = 1; j < map->vnRMLabel[i].size(); j++) {
+                    UniLab.push_back(map->vnRMLabel[i][j]);
+                    LabCount.push_back(1);
+                }
+            }
+            else {
+                for (int j = 1; j < map->vnRMLabel[i].size(); j++) {
+                    bool used = false;
+
+                    for(int k = 0; k < UniLab.size(); k++) {
+                        //if the unique label at index k is the same as this
+                        //rigid body motion, label it it has used and inncrease count
+                        if (UniLab[k] == map->vnRMLabel[i][j]) {
+                            used = true;
+                            LabCount[k] = LabCount[k] + 1;
+                            break;
+                        }
+                    }
+
+                    if (!used) {
+                        UniLab.push_back(map->vnRMLabel[i][j]);
+                        LabCount.push_back(1);
+                    }
+
+                }
+            }
+        }
+        LOG(INFO) << "Done object count collection"; 
+
+        // assign the ObjCheck ......
+        //if the object has been tracked in numner of framws as windowSize
+        for (int i = N-TRACKING_SIZE; i < current_frame; ++i) {
+            for (int j = 1; j < map->vnRMLabel[i].size(); ++j) {
+                for (int k = 0; k < UniLab.size(); ++k) {
+                    if (UniLab[k] == map->vnRMLabel[i][j] && LabCount[k] >= OBJ_TRACK_LENGTH) {
+                        objCheck[i][j] = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        LOG(INFO) << "Done object check assignment";
+
+    }
 
 
 
@@ -373,6 +392,179 @@ void VdoSlamBackend::process() {
         }
 
     }
+    //end looping for static features
+    //okay need to wait for at least TRACKING_SIZE (for naive implementation)
+    //eventually need to wait and then go back.
+    //Lets start by just adding tracks in TRACKING_SIZE 
+    if(current_frame < TRACKING_SIZE) {
+        LOG(INFO) << "Frame <= tracking size " << current_frame << " vs " << TRACKING_SIZE;
+        //loop for dynamic features
+        for(int j = 0; j < vnFeaLabDyn[current_frame].size(); j++) {
+
+            //check for feature validation
+            if(vnFeaLabDyn[current_frame][j] == -1) {
+                continue;
+            }
+
+            // get the TrackID of current feature
+            int TrackID = vnFeaLabDyn[current_frame][j];
+
+            int PositionID = -1;
+            //so the first frame that we can track the the features is 
+            for (int k = 0; k < DynTracks[TrackID].size(); ++k) {
+                if (DynTracks[TrackID][k].first==current_frame && DynTracks[TrackID][k].second==j) {
+                    // LOG(INFO) << current_frame;
+                    PositionID = k;
+                    break;
+                }
+            }
+
+            if (PositionID==-1){
+                LOG(WARNING) << "cannot find the position of current dynamic feature in the tracklet !!!";
+                continue;
+            }
+
+            const int TrLength = DynTracks[TrackID].size();
+            if ( TrLength-PositionID<FeaLengthThresDyn ) {
+                continue;
+            }
+
+            gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[current_frame][j]);
+            addLandmarkToGraph(X_w, count_unique_id, current_frame, j);
+
+            cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatDyn[current_frame][j],map->vfDepDyn[current_frame][j],K);
+            gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
+            addPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
+
+
+            // update unique id
+            vnFeaMakDyn[current_frame][j] = count_unique_id;
+            count_unique_id++;
+
+        }
+    }
+    else {
+        // loop for object motion, and keep the unique vertex id for saving object feature edges
+        std::vector<int> ObjUniqueID(map->vmRigidMotion[current_frame-1].size(),-1);
+
+        for (int j = 1; j < map->vmRigidMotion[current_frame-1].size(); j++) {
+
+            if(!objCheck[current_frame-1][j]) {
+                continue;
+            }
+
+            gtsam::Pose3 object_motion;
+
+            if(map->vbObjStat[current_frame-1][j]) {
+                object_motion = utils::cvMatToGtsamPose3(map->vmRigidMotion[current_frame-1][j]);
+            }
+            else {
+                object_motion = gtsam::Pose3::identity();
+            }
+            //ignoreing smooth constraint here
+            addMotionToGraph(object_motion, count_unique_id, current_frame, j);
+
+            ObjUniqueID[j]=count_unique_id;
+            unique_vertices[current_frame][j]=count_unique_id;
+            count_unique_id++;
+        }
+
+        // // save for dynamic features
+        for (int j = 0; j < vnFeaLabDyn[current_frame].size(); j++) {
+            // check feature validation
+            if (vnFeaLabDyn[current_frame][j] == -1) {
+                continue;
+            }
+
+            // get the TrackID of current feature
+            int TrackID = vnFeaLabDyn[current_frame][j];
+
+            // get the position of current feature in the tracklet
+            int PositionID = -1;
+            for (int k = 0; k < DynTracks[TrackID].size(); ++k)
+            {
+                if (DynTracks[TrackID][k].first==current_frame && DynTracks[TrackID][k].second==j)
+                {
+                    PositionID = k;
+                    break;
+                }
+            }
+            if (PositionID==-1){
+                LOG(WARNING) << "cannot find the position of current feature in the tracklet !!!";
+                continue;
+            }
+
+            // get the object position id of current feature
+            int ObjPositionID = -1;
+            for (int k = 1; k < map->vnRMLabel[current_frame-1].size(); ++k) {
+                if (map->vnRMLabel[current_frame-1][k]==map->nObjID[TrackID]){
+                    ObjPositionID = ObjUniqueID[k];
+                    break;
+                }
+            }
+            if (ObjPositionID==-1 && PositionID!=2) {
+                LOG(WARNING) << "cannot find the object association with this edge !!! WEIRD POINT !!! ";
+                continue;
+            }
+
+            // check if the PositionID is 2. Yes means this dynamic point is first seen by this frame,
+                    // then save both the vertex and edge, otherwise save edge only because vertex is saved before.
+            if (PositionID == 2) {
+                //TODO: sanity check that it is not in isam2 graph?
+
+                 // check if this feature track has the same length as the window size
+                const int TrLength = DynTracks[TrackID].size();
+                if ( TrLength<FeaLengthThresDyn ) {
+                    continue;
+                }
+
+                gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[current_frame][j]);
+                addLandmarkToGraph(X_w, count_unique_id, current_frame, j);
+
+                cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatDyn[current_frame][j],map->vfDepDyn[current_frame][j],K);
+                gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
+                addPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
+
+                // update unique id
+                vnFeaMakDyn[current_frame][j] = count_unique_id;
+                count_unique_id++;
+
+            }
+            //assume we dont get anything less than 2?
+            else if(PositionID > 2) {
+                //then only add this feature to the existing track it belongs to.
+                const int TrLength = DynTracks[TrackID].size();
+                const int FeaMakTmp = vnFeaMakDyn[DynTracks[TrackID][PositionID-1].first][DynTracks[TrackID][PositionID-1].second];
+                if ( TrLength-PositionID<FeaLengthThresDyn && FeaMakTmp==-1 ) {
+                    continue;
+                }
+
+                gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[current_frame][j]);
+                addLandmarkToGraph(X_w, count_unique_id, current_frame, j);
+
+                cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatDyn[current_frame][j],map->vfDepDyn[current_frame][j],K);
+                gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
+                addPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
+
+                //in the case of dynamic and not the first feature in the tracklet
+                gtsam::Point3 initial_measurement(0, 0, 0);
+                addLandmarkMotionFactor(initial_measurement, count_unique_id, FeaMakTmp, ObjPositionID);
+
+                // update unique id
+                vnFeaMakDyn[current_frame][j] = count_unique_id;
+                count_unique_id++;
+
+
+
+            }
+            else {
+                LOG(ERROR) << "Should never get here";
+            }
+
+        }
+        
+    }
+
 
 
     pre_camera_pose_vertex = curr_camera_pose_vertex;
@@ -479,11 +671,17 @@ void VdoSlamBackend::setupNoiseModels() {
     cameraPosePrior = gtsam::noiseModel::Diagonal::Sigmas(
         (gtsam::Vector(6) << gtsam::Vector6::Constant(params->var_camera_prior)).finished());
 
+
+
     point3DNoiseModel = gtsam::noiseModel::Diagonal::Sigmas(
                     (gtsam::Vector(3) << gtsam::Vector3::Constant(params->var_3d_static)).finished());
 
+    dynamicPoint3DNoiseModel = gtsam::noiseModel::Diagonal::Sigmas(
+                    (gtsam::Vector(3) << gtsam::Vector3::Constant(params->var_3d_dyn)).finished());
+
     odometryNoiseModel = gtsam::noiseModel::Diagonal::Sigmas(
                 (gtsam::Vector(6) << gtsam::Vector6::Constant(params->var_camera)).finished());
+
 
     if(params->use_robust_kernel) {
         LOG(INFO) << "Using robust kernal";
@@ -517,6 +715,12 @@ void VdoSlamBackend::addCameraPoseToGraph(const gtsam::Pose3& pose, gtsam::Key k
     addToKeyVertexMapping(key, curr_frame, 0, kSymbolCameraPose3Key);
 }
 
+void VdoSlamBackend::addMotionToGraph(const gtsam::Pose3& motion, gtsam::Key key, FrameId curr_frame, FeatureId object_id) {
+    new_object_motions.insert(key, motion);
+    addToKeyVertexMapping(key, curr_frame, object_id, kSymbolMotion3Key);
+}
+
+
 
 void VdoSlamBackend::addLandmarkToGraph(const gtsam::Point3& landmark, gtsam::Key key, FrameId curr_frame, FeatureId feature_id) {
     auto it = observed_landmarks.find(key);
@@ -540,6 +744,13 @@ void VdoSlamBackend::addLandmarkToGraph(const gtsam::Point3& landmark, gtsam::Ke
     }
 }
 
+void VdoSlamBackend::addDynamicLandmarkToGraph(const gtsam::Point3& landmark, gtsam::Key key, FrameId curr_frame, FeatureId feature_id) {
+    //straight up add everything as it should be unique...?
+    new_dynamic_lmks.insert(key, landmark);
+    addToKeyVertexMapping(key, curr_frame, feature_id, kSymbolDynamicPoint3Key);
+}
+
+
 void VdoSlamBackend::addPoint3DFactor(const gtsam::Point3& measurement, gtsam::Key pose_key, gtsam::Key landmark_key) {
     // graph.emplace_shared<Point3DFactor>(pose_key, landmark_key, measurement, point3DNoiseModel);
     //look for landmark key
@@ -552,6 +763,28 @@ void VdoSlamBackend::addPoint3DFactor(const gtsam::Point3& measurement, gtsam::K
             landmark_key,
             measurement,
             point3DNoiseModel
+        )
+    );
+
+
+}
+
+void VdoSlamBackend::addLandmarkMotionFactor(const gtsam::Point3& measurement, gtsam::Key current_point_key, 
+            gtsam::Key previous_point_key, gtsam::Key motion_key) {
+                //
+    //check observed landmarks to ensure that the point is actually in the set of points
+    auto it = observed_landmarks.find(current_point_key);
+    CHECK(it != observed_landmarks.end()) << "Current landmark key must be added before adding landmark motion factor";
+    //I guess also can check for the previous one?
+
+    //Super unclear in implementation if current or previous key is first
+    observed_motions[motion_key].push_back(
+        boost::make_shared<LandmarkMotionTernaryFactor>(
+            previous_point_key,
+            current_point_key,
+            motion_key,
+            measurement,
+            dynamicPoint3DNoiseModel
         )
     );
 
@@ -574,6 +807,17 @@ gtsam::Values VdoSlamBackend::collectValuesToAdd() {
 
     new_camera_poses.clear();
 
+    //I think we want to add all the motions every time?
+    const gtsam::KeyVector& object_motion_keys = new_object_motions.keys();
+    for(const gtsam::Key& key : object_motion_keys) {
+        gtsam::Pose3 pose = new_object_motions.at<gtsam::Pose3>(key);
+        values_to_add.insert(key, pose);
+        debug_info.num_new_poses++;
+    }
+
+    new_object_motions.clear();
+
+
 
     const int kMinObservations = 2;
     //yeah thhis search grows expontially until we start to marginalize out variables
@@ -589,7 +833,7 @@ gtsam::Values VdoSlamBackend::collectValuesToAdd() {
         //if we have at least n factors or the key is already in the graph
         if(factors.size() >= kMinObservations) {
             //removing only for testing with g2o files as we dont add to the isam2
-            // CHECK(!isam->valueExists(landmark_key));
+            CHECK(!isam->valueExists(landmark_key));
 
             // LOG(INFO) << "Adding key: " << landmark_key << " to isam 2";
             //for now eveything will be a Point3
@@ -609,16 +853,36 @@ gtsam::Values VdoSlamBackend::collectValuesToAdd() {
         //then we assume that at some point prior it must have had at least two landmarks and
         //we have added those factors and cleared the array. 
 
-        if(all_values.exists(landmark_key) && factors.size()> 0) {
+        // if(all_values.exists(landmark_key) && factors.size()> 0) {
 
-        // if(isam->valueExists(landmark_key)) {
+        if(isam->valueExists(landmark_key)) {
             // LOG(INFO) << "key: " << landmark_key << " exists.";
-            LOG(INFO) << "Adding " << factors.size() << " Point3D Factors";
+            // LOG(INFO) << "Adding " << factors.size() << " Point3D Factors";
             //sanity check that this landmark does not exist in new lmsks?
             graph.push_back(factors.begin(), factors.end());
             factors.clear();
 
         }
+    }
+
+    //////////// DYNAMIC STUFF ////////////////////
+    //just add all the dynamic lmks and assume we got our data associtaion right in the process step?
+    for 
+
+    //for there to be motion we have to observed a dynamic lanrmakr twice... 
+    //so just add them all in? This assumes that the min number of landmark observations
+    // is 2
+    for(auto& x : observed_motions) {
+        LandmarkMotionTernaryFactors& factors = x.second;
+        const gtsam::Key& motion_key = x.first;
+
+        //motion should already be in isam2 or about to be if its in values
+        CHECK(isam->valueExists(motion_key) || values_to_add.exists(motion_key));
+
+        //now, both the previous point key AND the current point key must also be in the
+        graph.push_back(factors.begin(), factors.end());
+        factors.clear();
+
     }
 
     debug_info.graph_size_before_collection = graph.size();
@@ -635,13 +899,13 @@ void VdoSlamBackend::optimize() {
     if(current_frame > 1) {
         gtsam::Values values = collectValuesToAdd();
         //will throw KeyAlreadyExists<J> so a good test to see if the front end -> backend processing is working
-        all_values.insert(values);
+        // all_values.insert(values);
         try {
-            // result = isam->update(graph, values);
+            result = isam->update(graph, values);
             // isam->update();
             // isam->update();
             // isam->update();
-            // graph.resize(0);
+            graph.resize(0);
 
             debug_info.print();
             debug_info.reset();

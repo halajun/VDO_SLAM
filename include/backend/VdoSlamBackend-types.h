@@ -3,6 +3,8 @@
 #include "utils/macros.h"
 #include "utils/types.h"
 #include "factors/Point3DFactor.h"
+#include "factors/LandmarkMotionTernaryFactor.h"
+
 
 #include <glog/logging.h>
 #include <iostream>
@@ -12,6 +14,9 @@ namespace VDO_SLAM {
 
 typedef boost::shared_ptr<Point3DFactor> Point3DFactorPtr;
 typedef std::vector<Point3DFactorPtr> Point3DFactors;
+
+typedef boost::shared_ptr<LandmarkMotionTernaryFactor> LandmarkMotionTernaryFactorPtr;
+typedef std::vector<LandmarkMotionTernaryFactorPtr> LandmarkMotionTernaryFactors;
 
 // typedef std::vector<gtsam::Key> VertexKeys;
 

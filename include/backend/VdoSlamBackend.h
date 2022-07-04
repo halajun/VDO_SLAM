@@ -80,6 +80,7 @@ class VdoSlamBackend {
         void addDynamicLandmarkToGraph(const gtsam::Point3& landmark, gtsam::Key key, FrameId curr_frame, FeatureId feature_id);
 
         void addPoint3DFactor(const gtsam::Point3& measurement, gtsam::Key pose_key, gtsam::Key landmark_key);
+        void addDynamicPoint3DFactor(const gtsam::Point3& measurement, gtsam::Key pose_key, gtsam::Key landmark_key);
 
         void addLandmarkMotionFactor(const gtsam::Point3& measurement, gtsam::Key current_point_key, 
             gtsam::Key previous_point_key, gtsam::Key motion_key);
@@ -100,7 +101,7 @@ class VdoSlamBackend {
         DynamicObjectManager::UniquePtr do_manager;
 
         Camera::Ptr camera;
-
+        
         std::vector<std::vector<int>> unique_vertices;
         gtsam::Key count_unique_id;
 
@@ -173,6 +174,8 @@ class VdoSlamBackend {
         gtsam::noiseModel::Diagonal::shared_ptr cameraPosePrior;
         gtsam::noiseModel::Base::shared_ptr odometryNoiseModel;
         gtsam::noiseModel::Base::shared_ptr point3DNoiseModel;
+        gtsam::noiseModel::Base::shared_ptr objectMotionNoiseModel;
+        gtsam::noiseModel::Base::shared_ptr objectMotionSmootherNoiseModel;
         gtsam::noiseModel::Base::shared_ptr dynamicPoint3DNoiseModel;
 
         BackendDebugInfo debug_info;

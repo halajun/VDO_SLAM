@@ -40,6 +40,7 @@ public:
 
   
   // error function
+  //l2 for sure is the previous point
   gtsam::Vector evaluateError(const gtsam::Point3& l1,const gtsam::Point3& l2,const gtsam::Pose3& H,
           boost::optional<gtsam::Matrix&> J1 = boost::none,
           boost::optional<gtsam::Matrix&> J2 = boost::none,

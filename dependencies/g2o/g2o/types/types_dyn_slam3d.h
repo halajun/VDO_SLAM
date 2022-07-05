@@ -31,6 +31,8 @@ class LandmarkMotionTernaryEdge: public BaseMultiEdge<3,Vector3>
     void computeError();
     void linearizeOplus();
 
+    // inline get_error()
+
     virtual void setMeasurement(const Vector3& m){
       _measurement = m;
     }

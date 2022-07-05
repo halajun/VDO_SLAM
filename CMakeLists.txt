@@ -145,3 +145,15 @@ target_link_libraries(opencv_viz3d_test
    ${OpenCV_LIBS}
 )
 
+
+##### Add some tests #####
+add_executable(landmark_motion_types_test
+   test/landmark_motion_types_test.cc
+)
+
+target_link_libraries(landmark_motion_types_test
+   gtsam
+   ${GFLAGS_LIBRARIES}
+   ${GLOG_LIBRARIES} 
+   ${PROJECT_NAME}
+)

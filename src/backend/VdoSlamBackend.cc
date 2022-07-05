@@ -265,9 +265,7 @@ void VdoSlamBackend::process() {
     // (1) save <VERTEX_POSE_R3_SO3>
     gtsam::Pose3 camera_pose = utils::cvMatToGtsamPose3(map->vmCameraPose[current_frame]);
     addCameraPoseToGraph(camera_pose, count_unique_id, current_frame);
-    // new_camera_poses.insert(count_unique_id, camera_pose);
-    // addToKeyVertexMapping(count_unique_id, current_frame, 0, kSymbolCameraPose3Key);
-
+   
     //is first (or current_frame == 0?)
     if(count_unique_id == 1) {
         graph.addPrior(count_unique_id, camera_pose, cameraPosePrior);
@@ -279,86 +277,16 @@ void VdoSlamBackend::process() {
     curr_camera_pose_vertex = count_unique_id;
     count_unique_id++;
 
-    //not the first call
-    if(current_frame > 0) {
-        // (2) save <EDGE_R3_SO3> 
-        //like I guess?
-        //pretty sure we want to optimize for the rigid motion too...? This should become a variable?
-        gtsam::Pose3 rigid_motion = utils::cvMatToGtsamPose3(map->vmRigidMotion[current_frame-1][0]);
-        // auto edge_information = gtsam::noiseModel::Diagonal::Sigmas(
-        //     (gtsam::Vector(6) << gtsam::Vector6::Constant(sigma2_cam)).finished()
-        // );
-
-        graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
-            pre_camera_pose_vertex,
-            curr_camera_pose_vertex,
-            rigid_motion,
-            odometryNoiseModel
-        );
-        LOG(INFO) << "Added factor between id: " <<pre_camera_pose_vertex << " " << curr_camera_pose_vertex;
-
-        //missing robust kernal
-    }
-
-    //loop for static features
-    LOG(INFO) << "Static features for current frame is " << vnFeaLabSta[current_frame].size();
-    for (int j = 0; j < vnFeaLabSta[current_frame].size(); ++j) {
-        // check feature validation
-        if (vnFeaLabSta[current_frame][j]==-1) {
-            continue;
-        }
-        // get the TrackID of current feature
-        int TrackID = vnFeaLabSta[current_frame][j];
-
-        // get the position of current feature in the tracklet
-        int PositionID = -1;
-        //trackets require at least one prior frame to exist to track the feature through
-        //so the first frame that we can track the the features is 
-        for (int k = 0; k < StaTracks[TrackID].size(); ++k) {
-            // LOG(INFO) << StaTracks[TrackID][k].first;
-            //if we're not looping through all the frames (eg i becomes start_frame is this going to be a problem?)
-            if (StaTracks[TrackID][k].first==current_frame && StaTracks[TrackID][k].second==j) {
-                // LOG(INFO) << current_frame;
-                PositionID = k;
-                break;
-            }
-        }
-        if (PositionID==-1){
-            LOG(WARNING) << "cannot find the position of current feature in the tracklet !!!";
-            continue;
-        }
-
-        // check if the PositionID is 0. Yes means this static point is first seen by this frame,
-        // then save both the vertex and edge, otherwise save edge only because vertex is saved before.
-        //so the smallest value that exists seems to be two...?
-        //this isnt a hack...
-        //I think i need to wait till this is obsevred at least twice to constrain this problem
-        //add to a list of variables and then once we have two factors we can add all of them?
-        //list of variables which map to factors..? Need at least two so can just track the number of factors.
-        //must ensure that the conditions of newFactors and newTheta are satisfied.
-        // LOG(INFO) << "Position ID " << PositionID;
-        if (PositionID==2) {
-            //then also check that it is not in the graph
-            //check in isam or check in local NLFG?
-            CHECK(!isam->valueExists(count_unique_id));
-            // check if this feature track has the same length as the window size
-            const int TrLength = StaTracks[TrackID].size();
-            if ( TrLength<FeaLengthThresSta ) {
+    //is the first frame
+    if (current_frame == 0) {
+        for (int j = 0; j < vnFeaLabSta[current_frame].size(); ++j) {
+            if (vnFeaLabSta[current_frame][j]==-1) {
                 continue;
             }
-
-           
 
             gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointSta[current_frame][j]);
             addLandmarkToGraph(X_w, count_unique_id, current_frame, j);
 
-            // values.insert(count_unique_id, X_w);
-            // addToKeyVertexMapping(count_unique_id, current_frame, j, kSymbolPoint3Key);
-            // // LOG(INFO) << "Added point3 key to vertex mapping " << count_unique_id << " " << kSymbolPoint3Key;
-
-
-
-            //TODO: make camera class or equivalent
             cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatSta[current_frame][j],map->vfDepSta[current_frame][j],K);
             gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
             // graph.emplace_shared<Point3DFactor>(curr_camera_pose_vertex, count_unique_id, X_c_point, camera_projection_noise);
@@ -366,94 +294,156 @@ void VdoSlamBackend::process() {
 
             vnFeaMakSta[current_frame][j] = count_unique_id;
             count_unique_id++;
-
         }
-        else if(PositionID > 2) {
-            // LOG(INFO) << PositionID;
-            //landmark should be in graph
-            // CHECK(isam->valueExists(curr_camera_pose_vertex) || graph.at);
+    }
+    //not the first call
+    else {
+        // (2) save <EDGE_R3_SO3> 
+        //like I guess?
+        //pretty sure we want to optimize for the rigid motion too...? This should become a variable?
+        gtsam::Pose3 rigid_motion = utils::cvMatToGtsamPose3(map->vmRigidMotion[current_frame-1][0]);
+        graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
+            pre_camera_pose_vertex,
+            curr_camera_pose_vertex,
+            rigid_motion,
+            odometryNoiseModel
+        );
+        LOG(INFO) << "Added motion constraint factor between id: " <<pre_camera_pose_vertex << " " << curr_camera_pose_vertex;
 
-           // // check if this feature track has the same length as the window size
-                // // or its previous FeaMakTmp is not -1, then save it, otherwise skip.
-            const int TrLength = StaTracks[TrackID].size();
-            const int FeaMakTmp = vnFeaMakSta[StaTracks[TrackID][PositionID-1].first][StaTracks[TrackID][PositionID-1].second];
-            if (TrLength<FeaLengthThresSta || FeaMakTmp==-1) {
+        //loop for static features
+        LOG(INFO) << "Static features for current frame is " << vnFeaLabSta[current_frame].size();
+        for (int j = 0; j < vnFeaLabSta[current_frame].size(); ++j) {
+            // check feature validation
+            if (vnFeaLabSta[current_frame][j]==-1) {
+                continue;
+            }
+            // get the TrackID of current feature
+            int TrackID = vnFeaLabSta[current_frame][j];
+
+            // get the position of current feature in the tracklet
+            int PositionID = -1;
+            //trackets require at least one prior frame to exist to track the feature through
+            //so the first frame that we can track the the features is 
+            for (int k = 0; k < StaTracks[TrackID].size(); ++k) {
+                // LOG(INFO) << StaTracks[TrackID][k].first;
+                //if we're not looping through all the frames (eg i becomes start_frame is this going to be a problem?)
+                if (StaTracks[TrackID][k].first==current_frame && StaTracks[TrackID][k].second==j) {
+                    // LOG(INFO) << current_frame;
+                    PositionID = k;
+                    break;
+                }
+            }
+            if (PositionID==-1){
+                LOG(WARNING) << "cannot find the position of current feature in the tracklet !!!";
                 continue;
             }
 
-            //well it might not yet?
-            // CHECK(isam->valueExists(FeaMakTmp));
+            // check if the PositionID is 0. Yes means this static point is first seen by this frame,
+            // then save both the vertex and edge, otherwise save edge only because vertex is saved before.
+            //so the smallest value that exists seems to be two...?
+            //this isnt a hack...
+            //I think i need to wait till this is obsevred at least twice to constrain this problem
+            //add to a list of variables and then once we have two factors we can add all of them?
+            //list of variables which map to factors..? Need at least two so can just track the number of factors.
+            //must ensure that the conditions of newFactors and newTheta are satisfied.
+            // LOG(INFO) << "Position ID " << PositionID;
+            if (PositionID==2) {
+                //then also check that it is not in the graph
+                //check in isam or check in local NLFG?
+                CHECK(!isam->valueExists(count_unique_id));
+                // check if this feature track has the same length as the window size
+                const int TrLength = StaTracks[TrackID].size();
+                if ( TrLength<FeaLengthThresSta ) {
+                    continue;
+                }
+
+            
+
+                gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointSta[current_frame][j]);
+                addLandmarkToGraph(X_w, count_unique_id, current_frame, j);
+
+                // values.insert(count_unique_id, X_w);
+                // addToKeyVertexMapping(count_unique_id, current_frame, j, kSymbolPoint3Key);
+                // // LOG(INFO) << "Added point3 key to vertex mapping " << count_unique_id << " " << kSymbolPoint3Key;
 
 
-            //base logic checks
-            // gtsam::Values::iterator it =  values.find(FeaMakTmp);
-            // if(it == values.end()) { LOG(ERROR) << "Static Feature Key is not a valid variable";};
 
-            // it == values.find(CurFrameID);
-            // if(it == values.end()) { LOG(ERROR) << "Camera frame ID Key is not a valid variable";};
+                //TODO: make camera class or equivalent
+                cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatSta[current_frame][j],map->vfDepSta[current_frame][j],K);
+                gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
+                // graph.emplace_shared<Point3DFactor>(curr_camera_pose_vertex, count_unique_id, X_c_point, camera_projection_noise);
+                addPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
 
-            //now add factor
-             //TODO: make camera class or equivalent
-            cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatSta[current_frame][j],map->vfDepSta[current_frame][j],K);
-            gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
+                vnFeaMakSta[current_frame][j] = count_unique_id;
+                count_unique_id++;
+
+            }
+            else if(PositionID > 2) {
+                // LOG(INFO) << PositionID;
+                //landmark should be in graph
+                // CHECK(isam->valueExists(curr_camera_pose_vertex) || graph.at);
+
+            // // check if this feature track has the same length as the window size
+                    // // or its previous FeaMakTmp is not -1, then save it, otherwise skip.
+                const int TrLength = StaTracks[TrackID].size();
+                const int FeaMakTmp = vnFeaMakSta[StaTracks[TrackID][PositionID-1].first][StaTracks[TrackID][PositionID-1].second];
+                if (TrLength<FeaLengthThresSta || FeaMakTmp==-1) {
+                    continue;
+                }
+
+                //well it might not yet?
+                // CHECK(isam->valueExists(FeaMakTmp));
 
 
-            // graph.emplace_shared<Point3DFactor>(curr_camera_pose_vertex, FeaMakTmp, X_c_point, camera_projection_noise);
-            addPoint3DFactor(X_c_point, curr_camera_pose_vertex, FeaMakTmp);
-            vnFeaMakSta[current_frame][j] = FeaMakTmp;
+                //base logic checks
+                // gtsam::Values::iterator it =  values.find(FeaMakTmp);
+                // if(it == values.end()) { LOG(ERROR) << "Static Feature Key is not a valid variable";};
+
+                // it == values.find(CurFrameID);
+                // if(it == values.end()) { LOG(ERROR) << "Camera frame ID Key is not a valid variable";};
+
+                //now add factor
+                //TODO: make camera class or equivalent
+                cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatSta[current_frame][j],map->vfDepSta[current_frame][j],K);
+                gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
+
+
+                // graph.emplace_shared<Point3DFactor>(curr_camera_pose_vertex, FeaMakTmp, X_c_point, camera_projection_noise);
+                addPoint3DFactor(X_c_point, curr_camera_pose_vertex, FeaMakTmp);
+                vnFeaMakSta[current_frame][j] = FeaMakTmp;
+            }
+
         }
-
     }
+
     //end looping for static features
     //okay need to wait for at least TRACKING_SIZE (for naive implementation)
     //eventually need to wait and then go back.
     //Lets start by just adding tracks in TRACKING_SIZE 
+    // if(current_frame  < 0) {
     if(current_frame < TRACKING_SIZE) {
         LOG(INFO) << "Frame <= tracking size " << current_frame << " vs " << TRACKING_SIZE;
         //loop for dynamic features
-        // for(int j = 0; j < vnFeaLabDyn[current_frame].size(); j++) {
+        for(int j = 0; j < vnFeaLabDyn[current_frame].size(); j++) {
 
-        //     //check for feature validation
-        //     if(vnFeaLabDyn[current_frame][j] == -1) {
-        //         continue;
-        //     }
+            //check for feature validation
+            if(vnFeaLabDyn[current_frame][j] == -1) {
+                continue;
+            }
 
-        //     // get the TrackID of current feature
-        //     int TrackID = vnFeaLabDyn[current_frame][j];
+            gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[current_frame][j]);
+            addDynamicLandmarkToGraph(X_w, count_unique_id, current_frame, j);
 
-        //     int PositionID = -1;
-        //     //so the first frame that we can track the the features is 
-        //     for (int k = 0; k < DynTracks[TrackID].size(); ++k) {
-        //         if (DynTracks[TrackID][k].first==current_frame && DynTracks[TrackID][k].second==j) {
-        //             // LOG(INFO) << current_frame;
-        //             PositionID = k;
-        //             break;
-        //         }
-        //     }
-
-        //     if (PositionID==-1){
-        //         LOG(WARNING) << "cannot find the position of current dynamic feature in the tracklet !!!";
-        //         continue;
-        //     }
-
-        //     const int TrLength = DynTracks[TrackID].size();
-        //     if ( TrLength-PositionID<FeaLengthThresDyn ) {
-        //         continue;
-        //     }
-
-        //     gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[current_frame][j]);
-        //     addDynamicLandmarkToGraph(X_w, count_unique_id, current_frame, j);
-
-        //     cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatDyn[current_frame][j],map->vfDepDyn[current_frame][j],K);
-        //     gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
-        //     addDynamicPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
+            cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatDyn[current_frame][j],map->vfDepDyn[current_frame][j],K);
+            gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
+            addDynamicPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
 
 
-        //     // update unique id
-        //     vnFeaMakDyn[current_frame][j] = count_unique_id;
-        //     count_unique_id++;
+            // update unique id
+            vnFeaMakDyn[current_frame][j] = count_unique_id;
+            count_unique_id++;
 
-        // }
+        }
     }
     else {
         // loop for object motion, and keep the unique vertex id for saving object feature edges
@@ -461,18 +451,15 @@ void VdoSlamBackend::process() {
 
         for (int j = 1; j < map->vmRigidMotion[current_frame-1].size(); j++) {
 
-            if(!objCheck[current_frame-1][j]) {
-                continue;
-            }
 
-            gtsam::Pose3 object_motion;
+            gtsam::Pose3 object_motion = gtsam::Pose3::identity();
 
-            if(map->vbObjStat[current_frame-1][j]) {
-                object_motion = utils::cvMatToGtsamPose3(map->vmRigidMotion[current_frame-1][j]);
-            }
-            else {
-                object_motion = gtsam::Pose3::identity();
-            }
+            // if(map->vbObjStat[current_frame-1][j]) {
+            //     object_motion = utils::cvMatToGtsamPose3(map->vmRigidMotion[current_frame-1][j]);
+            // }
+            // else {
+            //     object_motion = gtsam::Pose3::identity();
+            // }
             //ignoreing smooth constraint here
             addMotionToGraph(object_motion, count_unique_id, current_frame, j);
 
@@ -489,7 +476,7 @@ void VdoSlamBackend::process() {
             }
 
             // only if the back trace exist
-            int trace_key = unique_vertices[current_frame-1][traceID];
+            int trace_key = unique_vertices[current_frame-2][traceID];
             if(traceID != -1 && trace_key != -1 ) {
                 LOG(INFO) << "trace key " << trace_key;
                 //add smoother between vertices
@@ -505,8 +492,8 @@ void VdoSlamBackend::process() {
                 );
             }
 
-            ObjUniqueID[j]=count_unique_id;
-            unique_vertices[current_frame][j]=count_unique_id;
+            ObjUniqueID[j-1]=count_unique_id;
+            unique_vertices[current_frame-1][j]=count_unique_id;
             count_unique_id++;
         }
 
@@ -539,7 +526,7 @@ void VdoSlamBackend::process() {
             int ObjPositionID = -1;
             for (int k = 1; k < map->vnRMLabel[current_frame-1].size(); ++k) {
                 if (map->vnRMLabel[current_frame-1][k]==map->nObjID[TrackID]){
-                    ObjPositionID = ObjUniqueID[k];
+                    ObjPositionID = ObjUniqueID[k-1];
                     break;
                 }
             }
@@ -550,6 +537,8 @@ void VdoSlamBackend::process() {
 
             // check if the PositionID is 2. Yes means this dynamic point is first seen by this frame,
                     // then save both the vertex and edge, otherwise save edge only because vertex is saved before.
+            CHECK_GE(PositionID, 2);
+            // LOG(INFO) << "Dyna pos " << PositionID;
             if (PositionID == 2) {
                 //TODO: sanity check that it is not in isam2 graph?
 
@@ -574,15 +563,15 @@ void VdoSlamBackend::process() {
             //assume we dont get anything less than 2?
             else if(PositionID > 2) {
                 //then only add this feature to the existing track it belongs to.
-                const int TrLength = DynTracks[TrackID].size();
+                // const int TrLength = DynTracks[TrackID].size();
                 const int FeaMakTmp = vnFeaMakDyn[DynTracks[TrackID][PositionID-1].first][DynTracks[TrackID][PositionID-1].second];
-                // LOG(INFO) << FeaMakTmp;
-                // if ( TrLength-PositionID<FeaLengthThresDyn || FeaMakTmp==-1 ) {
+                // // LOG(INFO) << FeaMakTmp;
+                // // if ( TrLength-PositionID<FeaLengthThresDyn || FeaMakTmp==-1 ) {
+                // //     continue;
+                // // }
+                // if ( TrLength < FeaLengthThresDyn || FeaMakTmp==-1 ) {
                 //     continue;
                 // }
-                if ( TrLength < FeaLengthThresDyn || FeaMakTmp==-1 ) {
-                    continue;
-                }
                 // LOG(INFO) << "Adding ladnamrk motion factor";
 
                 gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[current_frame][j]);
@@ -611,8 +600,6 @@ void VdoSlamBackend::process() {
         }
         
     }
-
-
 
     pre_camera_pose_vertex = curr_camera_pose_vertex;
     optimize();
@@ -844,8 +831,8 @@ void VdoSlamBackend::addLandmarkMotionFactor(const gtsam::Point3& measurement, g
     //Super unclear in implementation if current or previous key is first
     observed_motions[motion_key].push_back(
         boost::make_shared<LandmarkMotionTernaryFactor>(
-            current_point_key,
             previous_point_key,
+            current_point_key,
             motion_key,
             measurement,
             objectMotionNoiseModel

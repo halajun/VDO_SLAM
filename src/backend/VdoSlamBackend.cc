@@ -497,12 +497,12 @@ void VdoSlamBackend::process() {
                 //I guess add directly...?
 
                 //must wait till motions are added to the graph as we now wait till two motions
-                // graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
-                //     trace_key,
-                //     count_unique_id,
-                //     motion_smoother,
-                //     objectMotionSmootherNoiseModel
-                // );
+                graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
+                    trace_key,
+                    count_unique_id,
+                    motion_smoother,
+                    objectMotionSmootherNoiseModel
+                );
             }
 
             ObjUniqueID[j]=count_unique_id;
@@ -949,28 +949,39 @@ gtsam::Values VdoSlamBackend::collectValuesToAdd() {
             CHECK(isam->valueExists(previous_point_key) || values_to_add.exists(previous_point_key));
             CHECK(isam->valueExists(current_point_key) || values_to_add.exists(current_point_key));
 
+            factor->print();
+
         }
 
-        if(factors.size() >= kMinObservations) {
-            CHECK(!isam->valueExists(motion_key));
+        gtsam::Pose3 motion = new_object_motions.at<gtsam::Pose3>(motion_key);
+        new_object_motions.erase(motion_key);
+        values_to_add.insert(motion_key, motion);
 
-            gtsam::Pose3 motion = new_object_motions.at<gtsam::Pose3>(motion_key);
-            new_object_motions.erase(motion_key);
-            values_to_add.insert(motion_key, motion);
+        graph.push_back(factors.begin(), factors.end());
+        //i guess clear the factors?
+        factors.clear();
 
-            graph.push_back(factors.begin(), factors.end());
-            //i guess clear the factors?
-            factors.clear();
-        }
-        else if(isam->valueExists(motion_key)) {
-            //same implicit logic as prior
-            //now, both the previous point key AND the current point key must also be in the
-            graph.push_back(factors.begin(), factors.end());
-            factors.clear();
-        }
-        else {
-            LOG(WARNING) << "Should never get here";
-        }
+
+        // if(factors.size() >= kMinObservations) {
+        //     CHECK(!isam->valueExists(motion_key));
+
+        //     gtsam::Pose3 motion = new_object_motions.at<gtsam::Pose3>(motion_key);
+        //     new_object_motions.erase(motion_key);
+        //     values_to_add.insert(motion_key, motion);
+
+        //     graph.push_back(factors.begin(), factors.end());
+        //     //i guess clear the factors?
+        //     factors.clear();
+        // }
+        // else if(isam->valueExists(motion_key)) {
+        //     //same implicit logic as prior
+        //     //now, both the previous point key AND the current point key must also be in the
+        //     graph.push_back(factors.begin(), factors.end());
+        //     factors.clear();
+        // }
+        // else {
+        //     LOG(WARNING) << "Should never get here";
+        // }
 
         //motion should already be in isam2 or about to be if its in values
         CHECK(isam->valueExists(motion_key) || values_to_add.exists(motion_key));

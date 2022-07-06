@@ -831,8 +831,8 @@ void VdoSlamBackend::addLandmarkMotionFactor(const gtsam::Point3& measurement, g
     //Super unclear in implementation if current or previous key is first
     observed_motions[motion_key].push_back(
         boost::make_shared<LandmarkMotionTernaryFactor>(
-            previous_point_key,
             current_point_key,
+            previous_point_key,
             motion_key,
             measurement,
             objectMotionNoiseModel
@@ -875,7 +875,7 @@ gtsam::Values VdoSlamBackend::collectValuesToAdd() {
         //if we have at least n factors or the key is already in the graph
         if(factors.size() >= kMinObservations) {
             //removing only for testing with g2o files as we dont add to the isam2
-            CHECK(!isam->valueExists(landmark_key));
+            // CHECK(!isam->valueExists(landmark_key));
 
             // LOG(INFO) << "Adding key: " << landmark_key << " to isam 2";
             //for now eveything will be a Point3
@@ -895,9 +895,9 @@ gtsam::Values VdoSlamBackend::collectValuesToAdd() {
         //then we assume that at some point prior it must have had at least two landmarks and
         //we have added those factors and cleared the array. 
 
-        // if(all_values.exists(landmark_key) && factors.size()> 0) {
+        if(all_values.exists(landmark_key) && factors.size()> 0) {
 
-        if(isam->valueExists(landmark_key)) {
+        // if(isam->valueExists(landmark_key)) {
             // LOG(INFO) << "key: " << landmark_key << " exists.";
             // LOG(INFO) << "Adding " << factors.size() << " Point3D Factors";
             //sanity check that this landmark does not exist in new lmsks?
@@ -933,10 +933,10 @@ gtsam::Values VdoSlamBackend::collectValuesToAdd() {
         for(auto& factor : factors) {
             const gtsam::Key& previous_point_key = factor->getPreviousPointKey();
             const gtsam::Key& current_point_key = factor->getCurrentPointKey();
-            CHECK(isam->valueExists(previous_point_key) || values_to_add.exists(previous_point_key));
-            CHECK(isam->valueExists(current_point_key) || values_to_add.exists(current_point_key));
+            // CHECK(isam->valueExists(previous_point_key) || values_to_add.exists(previous_point_key));
+            // CHECK(isam->valueExists(current_point_key) || values_to_add.exists(current_point_key));
 
-            factor->print();
+            // factor->print();
 
         }
 
@@ -991,18 +991,24 @@ gtsam::Values VdoSlamBackend::collectValuesToAdd() {
     return values_to_add;
 }
 
+void VdoSlamBackend::optimizeLM() {
+    LOG(INFO) << "Begin LM OPT";
+    Values result = gtsam::LevenbergMarquardtOptimizer(graph, all_values).optimize();
+    LOG(INFO) << "Done LM OPT";
+}
+
 void VdoSlamBackend::optimize() {
     ///failure is always on previous camera pose
-    if(current_frame > 1) {
+    if(current_frame > 7) {
         gtsam::Values values = collectValuesToAdd();
         //will throw KeyAlreadyExists<J> so a good test to see if the front end -> backend processing is working
-        // all_values.insert(values);
+        all_values.insert(values);
         try {
-            result = isam->update(graph, values);
+            // result = isam->update(graph, values);
             // isam->update();
             // isam->update();
             // isam->update();
-            graph.resize(0);
+            // graph.resize(0);
 
             debug_info.print();
             debug_info.reset();

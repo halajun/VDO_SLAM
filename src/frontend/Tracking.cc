@@ -1234,11 +1234,11 @@ void Tracking::Track()
         double loc_ba_time;
         s_5 = clock();
 
-        LOG(INFO) << "Error before";
-        GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
-                    mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
+        // LOG(INFO) << "Error before";
+        // GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
+        //             mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
 
-        // backend->calculateError();
+        // // backend->calculateError();
 
         // // Get Partial Batch Optimization
         // // Optimizer::PartialBatchOptimization(mpMap,mK,nWINDOW_SIZE);
@@ -1251,16 +1251,17 @@ void Tracking::Track()
         //             mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
 
 
-        // num_batch_update++;
+        num_batch_update++;
 
-        // if(num_batch_update > 2) {
-        //     backend->updateMapFull();
-        //     LOG(INFO) << "Error after incremental update";
-        //     GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
-        //                 mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
-        //     backend->calculateError();
-        //     throw std::invalid_argument("Stop");
-        // }
+        if(num_batch_update > 2) {
+            // backend->updateMapFull();
+            // LOG(INFO) << "Error after incremental update";
+            // GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
+            //             mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
+            // backend->calculateError();
+            backend->optimizeLM();
+            throw std::invalid_argument("Stop");
+        }
         
 
 

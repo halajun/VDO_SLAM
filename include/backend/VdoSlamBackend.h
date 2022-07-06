@@ -29,6 +29,8 @@
 #include "backend/VdoSlamBackendParams.h"
 #include "backend/DynamicObjectManager.h"
 #include "backend/TrackedObservation.h"
+#include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
+
 #include "Map.h"
 
 
@@ -55,6 +57,8 @@ class VdoSlamBackend {
         void updateMapFull();
 
         void writeG2o(const std::string& file_name);
+
+        void optimizeLM();
 
     private:
 

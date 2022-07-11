@@ -106,7 +106,7 @@ class VdoSlamBackend {
 
         Camera::Ptr camera;
         
-        std::vector<std::vector<int>> unique_vertices;
+        std::vector<std::vector<gtsam::Key>> unique_vertices;
         gtsam::Key count_unique_id;
 
         //reverse loook up so given a unique key we can find the i, j pairining in the unique_vertices
@@ -142,6 +142,9 @@ class VdoSlamBackend {
         //use add3DPointFactorToGraph. We collect the factors until their are at least
         //2 point3D Factors on a landmark
         std::map<gtsam::Key, Point3DFactors> observed_landmarks;
+
+        //same as above but for dynamic
+        std::map<gtsam::Key, Point3DFactors> observed_dyn_landmarks;
         //Unsure if this is necessary as if we have a motion the point has been obserted twice?
         //the Key should be on the motion as it is the key that joins all the vertices together
         std::map<gtsam::Key, LandmarkMotionTernaryFactors> observed_motions;

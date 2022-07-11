@@ -1253,7 +1253,7 @@ void Tracking::Track()
 
         num_batch_update++;
 
-        if(num_batch_update > 2) {
+        if(num_batch_update > 1) {
             // backend->updateMapFull();
             // LOG(INFO) << "Error after incremental update";
             // GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,

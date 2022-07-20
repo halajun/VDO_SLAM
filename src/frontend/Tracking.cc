@@ -1208,6 +1208,7 @@ void Tracking::Track()
         mpMap->vmRigidCentre.push_back(Centre_Tmp);
 
         cout << "Save Graph Structure, Done!" << endl;
+        // backend->process();
     }
 
     // =================================================================================================
@@ -1241,7 +1242,8 @@ void Tracking::Track()
         // // backend->calculateError();
 
         // // Get Partial Batch Optimization
-        // // Optimizer::PartialBatchOptimization(mpMap,mK,nWINDOW_SIZE);
+        // Optimizer::PartialBatchOptimization(mpMap,mK,nWINDOW_SIZE);
+        // Optimizer::FullBatchOptimization(mpMap,mK);
         // e_5 = clock();
         // loc_ba_time = (double)(e_5-s_5)/CLOCKS_PER_SEC*1000;
         // mpMap->fLBA_time.push_back(loc_ba_time);
@@ -1254,6 +1256,7 @@ void Tracking::Track()
         num_batch_update++;
 
         if(num_batch_update > 1) {
+            Optimizer::FullBatchOptimization(mpMap,mK);
             // backend->updateMapFull();
             // LOG(INFO) << "Error after incremental update";
             // GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,

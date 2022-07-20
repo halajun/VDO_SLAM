@@ -42,8 +42,8 @@ VdoSlamBackend::VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_, BackendParams
         objectMotionNoiseModel(nullptr) {
 
         gtsam::ISAM2Params parameters;
-        parameters.relinearizeThreshold = 0.01;
-        parameters.relinearizeSkip = 1;
+        // parameters.relinearizeThreshold = 0.01;
+        // parameters.relinearizeSkip = 1;
 
         isam = VDO_SLAM::make_unique<gtsam::ISAM2>(parameters);
         K_calib =  utils::cvMat2Cal3_S2(K);
@@ -96,7 +96,6 @@ void VdoSlamBackend::process() {
 
     current_frame = N - 1;
 
-
     std::vector<int>  vnFLS_tmp(map->vpFeatSta[current_frame].size(),-1);
     vnFeaLabSta.push_back(vnFLS_tmp);
     vnFeaMakSta.push_back(vnFLS_tmp);
@@ -105,8 +104,6 @@ void VdoSlamBackend::process() {
     vnFeaLabDyn.push_back(vnFLD_tmp);
     vnFeaMakDyn.push_back(vnFLD_tmp);
 
-    // std::vector<bool> ObjCheck_tmp(pMap->vnRMLabel[i].size(),false);
-    // obj_check.push_back(ObjCheck_tmp);
 
     CHECK_EQ(vnFeaLabSta.size(), N);
     CHECK_EQ(vnFeaMakSta.size(), N);
@@ -170,6 +167,8 @@ void VdoSlamBackend::process() {
         std::vector<bool> ObjCheck_tmp(map->vnRMLabel[current_frame-1].size(),false);
         objCheck.push_back(ObjCheck_tmp);
     }
+    // std::vector<bool> ObjCheck_tmp(map->vnRMLabel[current_frame-1].size(),false);
+    //     objCheck.push_back(ObjCheck_tmp);
     
     CHECK_EQ(objCheck.size(), current_frame);
     
@@ -222,7 +221,7 @@ void VdoSlamBackend::process() {
             for (int j = 1; j < map->vnRMLabel[i].size(); ++j) {
                 for (int k = 0; k < UniLab.size(); ++k) {
                     if (UniLab[k] == map->vnRMLabel[i][j] && LabCount[k] >= OBJ_TRACK_LENGTH) {
-                        LOG(INFO) << "Tracked obj " << UniLab[k] << "for " << LabCount[k] << "frames";
+                        LOG(INFO) << "Tracked obj " << UniLab[k] << " for " << LabCount[k] << " frames";
                         objCheck[i][j] = true;
                         break;
                     }
@@ -302,7 +301,6 @@ void VdoSlamBackend::process() {
     //not the first call
     else {
         // (2) save <EDGE_R3_SO3> 
-        //like I guess?
         //pretty sure we want to optimize for the rigid motion too...? This should become a variable?
         gtsam::Pose3 rigid_motion = utils::cvMatToGtsamPose3(map->vmRigidMotion[current_frame-1][0]);
         graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
@@ -314,7 +312,7 @@ void VdoSlamBackend::process() {
         LOG(INFO) << "Added motion constraint factor between id: " <<pre_camera_pose_vertex << " " << curr_camera_pose_vertex;
 
         //loop for static features
-        LOG(INFO) << "Static features for current frame is " << vnFeaLabSta[current_frame].size();
+        LOG(INFO) << "Static features for current frame is " << vnFeaLabSta[current_frame].size() << " frame " << current_frame;
         for (int j = 0; j < vnFeaLabSta[current_frame].size(); ++j) {
             // check feature validation
             if (vnFeaLabSta[current_frame][j]==-1) {
@@ -323,6 +321,10 @@ void VdoSlamBackend::process() {
             // get the TrackID of current feature
             int TrackID = vnFeaLabSta[current_frame][j];
 
+            // if(current_frame == 1) {
+                LOG(INFO) << current_frame;
+            // } 
+
             // get the position of current feature in the tracklet
             int PositionID = -1;
             //trackets require at least one prior frame to exist to track the feature through
@@ -330,6 +332,13 @@ void VdoSlamBackend::process() {
             for (int k = 0; k < StaTracks[TrackID].size(); ++k) {
                 // LOG(INFO) << StaTracks[TrackID][k].first;
                 //if we're not looping through all the frames (eg i becomes start_frame is this going to be a problem?)
+                if(StaTracks[TrackID][k].first==current_frame && current_frame == 1) {
+                    LOG(INFO) << "Track at frame " << current_frame << " and k " << k; 
+                }
+
+                if(StaTracks[TrackID][k].second==j && current_frame == 1) {
+                    LOG(INFO) << "Track at id " << j << " and k " << k; 
+                }
                 if (StaTracks[TrackID][k].first==current_frame && StaTracks[TrackID][k].second==j) {
                     // LOG(INFO) << current_frame;
                     PositionID = k;
@@ -350,6 +359,7 @@ void VdoSlamBackend::process() {
             //list of variables which map to factors..? Need at least two so can just track the number of factors.
             //must ensure that the conditions of newFactors and newTheta are satisfied.
             // LOG(INFO) << "Position ID " << PositionID;
+            CHECK(PositionID != 0);
             if (PositionID==2) {
                 //then also check that it is not in the graph
                 //check in isam or check in local NLFG?
@@ -360,7 +370,6 @@ void VdoSlamBackend::process() {
                     continue;
                 }
 
-            
 
                 gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointSta[current_frame][j]);
                 addLandmarkToGraph(X_w, count_unique_id, current_frame, j);
@@ -390,9 +399,9 @@ void VdoSlamBackend::process() {
                     // // or its previous FeaMakTmp is not -1, then save it, otherwise skip.
                 const int TrLength = StaTracks[TrackID].size();
                 const int FeaMakTmp = vnFeaMakSta[StaTracks[TrackID][PositionID-1].first][StaTracks[TrackID][PositionID-1].second];
-                if (TrLength<FeaLengthThresSta || FeaMakTmp==-1) {
-                    continue;
-                }
+                // if (TrLength<FeaLengthThresSta || FeaMakTmp==-1) {
+                //     continue;
+                // }
 
                 //well it might not yet?
                 // CHECK(isam->valueExists(FeaMakTmp));
@@ -423,8 +432,8 @@ void VdoSlamBackend::process() {
     //okay need to wait for at least TRACKING_SIZE (for naive implementation)
     //eventually need to wait and then go back.
     //Lets start by just adding tracks in TRACKING_SIZE 
-    // if(current_frame  < 0) {
-    if(current_frame < TRACKING_SIZE) {
+    if(current_frame  == 0) {
+    // if(current_frame < TRACKING_SIZE) {
         LOG(INFO) << "Frame <= tracking size " << current_frame << " vs " << TRACKING_SIZE;
         //loop for dynamic features
         for(int j = 0; j < vnFeaLabDyn[current_frame].size(); j++) {
@@ -450,11 +459,11 @@ void VdoSlamBackend::process() {
     }
     else {
         // loop for object motion, and keep the unique vertex id for saving object feature edges
-        std::vector<int> ObjUniqueID(map->vmRigidMotion[current_frame-1].size(),-1);
+        std::vector<int> ObjUniqueID(map->vmRigidMotion[current_frame-1].size()-1,-1);
 
         for (int j = 1; j < map->vmRigidMotion[current_frame-1].size(); j++) {
 
-            // if (!objCheck[current_frame-1][j]) {
+            // if (!objCheck[current_frame][j]) {
             //     continue;
             // }
 
@@ -472,31 +481,34 @@ void VdoSlamBackend::process() {
 
             //add smoothing betweeb motion
             //guaranteed to be > 2 here due to TRACKIGN_SIZE.
-            CHECK_GT(current_frame, 2) << "Current frame must be > 2 to apply smoothing constraint. What is the tracking size?";
-            int traceID = -1;
-            for (int k = 0; k < map->vnRMLabel[current_frame-2].size(); k++) {
-                if(map->vnRMLabel[current_frame-2][k] == map->vnRMLabel[current_frame-1][j]) {
-                    traceID = k;
-                    break;
+            if(current_frame > 2) {
+                CHECK_GT(current_frame, 2) << "Current frame must be > 2 to apply smoothing constraint. What is the tracking size?";
+                int traceID = -1;
+                for (int k = 0; k < map->vnRMLabel[current_frame-2].size(); k++) {
+                    if(map->vnRMLabel[current_frame-2][k] == map->vnRMLabel[current_frame-1][j]) {
+                        traceID = k;
+                        break;
+                    }
+                }
+
+                // only if the back trace exist
+                int trace_key = unique_vertices[current_frame-2][traceID];
+                if(traceID != -1 && trace_key != -1 ) {
+                    LOG(INFO) << "trace key " << trace_key;
+                    //add smoother between vertices
+                    gtsam::Pose3 motion_smoother = gtsam::Pose3::identity();
+                    //I guess add directly...?
+
+                    //must wait till motions are added to the graph as we now wait till two motions
+                    // graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
+                    //     trace_key,
+                    //     count_unique_id,
+                    //     motion_smoother,
+                    //     objectMotionSmootherNoiseModel
+                    // );
                 }
             }
-
-            // only if the back trace exist
-            int trace_key = unique_vertices[current_frame-2][traceID];
-            if(traceID != -1 && trace_key != -1 ) {
-                LOG(INFO) << "trace key " << trace_key;
-                //add smoother between vertices
-                gtsam::Pose3 motion_smoother = gtsam::Pose3::identity();
-                //I guess add directly...?
-
-                //must wait till motions are added to the graph as we now wait till two motions
-                // graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
-                //     trace_key,
-                //     count_unique_id,
-                //     motion_smoother,
-                //     objectMotionSmootherNoiseModel
-                // );
-            }
+            
 
             ObjUniqueID[j-1]=count_unique_id;
             unique_vertices[current_frame-1][j]=count_unique_id;
@@ -759,11 +771,13 @@ void VdoSlamBackend::addToKeyVertexMapping(const gtsam::Key& key, FrameId curr_f
 
 void VdoSlamBackend::addCameraPoseToGraph(const gtsam::Pose3& pose, gtsam::Key key, FrameId curr_frame) {
     new_camera_poses.insert(key, pose);
+    all_values.insert(key, pose);
     addToKeyVertexMapping(key, curr_frame, 0, kSymbolCameraPose3Key);
 }
 
 void VdoSlamBackend::addMotionToGraph(const gtsam::Pose3& motion, gtsam::Key key, FrameId curr_frame, FeatureId object_id) {
     new_object_motions.insert(key, motion);
+    all_values.insert(key, motion);
     addToKeyVertexMapping(key, curr_frame, object_id, kSymbolMotion3Key);
 }
 
@@ -771,6 +785,7 @@ void VdoSlamBackend::addMotionToGraph(const gtsam::Pose3& motion, gtsam::Key key
 
 void VdoSlamBackend::addLandmarkToGraph(const gtsam::Point3& landmark, gtsam::Key key, FrameId curr_frame, FeatureId feature_id) {
     auto it = observed_landmarks.find(key);
+    all_values.insert(key, landmark);
     //if not in map then first time observed here so we set observation to 0.
     //also assume that if its never been seen here then it is not in new_values
     if (it == observed_landmarks.end()) {
@@ -781,6 +796,7 @@ void VdoSlamBackend::addLandmarkToGraph(const gtsam::Point3& landmark, gtsam::Ke
         observed_landmarks[key] = {};
         CHECK(!new_lmks.exists(key));
         new_lmks.insert(key, landmark);
+        // all_values.insert(key, landmark);
         //TODO: THIS IS BAD: we're not actually adding the lmk to isam2 yet (it may not have enough measurements)
         //so when we try and opt this key is actually not in the map
         //for now we'll add a check in update map full but this needs to be changed
@@ -795,6 +811,7 @@ void VdoSlamBackend::addLandmarkToGraph(const gtsam::Point3& landmark, gtsam::Ke
 void VdoSlamBackend::addDynamicLandmarkToGraph(const gtsam::Point3& landmark, gtsam::Key key, FrameId curr_frame, FeatureId feature_id) {
     //straight up add everything as it should be unique...?
     new_dynamic_lmks.insert(key, landmark);
+    all_values.insert(key, landmark);
     addToKeyVertexMapping(key, curr_frame, feature_id, kSymbolDynamicPoint3Key);
 }
 
@@ -802,7 +819,7 @@ void VdoSlamBackend::addDynamicLandmarkToGraph(const gtsam::Point3& landmark, gt
 void VdoSlamBackend::addPoint3DFactor(const gtsam::Point3& measurement, gtsam::Key pose_key, gtsam::Key landmark_key) {
     auto it = observed_landmarks.find(landmark_key);
     //must be added prior to the first factor? I guess?
-    CHECK(it != observed_landmarks.end()) << "Landmark measurment must be added before adding a point 3D factor";    //must be added prior to the first factor? I guess?
+    // CHECK(it != observed_landmarks.end()) << "Landmark measurment must be added before adding a point 3D factor";    //must be added prior to the first factor? I guess?
     observed_landmarks[landmark_key].push_back(
         boost::make_shared<Point3DFactor>(
             pose_key,
@@ -810,6 +827,13 @@ void VdoSlamBackend::addPoint3DFactor(const gtsam::Point3& measurement, gtsam::K
             measurement,
             point3DNoiseModel
         )
+    );
+
+    graph.emplace_shared<Point3DFactor>(
+        pose_key,
+        landmark_key,
+        measurement,
+        point3DNoiseModel
     );
 
 }
@@ -823,6 +847,13 @@ void VdoSlamBackend::addDynamicPoint3DFactor(const gtsam::Point3& measurement, g
             measurement,
             dynamicPoint3DNoiseModel
         )
+    );
+
+    graph.emplace_shared<Point3DFactor>(
+        pose_key,
+        landmark_key,
+        measurement,
+        dynamicPoint3DNoiseModel
     );
 }
 
@@ -844,6 +875,14 @@ void VdoSlamBackend::addLandmarkMotionFactor(const gtsam::Point3& measurement, g
             measurement,
             objectMotionNoiseModel
         )
+    );
+
+    graph.emplace_shared<LandmarkMotionTernaryFactor>(
+        current_point_key,
+            previous_point_key,
+            motion_key,
+            measurement,
+            objectMotionNoiseModel
     );
 
 
@@ -993,16 +1032,18 @@ gtsam::Values VdoSlamBackend::collectValuesToAdd() {
 }
 
 void VdoSlamBackend::optimizeLM() {
+     LOG(INFO) << "Num gtsam vertex " << all_values.size();
+    LOG(INFO) << "Num gtsam edges " << graph.size();
     try {
-        boost::shared_ptr<gtsam::GaussianFactorGraph> linearization = graph.linearize(all_values);
-        gtsam::Matrix hessian = linearization->augmentedHessian();
+        // boost::shared_ptr<gtsam::GaussianFactorGraph> linearization = graph.linearize(all_values);
+        // gtsam::Matrix hessian = linearization->augmentedHessian();
         // gtsam::Matrix jacobian = linearization->augmentedJacobian();
 
-        std::ofstream file("hessian.txt");
-        if (file.is_open()) {
-            file << hessian;
-            file.close();
-        }
+        // std::ofstream file("hessian.txt");
+        // if (file.is_open()) {
+        //     file << hessian;
+        //     file.close();
+        // }
 
         LOG(INFO) << "Begin LM OPT";
         Values result = gtsam::LevenbergMarquardtOptimizer(graph, all_values).optimize();
@@ -1035,11 +1076,11 @@ void VdoSlamBackend::optimizeLM() {
 
 void VdoSlamBackend::optimize() {
     ///failure is always on previous camera pose
-    if(current_frame > 7) {
+    if(current_frame >= 0) {
         //will throw KeyAlreadyExists<J> so a good test to see if the front end -> backend processing is working
         try {
-            gtsam::Values values = collectValuesToAdd();
-            all_values.insert(values);
+            // gtsam::Values values = collectValuesToAdd();
+            // all_values.insert(values);
             // result = isam->update(graph, values);
             // isam->update();
             // isam->update();

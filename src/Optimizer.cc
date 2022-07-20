@@ -1798,7 +1798,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     // ---------=============!!!=- Main Loop for input data -=!!!=============----------------
     // ---------------------------------------------------------------------------------------
     int count_unique_id = 1;
-    bool ROBUST_KERNEL = true, ALTITUDE_CONSTRAINT = false, SMOOTH_CONSTRAINT = true, STATIC_ONLY = false;
+    bool ROBUST_KERNEL = true, ALTITUDE_CONSTRAINT = false, SMOOTH_CONSTRAINT = false, STATIC_ONLY = false;
     float deltaHuberCamMot = 0.0001, deltaHuberObjMot = 0.0001, deltaHuber3D = 0.0001;
     int PreFrameID;
     for (int i = 0; i < N; ++i)
@@ -1892,6 +1892,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
         else
         {
             // loop for static features
+            LOG(INFO) << "OPT: Static features for current frame is " << vnFeaLabSta[i].size() << " frame " << i;
             for (int j = 0; j < vnFeaLabSta[i].size(); ++j)
             {
                 // check feature validation
@@ -1901,10 +1902,19 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                 // get the TrackID of current feature
                 int TrackID = vnFeaLabSta[i][j];
 
+
                 // get the position of current feature in the tracklet
                 int PositionID = -1;
                 for (int k = 0; k < StaTracks[TrackID].size(); ++k)
                 {
+
+                    if(StaTracks[TrackID][k].first==i && i == 1) {
+                        LOG(INFO) << "Track at frame " << i << " and k " << k; 
+                    }
+
+                    if(StaTracks[TrackID][k].second==j) {
+                        // LOG(INFO) << "Track at id " << j << " and k " << k; 
+                    }   
                     if (StaTracks[TrackID][k].first==i && StaTracks[TrackID][k].second==j)
                     {
                         PositionID = k;
@@ -1918,6 +1928,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
 
                 // check if the PositionID is 0. Yes means this static point is first seen by this frame,
                 // then save both the vertex and edge, otherwise save edge only because vertex is saved before.
+                // CHECK(PositionID > 0);
                 if (PositionID==0)
                 {
                     // (3) save <VERTEX_POINT_3D>
@@ -2217,6 +2228,9 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     // }
 
     // start optimize
+    LOG(INFO) << "Num vertex " << optimizer.vertices().size();
+    LOG(INFO) << "Num edges " << optimizer.edges().size();
+
     optimizer.initializeOptimization();
     optimizer.setVerbose(true);
 

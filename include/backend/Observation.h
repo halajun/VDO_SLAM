@@ -9,23 +9,29 @@
 namespace VDO_SLAM {
 
 //only works for single "thing" observation...
+//eg gtsam::Point3
 template<class T>
 class Observation {
-    //All public... for now
     public:
-        VDO_SLAM_POINTER_TYPEDEFS(Observation);
+        using Ptr = std::shared_ptr<Observation<T>>;
 
-        Observation(const T& value_, const gtsam::Key& key_, const gtsam::Key& pose_key_, const FrameId& curr_frame_)
-            :   measurement(value_),
-                key(key_),
-                pose_key(pose_key_),
-                curr_frame(curr_frame_) {}
+        Observation(const FrameId& frame_id_,  const FeatureId& point_id_, int position_, int tracklet_id_)
+            :   point_id(point_id_),
+                frame_id(frame_id_),
+                tracklet_position(position_),
+                tracklet_id(tracklet_id_) {}
 
-        T measurement;
-        gtsam::Key key;
-        gtsam::Key pose_key;
-        FrameId curr_frame;
+        // T measurement;
+        const FrameId frame_id;
+        const FeatureId point_id;
+        const int tracklet_position;
+        const int tracklet_id;
+        //non-explicit gtsam key
+        int key = -1;
+        bool was_added = false;
 
 };
+
+
 
 }

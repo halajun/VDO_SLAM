@@ -1216,6 +1216,10 @@ void Tracking::Track()
     // =================================================================================================
     // graph->stepAndOptimize();
     backend->process();
+
+    // if (f_id > 2) {
+    //     throw std::invalid_argument("Stop");
+    // }
     //what about all the other thigns we have to udpate for?
     // cv::Mat updated_pose = graph->getLatestCameraPose();
     // mCurrentFrame.SetPose(updated_pose);

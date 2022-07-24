@@ -126,34 +126,34 @@ example/vdo_slam.cc)
 target_link_libraries(vdo_slam ${PROJECT_NAME})
 
 ##### Add some tests #####
-add_executable(gtsam_basic_test
-   test/gtsam_basic_test.cc
-)
+# add_executable(gtsam_basic_test
+#    test/gtsam_basic_test.cc
+# )
 
-target_link_libraries(gtsam_basic_test
-   gtsam
-   ${GFLAGS_LIBRARIES}
-   ${GLOG_LIBRARIES} 
-)
-
-
-add_executable(opencv_viz3d_test
-   test/opencv_viz3d_test.cc
-)
-
-target_link_libraries(opencv_viz3d_test
-   ${OpenCV_LIBS}
-)
+# target_link_libraries(gtsam_basic_test
+#    gtsam
+#    ${GFLAGS_LIBRARIES}
+#    ${GLOG_LIBRARIES} 
+# )
 
 
-##### Add some tests #####
-add_executable(landmark_motion_types_test
-   test/landmark_motion_types_test.cc
-)
+# add_executable(opencv_viz3d_test
+#    test/opencv_viz3d_test.cc
+# )
 
-target_link_libraries(landmark_motion_types_test
-   gtsam
-   ${GFLAGS_LIBRARIES}
-   ${GLOG_LIBRARIES} 
-   ${PROJECT_NAME}
-)
+# target_link_libraries(opencv_viz3d_test
+#    ${OpenCV_LIBS}
+# )
+
+
+# ##### Add some tests #####
+# add_executable(landmark_motion_types_test
+#    test/landmark_motion_types_test.cc
+# )
+
+# target_link_libraries(landmark_motion_types_test
+#    gtsam
+#    ${GFLAGS_LIBRARIES}
+#    ${GLOG_LIBRARIES} 
+#    ${PROJECT_NAME}
+# )

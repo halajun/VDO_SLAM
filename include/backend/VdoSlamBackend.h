@@ -25,10 +25,10 @@
 #include "utils/macros.h"
 #include "utils/types.h"
 #include "utils/camera.h"
+#include "backend/Tracklet.h"
 #include "backend/VdoSlamBackend-types.h"
 #include "backend/VdoSlamBackendParams.h"
 #include "backend/DynamicObjectManager.h"
-#include "backend/TrackedObservation.h"
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 
 #include "Map.h"
@@ -40,7 +40,7 @@ class VdoSlamBackend {
 
     public:
         VDO_SLAM_POINTER_TYPEDEFS(VdoSlamBackend);
-
+        using StaticTrackletManager = TrackletManager<gtsam::Point3, 2>;
 
         VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_, BackendParams::Ptr params_);
         ~VdoSlamBackend() = default;
@@ -102,7 +102,8 @@ class VdoSlamBackend {
         gtsam::ISAM2Result result;
         BackendParams::Ptr params;
 
-        DynamicObjectManager::UniquePtr do_manager;
+        // DynamicObjectManager::UniquePtr do_manager;
+        StaticTrackletManager static_tracklets;
 
         Camera::Ptr camera;
         

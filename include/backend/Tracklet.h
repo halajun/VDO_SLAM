@@ -115,7 +115,7 @@ class Tracklet {
         //each tracked feature is seen at immediately adjacent frames (ie. frame num increases)
         //is this a good assumption to make or will it break?
         bool isWellTracked() const {
-            return size() > MinObservations;
+            return size() >= MinObservations;
         }
 
         const int TrackletId() const  { return tracklet_id; }
@@ -195,9 +195,6 @@ class TrackletManager {
                 LOG(INFO) << "No new tracklets";
                 return;
             }
-            LOG(INFO) << new_tracklets;
-            LOG(INFO) << frontend_tracklets_.size();
-            LOG(INFO) << tracklets.size();
 
             //update for existing tracklets
             for(size_t i = 0; i < tracklets.size(); i++) {

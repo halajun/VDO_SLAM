@@ -40,7 +40,8 @@ class VdoSlamBackend {
 
     public:
         VDO_SLAM_POINTER_TYPEDEFS(VdoSlamBackend);
-        using StaticTrackletManager = TrackletManager<gtsam::Point3, 2>;
+        using StaticTrackletManager = TrackletManager<gtsam::Point3, 3>;
+        using DynamicTrackletManager = TrackletManager<gtsam::Point3, 3>;
 
         VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_, BackendParams::Ptr params_);
         ~VdoSlamBackend() = default;
@@ -104,6 +105,7 @@ class VdoSlamBackend {
 
         // DynamicObjectManager::UniquePtr do_manager;
         StaticTrackletManager static_tracklets;
+        DynamicTrackletManager dynamic_tracklets; 
 
         Camera::Ptr camera;
         
@@ -168,7 +170,10 @@ class VdoSlamBackend {
         std::vector<std::vector<int>> vnFeaMakSta;
         std::vector<std::vector<int>> vnFeaLabDyn;
         std::vector<std::vector<int>> vnFeaMakDyn;
-        std::vector<std::vector<bool>> objCheck; //same size as frames with inner vector the same size as map->vnRMLabel 
+        std::vector<std::vector<bool>> objCheck; //same size as frames with inner vector the same size as map->vnRMLabel
+
+        std::vector<std::vector<int>> objUniqueId;
+
 
        
         const unsigned char kSymbolCameraPose3Key = 'X';

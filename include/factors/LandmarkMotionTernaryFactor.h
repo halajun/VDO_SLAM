@@ -81,8 +81,8 @@ public:
   }
 
   //I think this is the correct ordering
-  inline gtsam::Key getPreviousPointKey() const { return key1(); }
-  inline gtsam::Key getCurrentPointKey() const { return key2(); }
+  inline gtsam::Key getPreviousPointKey() const { return key2(); }
+  inline gtsam::Key getCurrentPointKey() const { return key1(); }
   inline gtsam::Key getMotionKey() const { return key3(); }
 
 };

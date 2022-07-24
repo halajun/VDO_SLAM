@@ -1798,7 +1798,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
     // ---------=============!!!=- Main Loop for input data -=!!!=============----------------
     // ---------------------------------------------------------------------------------------
     int count_unique_id = 1;
-    bool ROBUST_KERNEL = true, ALTITUDE_CONSTRAINT = false, SMOOTH_CONSTRAINT = false, STATIC_ONLY = true;
+    bool ROBUST_KERNEL = true, ALTITUDE_CONSTRAINT = false, SMOOTH_CONSTRAINT = false, STATIC_ONLY = false;
     float deltaHuberCamMot = 0.0001, deltaHuberObjMot = 0.0001, deltaHuber3D = 0.0001;
     int PreFrameID;
     for (int i = 0; i < N; ++i)
@@ -1892,7 +1892,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
         else
         {
             // loop for static features
-            LOG(INFO) << "OPT: Static features for current frame is " << vnFeaLabSta[i].size() << " frame " << i;
+            // LOG(INFO) << "OPT: Static features for current frame is " << vnFeaLabSta[i].size() << " frame " << i;
             for (int j = 0; j < vnFeaLabSta[i].size(); ++j)
             {
                 // check feature validation
@@ -1909,7 +1909,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                 {
 
                     if(StaTracks[TrackID][k].first==i && i == 1) {
-                        LOG(INFO) << "Track at frame " << i << " and k " << k; 
+                        // LOG(INFO) << "Track at frame " << i << " and k " << k; 
                     }
 
                     if(StaTracks[TrackID][k].second==j) {
@@ -2129,6 +2129,8 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                         // cout << "cannot find the object association with this edge !!! WEIRD POINT !!! " << endl;
                         continue;
                     }
+                    // LOG(INFO) << "Position " << PositionID << " following obj " << ObjPositionID;
+
 
                     // check if the PositionID is 0. Yes means this dynamic point is first seen by this frame,
                     // then save both the vertex and edge, otherwise save edge only because vertex is saved before.

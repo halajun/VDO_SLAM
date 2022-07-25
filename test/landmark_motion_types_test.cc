@@ -80,7 +80,9 @@ int main() {
     std::cout << "gtsam manual error " << e_manul << std::endl; 
 
     auto e_manul_inv = (p1 - H.inverse() * p2) - measurement;
-    std::cout << "gtsam manual invert error " << e_manul_inv << std::endl; 
+    std::cout << "gtsam manual invert error " << e_manul_inv << std::endl;
+
+    
 
 
     

@@ -51,7 +51,7 @@ SFMgThres: 0.12 # 0.05
 SFDsThres: 0.3 # 0.99
 
 # Window Size and Overlapping Size for Local Batch Optimization
-WINDOW_SIZE: 8
+WINDOW_SIZE: 10
 OVERLAP_SIZE: 4
 
 # Use sampled feature or detected feature for background (1: sampled, 0: detected)
@@ -84,11 +84,11 @@ Viz.use_3d: 0
 
 
 ## Backend Params
-Backend.use_robust_kernel: 1
+Backend.use_robust_kernel: 0
 Backend.var_camera: 0.001
 Backend.var_camera_prior: 0.00001
 Backend.var_3d_static: 0.01
-Backend.var_obj: 0.001
+Backend.var_obj: 0.01
 Backend.var_3d_dyn: 0.01
 Backend.var_obj_smooth: 0.001
 

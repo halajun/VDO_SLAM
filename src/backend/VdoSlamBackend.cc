@@ -126,7 +126,29 @@ void VdoSlamBackend::process() {
     static_tracklets.update(StaTracks);
     dynamic_tracklets.update(DynTracks);
 
-    // std::ofstream file_ti("static_track_info.txt", std::ios_base::app);
+    LOG(INFO) << "vnRMLabel size " << map->vnRMLabel.size();
+    CHECK_EQ(map->vnRMLabel.size(), map->vmRigidMotion.size());
+    for(size_t i = 0; i < map->vnRMLabel.size(); i++) {
+        //number of RM labels should be the same as the number of rigid motions vmRigidMotion
+        CHECK_EQ(map->vnRMLabel[i].size(), map->vmRigidMotion[i].size());
+        LOG(INFO) << "N labels: " << i << " " <<  map->vnRMLabel[i].size();
+    }
+
+    //can get from point to label from vnFeatLabel[i][j]
+
+    // CHECK_EQ(map->nObjID.size(), dynamic_tracklets.size());
+    // std::ofstream file_ti("dynamic_track_info.txt", std::ios_base::app);
+    // file_ti << "Frame N: " << current_frame << std::endl;
+    // for(size_t i = 0; i < dynamic_tracklets.size(); i++) {
+    //     DynamicTrackletManager::TypedTracklet& tracklet = dynamic_tracklets[i];
+    //     file_ti << "Tracklet ID: " << tracklet.TrackletId() << " is WT " << tracklet.isWellTracked() << "OBJ ID " << map->nObjID[tracklet.TrackletId()] << std::endl;
+
+    //     for(size_t j = 0; j < tracklet.size(); j++) {
+    //         DynamicTrackletManager::Observation obs = dynamic_tracklets[i][j];
+    //         file_ti << obs->to_string();
+    //     }
+    // }
+    // file_ti.close();
     gtsam::Pose3 camera_pose = utils::cvMatToGtsamPose3(map->vmCameraPose[current_frame]);
     addCameraPoseToGraph(camera_pose, count_unique_id, current_frame);
    
@@ -136,12 +158,16 @@ void VdoSlamBackend::process() {
         LOG(INFO) << "Added camera prior";
     }
 
-    //unique id for the first frame and the camera pose
-    unique_vertices[current_frame][0] = count_unique_id;
+    //unique id for the first frame and the camera pose ???????
+    if(current_frame != 0) {
+        unique_vertices[current_frame-1][0] = count_unique_id;
+    }
+    
     curr_camera_pose_vertex = count_unique_id;
     count_unique_id++;
-
+    
     if(current_frame > 0) {
+        CHECK(pre_camera_pose_vertex != -1);
         gtsam::Pose3 rigid_motion = utils::cvMatToGtsamPose3(map->vmRigidMotion[current_frame-1][0]);
         graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
             pre_camera_pose_vertex,
@@ -190,6 +216,7 @@ void VdoSlamBackend::process() {
 
                         StaticTrackletManager::Observation first_obs = tracklet[0];
                         int tracklet_key = first_obs->key;
+                        obs->was_added = true;
                         //lets do a sanity check
                         //previous obs key has been set
                         CHECK(first_obs->was_added);
@@ -201,111 +228,64 @@ void VdoSlamBackend::process() {
                     }
                 }
                     
-                tracklet.markAsAdded(obs_to_add);
+                // tracklet.markAsAdded(obs_to_add);
             }   
         }
         else {
             // LOG(WARNING) << "tracks dont exist for current frame " << current_frame << " point id " << point_id; 
         }
     }
+
     LOG(INFO) << "Finished for static";
 
-    LOG(INFO) << map->vmRigidMotion.size();
-    for(auto& rm : map->vmRigidMotion) {
-        LOG(INFO) << rm.size();
-    }
-    //now look at dynamic
-    //first look at rigid motion
-    //NOTE: this will become a problem with real iccremental as the rigid motion
-    //should be added until we have enough points
-    //dont think this will do anything 
-    if(current_frame == 0) {
-        for(size_t point_id = 0; point_id < map->vpFeatDyn[current_frame].size(); point_id++) {
-            if(dynamic_tracklets.exists(current_frame, point_id)) {
-                DynamicTrackletManager::TypedTracklet tracklet = dynamic_tracklets.getTracklet(current_frame, point_id);
-                if(tracklet.isWellTracked()) {
-                    DynamicTrackletManager::Observations obs_to_add = tracklet.getNotAdded();
-                    // LOG(INFO) << tracklet.TrackletId() << " is well tracked " << obs_to_add.size() << " and is new: "<< tracklet.isNew();
-
-                    for (DynamicTrackletManager::Observation obs : obs_to_add) {
-                        
-                        FrameId frame_id = obs->frame_id;
-                        FeatureId feature_id = obs->point_id;
-                        int track_id = obs->tracklet_id;
-                        int position_id = obs->tracklet_position;
-
-                        gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[frame_id][feature_id]);
-                        obs->key = static_cast<int>(count_unique_id);
-                        obs->was_added = true;
-                        // LOG(INFO) << obs->key;
-                        addDynamicLandmarkToGraph(X_w, count_unique_id, frame_id, feature_id);
-
-                        cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatDyn[frame_id][feature_id],map->vfDepDyn[frame_id][feature_id],K);
-                        gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
-                        addDynamicPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
-                        //better to use track id as Symbol but then will need to make all variables use differnt symbols
-                        vnFeaMakDyn[frame_id][feature_id] = count_unique_id;
-                        count_unique_id++;
-
-                    }
-                    tracklet.markAsAdded(obs_to_add);
-                }
-            }
-        }
-    }
-    else {
-        
-        // LOG(INFO) <<map->vmRigidMotion[current_frame-1].size();
+    if(current_frame > 0) {
+        //will be an issue for in cremental as we only want to add the motion when we add all the points
         for (int j = 1; j < map->vmRigidMotion[current_frame-1].size(); j++) {
             gtsam::Pose3 object_motion = gtsam::Pose3::identity();
             addMotionToGraph(object_motion, count_unique_id, current_frame-1, j);
 
             //obj unique iD is the id of the object motion vetex (like camera pose)
-            objUniqueId[current_frame-1][j-1]=count_unique_id;
+            // objUniqueId[current_frame-1][j-1]=count_unique_id;
             //not sure how this does not override as j is not unique?
             unique_vertices[current_frame-1][j]=count_unique_id;
+            LOG(INFO) << "Added RM at " << current_frame -1 << " " << j << " " << count_unique_id;
             count_unique_id++;
         }
-        // LOG(INFO) << "Added rigid motion";
 
         for(size_t point_id = 0; point_id < map->vpFeatDyn[current_frame].size(); point_id++) {
             if(dynamic_tracklets.exists(current_frame, point_id)) {
                 DynamicTrackletManager::TypedTracklet tracklet = dynamic_tracklets.getTracklet(current_frame, point_id);
+
                 if(tracklet.isWellTracked()) {
                     DynamicTrackletManager::Observations obs_to_add = tracklet.getNotAdded();
-                    // LOG(INFO) << tracklet.TrackletId() << " is well tracked " << obs_to_add.size() << " and is new: "<< tracklet.isNew();
 
-                    for (DynamicTrackletManager::Observation obs : obs_to_add) {
-                        
+                    for(DynamicTrackletManager::Observation obs : obs_to_add) {
                         FrameId frame_id = obs->frame_id;
                         FeatureId feature_id = obs->point_id;
                         int track_id = obs->tracklet_id;
                         int position_id = obs->tracklet_position;
 
+                        int obs_label = map->nObjID[track_id];
                         int obj_position_id = -1;
-                        if (frame_id > 1) {
-                            for(int k = 1; k < map->vnRMLabel[frame_id-1].size(); k++) {
-                                if(map->vnRMLabel[frame_id-1][k] == map->nObjID[track_id]) {
-                                    obj_position_id = objUniqueId[frame_id-1][k-1];
+                        if(frame_id > 0) {
+                            //find which obj has the same label the vmLabel and this should be the correct index
+                            //ignore index zero as this is camera motion
+                            CHECK_EQ(map->vnRMLabel[frame_id - 1].size(), map->vmRigidMotion[frame_id - 1].size());
+                            for(size_t i = 1; i < map->vnRMLabel[frame_id - 1].size(); i++) {
+                                if(map->vnRMLabel[frame_id - 1][i] == obs_label) {
+                                    obj_position_id = unique_vertices[frame_id-1][i];
+                                    CHECK(obj_position_id != -1) << "Frame " << frame_id - 1 << " i " << i;
                                     break;
                                 }
-                            } 
-                            // LOG(INFO) << "Position GT " << position_id << " following obj GT " << obj_position_id;
-
-                            if (obj_position_id == -1 && position_id != 0){
-                                LOG(INFO) << "Position GT " << position_id << " following obj GT " << obj_position_id;
-                                LOG(WARNING) << "cannot find the object association with this edge !!! WEIRD POINT !!!";
-                                continue;
                             }
-                        } 
-                        
 
-                        // LOG(INFO) << position_id;
-                        if (position_id == 0) {
+                        }
+
+                        if(position_id == 0) {
+                            // LOG(INFO) << obj_position_id << " " << obs_label;
                             gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[frame_id][feature_id]);
                             obs->key = static_cast<int>(count_unique_id);
                             obs->was_added = true;
-                            // LOG(INFO) << obs->key;
                             addDynamicLandmarkToGraph(X_w, count_unique_id, frame_id, feature_id);
 
                             cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatDyn[frame_id][feature_id],map->vfDepDyn[frame_id][feature_id],K);
@@ -316,8 +296,7 @@ void VdoSlamBackend::process() {
                             count_unique_id++;
                         }
                         else {
-                            
-                            //save as new vertex
+                             //save as new vertex
                             gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[frame_id][feature_id]);
                             obs->key = static_cast<int>(count_unique_id);
                             obs->was_added = true;
@@ -336,7 +315,9 @@ void VdoSlamBackend::process() {
                             CHECK(previous_key != -1) << "Previous key was " << previous_key;
 
                             CHECK_EQ(previous_key, vnFeaMakDyn[frame_id-1][previous_obs->point_id]);
-                            CHECK(obj_position_id != -1);
+                            CHECK_EQ(previous_key, vnFeaMakDyn[DynTracks[track_id][position_id-1].first][DynTracks[track_id][position_id-1].second]);
+                            LOG(INFO) << obj_position_id;
+                            CHECK(obj_position_id != -1) << "Frame " << frame_id - 1 << " pos " << position_id;
                             gtsam::Point3 initial_measurement(0, 0, 0);
                             addLandmarkMotionFactor(initial_measurement, count_unique_id, previous_key, obj_position_id);
                             //better to use track id as Symbol but then will need to make all variables use differnt symbols
@@ -344,11 +325,154 @@ void VdoSlamBackend::process() {
                             count_unique_id++;
                         }
                     }
-                    tracklet.markAsAdded(obs_to_add);
+                    // tracklet.markAsAdded(obs_to_add);
+                
                 }
             }
         }
     }
+    
+
+
+    // LOG(INFO) << map->vmRigidMotion.size();
+    // for(auto& rm : map->vmRigidMotion) {
+    //     LOG(INFO) << rm.size();
+    // }
+    // //now look at dynamic
+    // //first look at rigid motion
+    // //NOTE: this will become a problem with real iccremental as the rigid motion
+    // //should be added until we have enough points
+    // //dont think this will do anything 
+    // if(current_frame == 0) {
+    //     for(size_t point_id = 0; point_id < map->vpFeatDyn[current_frame].size(); point_id++) {
+    //         if(dynamic_tracklets.exists(current_frame, point_id)) {
+    //             DynamicTrackletManager::TypedTracklet tracklet = dynamic_tracklets.getTracklet(current_frame, point_id);
+    //             if(tracklet.isWellTracked()) {
+    //                 DynamicTrackletManager::Observations obs_to_add = tracklet.getNotAdded();
+    //                 // LOG(INFO) << tracklet.TrackletId() << " is well tracked " << obs_to_add.size() << " and is new: "<< tracklet.isNew();
+
+    //                 for (DynamicTrackletManager::Observation obs : obs_to_add) {
+                        
+    //                     FrameId frame_id = obs->frame_id;
+    //                     FeatureId feature_id = obs->point_id;
+    //                     int track_id = obs->tracklet_id;
+    //                     int position_id = obs->tracklet_position;
+
+    //                     gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[frame_id][feature_id]);
+    //                     obs->key = static_cast<int>(count_unique_id);
+    //                     obs->was_added = true;
+    //                     // LOG(INFO) << obs->key;
+    //                     addDynamicLandmarkToGraph(X_w, count_unique_id, frame_id, feature_id);
+
+    //                     cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatDyn[frame_id][feature_id],map->vfDepDyn[frame_id][feature_id],K);
+    //                     gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
+    //                     addDynamicPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
+    //                     //better to use track id as Symbol but then will need to make all variables use differnt symbols
+    //                     vnFeaMakDyn[frame_id][feature_id] = count_unique_id;
+    //                     count_unique_id++;
+
+    //                 }
+    //                 tracklet.markAsAdded(obs_to_add);
+    //             }
+    //         }
+    //     }
+    // }
+    // else {
+        
+    //     // LOG(INFO) <<map->vmRigidMotion[current_frame-1].size();
+    //     for (int j = 1; j < map->vmRigidMotion[current_frame-1].size(); j++) {
+    //         gtsam::Pose3 object_motion = gtsam::Pose3::identity();
+    //         addMotionToGraph(object_motion, count_unique_id, current_frame-1, j);
+
+    //         //obj unique iD is the id of the object motion vetex (like camera pose)
+    //         objUniqueId[current_frame-1][j-1]=count_unique_id;
+    //         //not sure how this does not override as j is not unique?
+    //         unique_vertices[current_frame-1][j]=count_unique_id;
+    //         count_unique_id++;
+    //     }
+    //     // LOG(INFO) << "Added rigid motion";
+
+    //     for(size_t point_id = 0; point_id < map->vpFeatDyn[current_frame].size(); point_id++) {
+    //         if(dynamic_tracklets.exists(current_frame, point_id)) {
+    //             DynamicTrackletManager::TypedTracklet tracklet = dynamic_tracklets.getTracklet(current_frame, point_id);
+    //             if(tracklet.isWellTracked()) {
+    //                 DynamicTrackletManager::Observations obs_to_add = tracklet.getNotAdded();
+    //                 // LOG(INFO) << tracklet.TrackletId() << " is well tracked " << obs_to_add.size() << " and is new: "<< tracklet.isNew();
+
+    //                 for (DynamicTrackletManager::Observation obs : obs_to_add) {
+                        
+    //                     FrameId frame_id = obs->frame_id;
+    //                     FeatureId feature_id = obs->point_id;
+    //                     int track_id = obs->tracklet_id;
+    //                     int position_id = obs->tracklet_position;
+
+    //                     int obj_position_id = -1;
+    //                     if (frame_id > 1) {
+    //                         for(int k = 1; k < map->vnRMLabel[frame_id-1].size(); k++) {
+    //                             if(map->vnRMLabel[frame_id-1][k] == map->nObjID[track_id]) {
+    //                                 obj_position_id = objUniqueId[frame_id-1][k-1];
+    //                                 break;
+    //                             }
+    //                         } 
+    //                         // LOG(INFO) << "Position GT " << position_id << " following obj GT " << obj_position_id;
+
+    //                         if (obj_position_id == -1 && position_id != 0){
+    //                             LOG(INFO) << "Position GT " << position_id << " following obj GT " << obj_position_id;
+    //                             LOG(WARNING) << "cannot find the object association with this edge !!! WEIRD POINT !!!";
+    //                             continue;
+    //                         }
+    //                     } 
+                        
+
+    //                     // LOG(INFO) << position_id;
+    //                     if (position_id == 0) {
+    //                         gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[frame_id][feature_id]);
+    //                         obs->key = static_cast<int>(count_unique_id);
+    //                         obs->was_added = true;
+    //                         // LOG(INFO) << obs->key;
+    //                         addDynamicLandmarkToGraph(X_w, count_unique_id, frame_id, feature_id);
+
+    //                         cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatDyn[frame_id][feature_id],map->vfDepDyn[frame_id][feature_id],K);
+    //                         gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
+    //                         addDynamicPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
+    //                         //better to use track id as Symbol but then will need to make all variables use differnt symbols
+    //                         vnFeaMakDyn[frame_id][feature_id] = count_unique_id;
+    //                         count_unique_id++;
+    //                     }
+    //                     else {
+                            
+    //                         //save as new vertex
+    //                         gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[frame_id][feature_id]);
+    //                         obs->key = static_cast<int>(count_unique_id);
+    //                         obs->was_added = true;
+    //                         addDynamicLandmarkToGraph(X_w, count_unique_id, frame_id, feature_id);
+
+    //                         cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatDyn[frame_id][feature_id],map->vfDepDyn[frame_id][feature_id],K);
+    //                         gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
+    //                         addDynamicPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
+
+
+    //                         DynamicTrackletManager::Observation previous_obs = tracklet.getPreviousObservation(obs);
+    //                         int previous_key = previous_obs->key;
+    //                         //lets do a sanity check
+    //                         //previous obs key has been set
+    //                         CHECK(previous_obs->was_added);
+    //                         CHECK(previous_key != -1) << "Previous key was " << previous_key;
+
+    //                         CHECK_EQ(previous_key, vnFeaMakDyn[frame_id-1][previous_obs->point_id]);
+    //                         CHECK(obj_position_id != -1);
+    //                         gtsam::Point3 initial_measurement(0, 0, 0);
+    //                         addLandmarkMotionFactor(initial_measurement, count_unique_id, previous_key, obj_position_id);
+    //                         //better to use track id as Symbol but then will need to make all variables use differnt symbols
+    //                         vnFeaMakDyn[frame_id][feature_id] = count_unique_id;
+    //                         count_unique_id++;
+    //                     }
+    //                 }
+    //                 tracklet.markAsAdded(obs_to_add);
+    //             }
+    //         }
+    //     }
+    // }
 
     pre_camera_pose_vertex = curr_camera_pose_vertex;
     optimize();
@@ -597,19 +721,19 @@ void VdoSlamBackend::addLandmarkMotionFactor(const gtsam::Point3& measurement, g
     //I guess also can check for the previous one?
     // LOG(INFO) << "Added motion between "
     //Super unclear in implementation if current or previous key is first
-    observed_motions[motion_key].push_back(
-        boost::make_shared<LandmarkMotionTernaryFactor>(
-            current_point_key,
-            previous_point_key,
-            motion_key,
-            measurement,
-            objectMotionNoiseModel
-        )
-    );
+    // observed_motions[motion_key].push_back(
+    //     boost::make_shared<LandmarkMotionTernaryFactor>(
+    //         current_point_key,
+    //         previous_point_key,
+    //         motion_key,
+    //         measurement,
+    //         objectMotionNoiseModel
+    //     )
+    // );
 
     graph.emplace_shared<LandmarkMotionTernaryFactor>(
-            current_point_key,
             previous_point_key,
+            current_point_key,
             motion_key,
             measurement,
             objectMotionNoiseModel

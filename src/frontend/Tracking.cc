@@ -1217,7 +1217,7 @@ void Tracking::Track()
     // graph->stepAndOptimize();
     backend->process();
 
-    // if (f_id > 12) {
+    // if (f_id > 6) {
     //     throw std::invalid_argument("Stop");
     // }
     //what about all the other thigns we have to udpate for?

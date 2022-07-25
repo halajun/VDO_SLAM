@@ -40,7 +40,7 @@ public:
 
   
   // error function
-  //l1 is the current point
+  //l1 is the previouus point
   gtsam::Vector evaluateError(const gtsam::Point3& l1,const gtsam::Point3& l2,const gtsam::Pose3& H,
           boost::optional<gtsam::Matrix&> J1 = boost::none,
           boost::optional<gtsam::Matrix&> J2 = boost::none,
@@ -52,12 +52,15 @@ public:
     
     gtsam::Matrix H2, H3;
     gtsam::Vector l2H = H.transformTo(l2, H3, H2);
+
+
     //gtsam::Matrix H1, H3;
     //gtsam::Vector Hl1 = H.transform_from(l1, H3, H1);
     
     gtsam::Vector3 expected = l1 - l2H;
     //gtsam::Vector3 expected = l2.vector() - Hl1;
-                                                                        
+
+    // //was used                                                                 
     if (J1) *J1 = (gtsam::Matrix33() << 1.0, 0.0, 0.0, 
                                         0.0, 1.0, 0.0,
                                         0.0, 0.0, 1.0).finished();
@@ -65,8 +68,19 @@ public:
     if (J2) *J2 = (gtsam::Matrix33() << -H2).finished();
     
     if (J3) *J3 = (gtsam::Matrix36() << -H3).finished();  
+
+    // gtsam::Vector3 invhl2 = H.inverse() * l2;
+    // if (J2) {
+    //   *J2 = -H.inverse().rotation();
+    // }
+
+    // if (J3) {
+    //   *J3 = (gtsam::Matrix36() <<  ).finished();  
+    // }
     
+
     
+    //commented
     //if (J1) *J1 = (gtsam::Matrix33() << -H1).finished();
     
     //if (J2) *J2 = (gtsam::Matrix33() << 1.0, 0.0, 0.0, 
@@ -81,8 +95,8 @@ public:
   }
 
   //I think this is the correct ordering
-  inline gtsam::Key getPreviousPointKey() const { return key2(); }
-  inline gtsam::Key getCurrentPointKey() const { return key1(); }
+  inline gtsam::Key getPreviousPointKey() const { return key1(); }
+  inline gtsam::Key getCurrentPointKey() const { return key2(); }
   inline gtsam::Key getMotionKey() const { return key3(); }
 
 };

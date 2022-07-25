@@ -6,6 +6,8 @@
 
 #include <gtsam/nonlinear/Values.h>
 
+#include <sstream>
+
 namespace VDO_SLAM {
 
 //only works for single "thing" observation...
@@ -21,6 +23,18 @@ class Observation {
                 tracklet_position(position_),
                 tracklet_id(tracklet_id_) {}
 
+        std::string to_string(const std::string& ending = "\n") {
+            std::stringstream ss;
+            ss << "Frame Id: " << frame_id << " ";
+            ss << "Feature Id: " << point_id << " ";
+            ss << "Tracklet Id: " << tracklet_id << " ";
+            ss << "Tracklet Pos: " << tracklet_position;
+            if (!ending.empty()) {
+                ss << ending;
+            } 
+            return ss.str();
+        }
+
         // T measurement;
         const FrameId frame_id;
         const FeatureId point_id;
@@ -31,7 +45,6 @@ class Observation {
         bool was_added = false;
 
 };
-
 
 
 }

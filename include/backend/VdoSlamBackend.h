@@ -41,7 +41,7 @@ class VdoSlamBackend {
     public:
         VDO_SLAM_POINTER_TYPEDEFS(VdoSlamBackend);
         using StaticTrackletManager = TrackletManager<gtsam::Point3, 3>;
-        using DynamicTrackletManager = TrackletManager<gtsam::Point3, 3>;
+        using DynamicTrackletManager = TrackletManager<gtsam::Point3, 2>;
 
         VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_, BackendParams::Ptr params_);
         ~VdoSlamBackend() = default;

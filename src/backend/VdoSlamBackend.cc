@@ -21,6 +21,7 @@
 #include "utils/dataset.h"
 #include "Map.h"
 #include "Optimizer.h"
+#include "utils/timing.h"
 // #include "Converter.h"
 
 namespace VDO_SLAM {
@@ -42,8 +43,8 @@ VdoSlamBackend::VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_, BackendParams
         objectMotionNoiseModel(nullptr) {
 
         gtsam::ISAM2Params parameters;
-        // parameters.relinearizeThreshold = 0.01;
-        // parameters.relinearizeSkip = 1;
+        parameters.relinearizeThreshold = 0.01;
+        parameters.relinearizeSkip = 1;
 
         isam = VDO_SLAM::make_unique<gtsam::ISAM2>(parameters);
         K_calib =  utils::cvMat2Cal3_S2(K);
@@ -178,7 +179,7 @@ void VdoSlamBackend::process() {
         LOG(INFO) << "Added motion constraint factor between id: " <<pre_camera_pose_vertex << " " << curr_camera_pose_vertex;
     }
 
-
+    timing::Timer static_points_timer("backend/static_points");
     //start by adding the static points from the new frame
     for(size_t point_id = 0; point_id < map->vpFeatSta[current_frame].size(); point_id++) {
         if(static_tracklets.exists(current_frame, point_id)) {
@@ -216,7 +217,7 @@ void VdoSlamBackend::process() {
 
                         StaticTrackletManager::Observation first_obs = tracklet[0];
                         int tracklet_key = first_obs->key;
-                        obs->was_added = true;
+                        // obs->was_added = true;
                         //lets do a sanity check
                         //previous obs key has been set
                         CHECK(first_obs->was_added);
@@ -235,9 +236,10 @@ void VdoSlamBackend::process() {
             // LOG(WARNING) << "tracks dont exist for current frame " << current_frame << " point id " << point_id; 
         }
     }
+    static_points_timer.Stop();
 
     LOG(INFO) << "Finished for static";
-
+    timing::Timer dynamic_points_timer("backend/dynamic_points");
     if(current_frame > 0) {
         //will be an issue for in cremental as we only want to add the motion when we add all the points
         for (int j = 1; j < map->vmRigidMotion[current_frame-1].size(); j++) {
@@ -265,22 +267,6 @@ void VdoSlamBackend::process() {
                         int track_id = obs->tracklet_id;
                         int position_id = obs->tracklet_position;
 
-                        int obs_label = map->nObjID[track_id];
-                        int obj_position_id = -1;
-                        if(frame_id > 0) {
-                            //find which obj has the same label the vmLabel and this should be the correct index
-                            //ignore index zero as this is camera motion
-                            CHECK_EQ(map->vnRMLabel[frame_id - 1].size(), map->vmRigidMotion[frame_id - 1].size());
-                            for(size_t i = 1; i < map->vnRMLabel[frame_id - 1].size(); i++) {
-                                if(map->vnRMLabel[frame_id - 1][i] == obs_label) {
-                                    obj_position_id = unique_vertices[frame_id-1][i];
-                                    CHECK(obj_position_id != -1) << "Frame " << frame_id - 1 << " i " << i;
-                                    break;
-                                }
-                            }
-
-                        }
-
                         if(position_id == 0) {
                             // LOG(INFO) << obj_position_id << " " << obs_label;
                             gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[frame_id][feature_id]);
@@ -296,6 +282,28 @@ void VdoSlamBackend::process() {
                             count_unique_id++;
                         }
                         else {
+
+                            DynamicTrackletManager::Observation previous_obs = tracklet.getPreviousObservation(obs);
+                            int previous_key = previous_obs->key;
+                            int previous_frame = previous_obs->frame_id;
+                            CHECK(previous_frame >= 0);
+                            
+                            int obs_label = map->nObjID[track_id];
+                            int obj_position_id = -1;
+                            // if(frame_id > 0) {
+                                //find which obj has the same label the vmLabel and this should be the correct index
+                                //ignore index zero as this is camera motion
+                            CHECK_EQ(map->vnRMLabel[previous_frame].size(), map->vmRigidMotion[previous_frame].size());
+                            for(size_t i = 1; i < map->vnRMLabel[previous_frame].size(); i++) {
+                                if(map->vnRMLabel[previous_frame][i] == obs_label) {
+                                    obj_position_id = unique_vertices[previous_frame][i];
+                                    CHECK(obj_position_id != -1) << "Frame " << previous_frame << " i " << i << " " << obj_position_id;
+                                    break;
+                                }
+                            }
+                            // }
+
+
                              //save as new vertex
                             gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[frame_id][feature_id]);
                             obs->key = static_cast<int>(count_unique_id);
@@ -306,17 +314,14 @@ void VdoSlamBackend::process() {
                             gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
                             addDynamicPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
 
-
-                            DynamicTrackletManager::Observation previous_obs = tracklet.getPreviousObservation(obs);
-                            int previous_key = previous_obs->key;
                             //lets do a sanity check
                             //previous obs key has been set
+                            CHECK(previous_obs->tracklet_id == track_id);
                             CHECK(previous_obs->was_added);
                             CHECK(previous_key != -1) << "Previous key was " << previous_key;
 
                             CHECK_EQ(previous_key, vnFeaMakDyn[frame_id-1][previous_obs->point_id]);
                             CHECK_EQ(previous_key, vnFeaMakDyn[DynTracks[track_id][position_id-1].first][DynTracks[track_id][position_id-1].second]);
-                            LOG(INFO) << obj_position_id;
                             CHECK(obj_position_id != -1) << "Frame " << frame_id - 1 << " pos " << position_id;
                             gtsam::Point3 initial_measurement(0, 0, 0);
                             addLandmarkMotionFactor(initial_measurement, count_unique_id, previous_key, obj_position_id);
@@ -331,6 +336,7 @@ void VdoSlamBackend::process() {
             }
         }
     }
+    dynamic_points_timer.Stop();
     
 
 
@@ -475,45 +481,47 @@ void VdoSlamBackend::process() {
     // }
 
     pre_camera_pose_vertex = curr_camera_pose_vertex;
-    optimize();
+    // optimize();
 
 }
 
 void VdoSlamBackend::calculateError() {
-    //first disp comparision to GT
-    //go over all the frames?
-    double t_sum_refined = 0, r_sum_refined  = 0;
-    double t_sum_original = 0, r_sum_original  = 0;
-    const size_t N = getMapSize();
-    for (int i = 0; i < N; ++i) {
-        //get camera poses
-        gtsam::Key pose_key = unique_vertices[i][0];
-        gtsam::Pose3 refined_camera_pose = isam->calculateEstimate<gtsam::Pose3>(pose_key);
+    // //first disp comparision to GT
+    // //go over all the frames?
+    // double t_sum_refined = 0, r_sum_refined  = 0;
+    // double t_sum_original = 0, r_sum_original  = 0;
+    // const size_t N = getMapSize();
+    // for (int i = 0; i < N; ++i) {
+    //     //get camera poses
+    //     gtsam::Key pose_key = unique_vertices[i][0];
+    //     gtsam::Pose3 refined_camera_pose = isam->calculateEstimate<gtsam::Pose3>(pose_key);
 
-        gtsam::Pose3 original_camera_pose = utils::cvMatToGtsamPose3(map->vmCameraPose[i]);
-        gtsam::Pose3 gt_camera_pose = utils::cvMatToGtsamPose3(map->vmCameraPose_GT[i]);
+    //     gtsam::Pose3 original_camera_pose = utils::cvMatToGtsamPose3(map->vmCameraPose[i]);
+    //     gtsam::Pose3 gt_camera_pose = utils::cvMatToGtsamPose3(map->vmCameraPose_GT[i]);
 
-        std::pair<double, double> errors_original = utils::computeRotationAndTranslationErrors(
-                                                        gt_camera_pose, original_camera_pose);
+    //     std::pair<double, double> errors_original = utils::computeRotationAndTranslationErrors(
+    //                                                     gt_camera_pose, original_camera_pose);
 
-        r_sum_original += errors_original.first;
-        t_sum_original += errors_original.second;
+    //     r_sum_original += errors_original.first;
+    //     t_sum_original += errors_original.second;
 
-        std::pair<double, double> errors_refined = utils::computeRotationAndTranslationErrors(
-                                                        gt_camera_pose, refined_camera_pose);
+    //     std::pair<double, double> errors_refined = utils::computeRotationAndTranslationErrors(
+    //                                                     gt_camera_pose, refined_camera_pose);
 
-        r_sum_refined += errors_refined.first;
-        t_sum_refined += errors_refined.second;
-    }
+    //     r_sum_refined += errors_refined.first;
+    //     t_sum_refined += errors_refined.second;
+    // }
 
-    r_sum_original /= (N);
-    t_sum_original /= (N);
-    r_sum_refined /= (N);
-    t_sum_refined /= (N);
+    // r_sum_original /= (N);
+    // t_sum_original /= (N);
+    // r_sum_refined /= (N);
+    // t_sum_refined /= (N);
 
-    LOG(INFO) << "Average camera error GTSAM\n"
-              << "Original R: " << r_sum_original << " T: " << t_sum_original << "\n"
-              << "Refined R: " << r_sum_refined << " T: " << t_sum_refined;
+    // LOG(INFO) << "Average camera error GTSAM\n"
+    //           << "Original R: " << r_sum_original << " T: " << t_sum_original << "\n"
+    //           << "Refined R: " << r_sum_refined << " T: " << t_sum_refined;
+    result.print("Current estimate: ");
+
 }
 
 void VdoSlamBackend::updateMapFromIncremental() {
@@ -540,7 +548,7 @@ void VdoSlamBackend::updateMapFromIncremental() {
 
 void VdoSlamBackend::updateMapFull() {
     LOG(INFO) << "Starting full map update with " << key_to_unique_vertices.size() << " keys";
-    const auto& total_start_time = utils::Timer::tic();
+    // const auto& total_start_time = utils::Timer::tic();
 
     for(const auto& pair : key_to_unique_vertices) {
         const gtsam::Key& key = pair.first;
@@ -554,8 +562,8 @@ void VdoSlamBackend::updateMapFull() {
 
     }
 
-    auto end_time = utils::Timer::toc<std::chrono::milliseconds>(total_start_time).count();
-    LOG(INFO) << "Full map update took: " << end_time << " milliseconds";
+    // auto end_time = utils::Timer::toc<std::chrono::milliseconds>(total_start_time).count();
+    // LOG(INFO) << "Full map update took: " << end_time << " milliseconds";
 
 }
 
@@ -935,11 +943,14 @@ void VdoSlamBackend::optimize() {
         try {
             // gtsam::Values values = collectValuesToAdd();
             // all_values.insert(values);
-            // result = isam->update(graph, values);
+            timing::Timer isam_udpate_timer("backend/isam2_update");
+            result = isam->update(graph, all_values);
+            isam_udpate_timer.Stop();
             // isam->update();
             // isam->update();
             // isam->update();
-            // graph.resize(0);
+            all_values.clear();
+            graph.resize(0);
 
             debug_info.print();
             debug_info.reset();

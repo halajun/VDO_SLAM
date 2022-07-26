@@ -13,6 +13,10 @@
 #include <thread>
 #include <iomanip>
 
+#include "utils/timing.h"
+#include <glog/logging.h>
+
+
 
 #include <unistd.h>
 
@@ -59,7 +63,7 @@ cv::Mat System::TrackRGBD(const cv::Mat &im, cv::Mat &depthmap, const cv::Mat &f
     }
 
     cv::Mat Tcw = mpTracker->GrabImageRGBD(im,depthmap,flowmap,masksem,mTcw_gt,vObjPose_gt,timestamp,imTraj,nImage);
-
+    LOG_EVERY_N(INFO, 1) << timing::Timing::Print();
     return Tcw;
 }
 

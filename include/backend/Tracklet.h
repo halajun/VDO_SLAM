@@ -7,6 +7,7 @@
 #include <gtsam/nonlinear/Values.h>
 #include <glog/logging.h>
 #include <vector>
+#include <unordered_map>
 
 #include <functional>
 
@@ -70,9 +71,6 @@ class Tracklet {
         TypedObservationPtr getPreviousObservation(TypedObservationPtr current_obs) {
             CHECK(current_obs->tracklet_position > 0);
             CHECK(current_obs->tracklet_id == tracklet_id);
-            // for(TypedObservationPtr obs : observations) {
-            //     if (obs->tracklet_position == current_obs->tracklet_)
-            // }
             return observations[current_obs->tracklet_position-1];
         }
 
@@ -190,12 +188,6 @@ class TrackletManager {
         //we should already have tracklets.size() number of them but they need to be updated
         void update(const std::vector<std::vector<std::pair<int, int>>>& frontend_tracklets_) {
             const size_t new_tracklets = frontend_tracklets_.size() - tracklets.size();
-            CHECK_GE(new_tracklets, 0);
-            if(new_tracklets == 0) {
-                LOG(INFO) << "No new tracklets";
-                return;
-            }
-
             //update for existing tracklets
             for(size_t i = 0; i < tracklets.size(); i++) {
                 tracklets[i].update(frontend_tracklets_[i], i);

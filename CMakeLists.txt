@@ -86,6 +86,7 @@ src/utils/UtilsGTSAM.cc
 src/utils/UtilsOpenCv.cc
 src/utils/dataset.cc
 src/utils/camera.cc
+src/utils/timing.cc
 
 src/logger/logger.cc
 
@@ -147,13 +148,26 @@ target_link_libraries(vdo_slam ${PROJECT_NAME})
 
 
 # ##### Add some tests #####
-add_executable(landmark_motion_types_test
-    test/landmark_motion_types_test.cc
+add_executable(tracklet_tests
+    test/tracklet_tests.cc
 )
 
-target_link_libraries(landmark_motion_types_test
+target_link_libraries(tracklet_tests
     gtsam
     ${GFLAGS_LIBRARIES}
     ${GLOG_LIBRARIES} 
     ${PROJECT_NAME}
  )
+
+
+# ##### Add some tests #####
+#add_executable(landmark_motion_types_test
+#    test/landmark_motion_types_test.cc
+#)
+
+#target_link_libraries(landmark_motion_types_test
+#    gtsam
+#    ${GFLAGS_LIBRARIES}
+#    ${GLOG_LIBRARIES} 
+#    ${PROJECT_NAME}
+# )

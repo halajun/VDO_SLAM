@@ -25,10 +25,11 @@ class Observation {
 
         std::string to_string(const std::string& ending = "\n") {
             std::stringstream ss;
-            ss << "Frame Id: " << frame_id << " ";
-            ss << "Feature Id: " << point_id << " ";
-            ss << "Tracklet Id: " << tracklet_id << " ";
-            ss << "Tracklet Pos: " << tracklet_position;
+            ss << "Frame Id: " << frame_id << "\n";
+            ss << "Feature Id: " << point_id << "\n";
+            ss << "Tracklet Id: " << tracklet_id << "\n";
+            ss << "Tracklet Pos: " << tracklet_position << "\n";
+            ss << "Was added: " << was_added;
             if (!ending.empty()) {
                 ss << ending;
             } 

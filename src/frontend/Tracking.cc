@@ -1260,13 +1260,14 @@ void Tracking::Track()
         num_batch_update++;
 
         if(num_batch_update > 1) {
+
             Optimizer::FullBatchOptimization(mpMap,mK);
             // backend->updateMapFull();
             // LOG(INFO) << "Error after incremental update";
-            // GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
-            //             mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
+            GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
+                        mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
             // backend->calculateError();
-            backend->optimizeLM();
+            // backend->optimizeLM();
             throw std::invalid_argument("Stop");
         }
         
@@ -1293,7 +1294,7 @@ void Tracking::Track()
             // Get Full Batch Optimization
             //we run this to get the full map saved to another g2o file (using the original g2o code)
             //curently, we return before we get the optimization
-            Optimizer::FullBatchOptimization(mpMap,mK);
+            // Optimizer::FullBatchOptimization(mpMap,mK);
 
             // Metric Error AFTER Optimization
             GetMetricError(mpMap->vmCameraPose_RF,mpMap->vmRigidMotion_RF, mpMap->vmObjPosePre,

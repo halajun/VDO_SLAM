@@ -1261,7 +1261,7 @@ void Tracking::Track()
 
         if(num_batch_update > 1) {
 
-            Optimizer::FullBatchOptimization(mpMap,mK);
+            // Optimizer::FullBatchOptimization(mpMap,mK);
             // backend->updateMapFull();
             // LOG(INFO) << "Error after incremental update";
             GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,

@@ -1268,6 +1268,7 @@ void Tracking::Track()
                         mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
             // backend->calculateError();
             // backend->optimizeLM();
+            backend->makePlots();
             throw std::invalid_argument("Stop");
         }
         

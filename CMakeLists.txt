@@ -51,6 +51,7 @@ find_package(CSparse REQUIRED)
 find_package(Gflags REQUIRED)
 find_package(Glog 0.3.5 REQUIRED)
 find_package(GTSAM REQUIRED)
+find_package(matplotlib_cpp REQUIRED)
 
 include_directories(
 ${PROJECT_SOURCE_DIR}
@@ -60,6 +61,7 @@ ${EIGEN3_INCLUDE_DIR}
 ${CSPARSE_INCLUDE_DIR}
 ${GLOG_INCLUDE_DIRS} 
 ${GTSAM_INCLUDE_DIR}
+   /usr/include/python2.7
 )
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
@@ -115,6 +117,7 @@ ${PROJECT_SOURCE_DIR}/dependencies/g2o/lib/libg2o.so
 gtsam
 ${GFLAGS_LIBRARIES}
 ${GLOG_LIBRARIES}
+python2.7 #for matplotlib_cpp
 )
 
 
@@ -157,6 +160,18 @@ target_link_libraries(tracklet_tests
     ${GFLAGS_LIBRARIES}
     ${GLOG_LIBRARIES} 
     ${PROJECT_NAME}
+ )
+
+ add_executable(plotting_test
+    test/plotting_test.cc
+)
+
+target_link_libraries(plotting_test
+    gtsam
+    ${GFLAGS_LIBRARIES}
+    ${GLOG_LIBRARIES} 
+    ${PROJECT_NAME}
+    python2.7
  )
 
 

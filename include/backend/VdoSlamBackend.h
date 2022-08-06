@@ -40,7 +40,7 @@ class VdoSlamBackend {
 
     public:
         VDO_SLAM_POINTER_TYPEDEFS(VdoSlamBackend);
-        using StaticTrackletManager = TrackletManager<gtsam::Point3, 3>;
+        using StaticTrackletManager = TrackletManager<gtsam::Point3, 4>;
         using DynamicTrackletManager = TrackletManager<gtsam::Point3, 2>;
 
         VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_, BackendParams::Ptr params_);
@@ -60,6 +60,7 @@ class VdoSlamBackend {
         void writeG2o(const std::string& file_name);
 
         void optimizeLM();
+        void makePlots();
 
     private:
 
@@ -86,6 +87,8 @@ class VdoSlamBackend {
         //at least one motion to say that a point has been observed twice
         void addDynamicLandmarkToGraph(const gtsam::Point3& landmark, gtsam::Key key, FrameId curr_frame, FeatureId feature_id);
 
+        //for experimentation
+        void addPoint2DFactor(const gtsam::Point2& measurement, gtsam::Key pose_key, gtsam::Key landmark_key);
         void addPoint3DFactor(const gtsam::Point3& measurement, gtsam::Key pose_key, gtsam::Key landmark_key);
         void addDynamicPoint3DFactor(const gtsam::Point3& measurement, gtsam::Key pose_key, gtsam::Key landmark_key);
 
@@ -99,11 +102,17 @@ class VdoSlamBackend {
         void updateMapFromSymbol(const gtsam::Key& key, const IJSymbol& vertex_symbol);
 
 
+
     private:
         Map* map;
         std::unique_ptr<gtsam::ISAM2> isam;
         gtsam::ISAM2Result result;
         BackendParams::Ptr params;
+
+        // State.
+        //!< current state of the system.
+        gtsam::Values state_;
+
 
         // DynamicObjectManager::UniquePtr do_manager;
         StaticTrackletManager static_tracklets;
@@ -194,6 +203,10 @@ class VdoSlamBackend {
         gtsam::noiseModel::Base::shared_ptr dynamicPoint3DNoiseModel;
 
         BackendDebugInfo debug_info;
+
+        //plotting stuff
+        std::vector<double> error_before_v;
+        std::vector<double> error_after_v;
 
 };
 

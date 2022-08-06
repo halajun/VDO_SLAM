@@ -6,6 +6,8 @@
 #include <fstream>
 #include <memory>
 
+#include <boost/foreach.hpp>
+
 #include <gtsam/nonlinear/ISAM2.h>
 #include <gtsam/slam/ProjectionFactor.h>
 #include <gtsam/slam/BetweenFactor.h>
@@ -23,6 +25,9 @@
 #include "Optimizer.h"
 #include "utils/timing.h"
 // #include "Converter.h"
+
+#include <matplotlibcpp.h>
+namespace plt = matplotlibcpp;
 
 namespace VDO_SLAM {
 
@@ -44,6 +49,7 @@ VdoSlamBackend::VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_, BackendParams
 
         gtsam::ISAM2Params parameters;
         parameters.relinearizeThreshold = 0.01;
+        parameters.evaluateNonlinearError = true;
         parameters.relinearizeSkip = 1;
 
         isam = VDO_SLAM::make_unique<gtsam::ISAM2>(parameters);
@@ -132,7 +138,7 @@ void VdoSlamBackend::process() {
     for(size_t i = 0; i < map->vnRMLabel.size(); i++) {
         //number of RM labels should be the same as the number of rigid motions vmRigidMotion
         CHECK_EQ(map->vnRMLabel[i].size(), map->vmRigidMotion[i].size());
-        LOG(INFO) << "N labels: " << i << " " <<  map->vnRMLabel[i].size();
+        // LOG(INFO) << "N labels: " << i << " " <<  map->vnRMLabel[i].size();
     }
 
     //can get from point to label from vnFeatLabel[i][j]
@@ -152,17 +158,20 @@ void VdoSlamBackend::process() {
     // file_ti.close();
     gtsam::Pose3 camera_pose = utils::cvMatToGtsamPose3(map->vmCameraPose[current_frame]);
     addCameraPoseToGraph(camera_pose, count_unique_id, current_frame);
+    LOG(INFO) << "Added camera pose at " << count_unique_id;
    
     //is first (or current_frame == 0?)
     if(current_frame == 0) {
-        graph.addPrior(count_unique_id, camera_pose, cameraPosePrior);
+        // graph.addPrior(count_unique_id, camera_pose, cameraPosePrior);
+        graph.push_back(gtsam::PriorFactor<gtsam::Pose3>(count_unique_id, camera_pose, cameraPosePrior));
         LOG(INFO) << "Added camera prior";
     }
 
     //unique id for the first frame and the camera pose ???????
-    if(current_frame != 0) {
-        unique_vertices[current_frame-1][0] = count_unique_id;
-    }
+    // if(current_frame != 0) {
+    //     unique_vertices[current_frame-1][0] = count_unique_id;
+    // }
+    unique_vertices[current_frame][0] = count_unique_id;
     
     curr_camera_pose_vertex = count_unique_id;
     count_unique_id++;
@@ -208,7 +217,11 @@ void VdoSlamBackend::process() {
 
                         cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatSta[frame_id][feature_id],map->vfDepSta[frame_id][feature_id],K);
                         gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
+
+                        cv::KeyPoint kp = map->vpFeatSta[frame_id][feature_id];
+                        gtsam::Point2 point(kp.pt.x, kp.pt.y);
                         addPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
+                        // addPoint2DFactor(point, curr_camera_pose_vertex, count_unique_id);
                         n_factor_add++;
 
                         // update unique id
@@ -229,7 +242,11 @@ void VdoSlamBackend::process() {
                         CHECK(tracklet_key != -1) << "Previous key was " << tracklet_key;
                         cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatSta[frame_id][feature_id],map->vfDepSta[frame_id][feature_id],K);
                         gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
+                        
+                        cv::KeyPoint kp = map->vpFeatSta[frame_id][feature_id];
+                        gtsam::Point2 point(kp.pt.x, kp.pt.y);
                         addPoint3DFactor(X_c_point, curr_camera_pose_vertex, tracklet_key);
+                        // addPoint2DFactor(point, curr_camera_pose_vertex, tracklet_key);
                         n_factor_add++;
                     }
                 }
@@ -346,7 +363,7 @@ void VdoSlamBackend::process() {
     dynamic_points_timer.Stop();
     pre_camera_pose_vertex = curr_camera_pose_vertex;
     optimize();
-    updateMapFromIncremental();
+    // updateMapFromIncremental();
 
 }
 
@@ -540,6 +557,19 @@ void VdoSlamBackend::addDynamicLandmarkToGraph(const gtsam::Point3& landmark, gt
     new_dynamic_lmks.insert(key, landmark);
     all_values.insert(key, landmark);
     addToKeyVertexMapping(key, curr_frame, feature_id, kSymbolDynamicPoint3Key);
+}
+
+void VdoSlamBackend::addPoint2DFactor(const gtsam::Point2& measurement, gtsam::Key pose_key, gtsam::Key landmark_key) {
+    static gtsam::noiseModel::Base::shared_ptr point2DNoiseModel = gtsam::noiseModel::Diagonal::Sigmas(
+                    (gtsam::Vector(2) << gtsam::Vector2::Constant(params->var_3d_static)).finished());
+    // noiseModel::Isotropic::shared_ptr point2DNoiseModel = noiseModel::Isotropic::Sigma(2, 1.0);
+    graph.push_back(gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3_S2>(
+        measurement,
+        point2DNoiseModel,
+        pose_key,
+        landmark_key,
+        K_calib
+    ));
 }
 
 
@@ -773,8 +803,14 @@ void VdoSlamBackend::optimizeLM() {
         // }
 
         LOG(INFO) << "Begin LM OPT";
-        Values result = gtsam::LevenbergMarquardtOptimizer(graph, all_values).optimize();
+        gtsam::LevenbergMarquardtParams params;
+        params.verbosityLM = gtsam::LevenbergMarquardtParams::verbosityLMTranslator("TRYLAMBDA");
+        gtsam::LevenbergMarquardtOptimizer lm_optimizer(graph, all_values, params);
+        LOG(INFO) << "LM error before " << lm_optimizer.error();
+        Values result = lm_optimizer.optimize();
         LOG(INFO) << "Done LM OPT";
+        LOG(INFO) << "LM error " << lm_optimizer.error();
+        LOG(INFO) << "LM iterations " << lm_optimizer.iterations();
     }
     catch (const gtsam::ValuesKeyDoesNotExist& e) {
             LOG(WARNING) << e.what();
@@ -801,6 +837,33 @@ void VdoSlamBackend::optimizeLM() {
         }
 }
 
+void VdoSlamBackend::makePlots() {
+    // // {
+    // //     plt::bar(change_error);
+    // //     plt::save("/root/data/vdo_slam/results/change_error.png");
+    // // }
+    // {
+    //     plt::bar(errorr_after);
+    //     plt::save("/root/data/vdo_slam/results/errorr_after.png");
+    // }
+    // Plot line from given x and y data. Color is selected automatically.
+    std::vector<double> x;
+    for(const auto& i : error_after_v) {
+        static int index = 1;
+        x.push_back(index);
+        index++;
+    }
+    plt::plot(x, error_after_v);
+
+    // Plot a red dashed line from given x and y data.
+    plt::plot(x, error_before_v,"r--");
+    plt::save("/root/data/vdo_slam/results/errors.png");
+
+
+
+
+}
+
 void VdoSlamBackend::optimize() {
     ///failure is always on previous camera pose
     if(current_frame >= 0) {
@@ -810,11 +873,41 @@ void VdoSlamBackend::optimize() {
             // all_values.insert(values);
             timing::Timer isam_udpate_timer("backend/isam2_update");
             result = isam->update(graph, all_values);
-            result = isam->update();
+            // result = isam->update();
+            // result = isam->update();
+            // result = isam->update();
             isam_udpate_timer.Stop();
-            // isam->update();
-            // isam->update();
-            // isam->update();
+
+            if(state_.size() > 0) {
+                gtsam::NonlinearFactorGraph graph_ = gtsam::NonlinearFactorGraph(isam->getFactorsUnsafe());  // clone, expensive but safer!
+                LOG(INFO) << "Size of current graph " << graph_.size();
+                LOG(INFO) << "Size of current state " << state_.size();
+                gtsam::Values state_before_opt = gtsam::Values(state_);
+                BOOST_FOREACH (const gtsam::Values::ConstKeyValuePair& key_value,
+                   all_values) {
+                state_before_opt.insert(key_value.key, key_value.value);
+                }
+
+                double error_before = graph_.error(state_before_opt);
+                state_ = isam->calculateEstimate();
+                double error_after = graph.error(state_);
+                LOG(INFO) << "Optimization Errors:\n"
+                        << "Error before: " << error_before
+                        << "\n"
+                        << "Error after: " << error_after;
+                double change = error_before - error_after;
+                // change_error.push_back(change);
+                error_before_v.push_back(error_before);
+                error_after_v.push_back(error_after);
+            }
+            else {
+                state_ = isam->calculateEstimate();
+            }
+            
+
+            // errorr_after.push_back(*result.errorAfter);
+            // errorr_after.push_back(result.variablesRelinearized);
+            // errorr_after.push_back(isam->error(isam->getDelta()));
             all_values.clear();
             graph.resize(0);
 

@@ -47,7 +47,7 @@ class VdoSlamBackend {
         ~VdoSlamBackend() = default;
 
         //probably should be called process frontend of something like that
-        void process();
+        void process(bool run_as_incremental = true);
 
         gtsam::Values calculateCurrentEstimate() const;
 
@@ -58,6 +58,8 @@ class VdoSlamBackend {
         void updateMapFull();
 
         void writeG2o(const std::string& file_name);
+
+        cv::Mat getBestPoseEstimate();
 
         void optimizeLM();
         void makePlots();
@@ -207,6 +209,9 @@ class VdoSlamBackend {
         //plotting stuff
         std::vector<double> error_before_v;
         std::vector<double> error_after_v;
+        std::vector<double> time_to_optimize;
+        std::vector<int> no_factors;
+        std::vector<int> no_variables;
 
 };
 

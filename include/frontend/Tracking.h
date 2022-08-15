@@ -203,6 +203,8 @@ public:
     // use sampled feature or detected feature for background
     int nUseSampleFea;
 
+    bool run_as_incremental;
+
     // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 protected:

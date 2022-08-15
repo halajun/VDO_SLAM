@@ -25,6 +25,8 @@
 #include "Optimizer.h"
 #include "utils/timing.h"
 // #include "Converter.h"
+#include <chrono>
+using namespace std::chrono;
 
 #include <matplotlibcpp.h>
 namespace plt = matplotlibcpp;
@@ -87,7 +89,7 @@ VdoSlamBackend::VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_, BackendParams
         // do_manager = VDO_SLAM::make_unique<DynamicObjectManager>(map_);
     }
 
-void VdoSlamBackend::process() {
+void VdoSlamBackend::process(bool run_as_incremental) {
     const int N = map->vpFeatSta.size(); // Number of Frames
     LOG(INFO) << "Running incremental update on frame " << N;
     current_frame = N - 1;
@@ -157,6 +159,8 @@ void VdoSlamBackend::process() {
     // }
     // file_ti.close();
     gtsam::Pose3 camera_pose = utils::cvMatToGtsamPose3(map->vmCameraPose[current_frame]);
+    cv::Mat camera_pose_cv = map->vmCameraPose[current_frame];
+    // camera_pose = camera_pose.compose(gtsam::Pose3::identity());
     addCameraPoseToGraph(camera_pose, count_unique_id, current_frame);
     LOG(INFO) << "Added camera pose at " << count_unique_id;
    
@@ -206,6 +210,7 @@ void VdoSlamBackend::process() {
                     int track_id = obs->tracklet_id;
                     int position_id = obs->tracklet_position;
 
+                    gtsam::Key pose_key = unique_vertices[frame_id][0];
 
                     if (position_id == 0) {
                         gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointSta[frame_id][feature_id]);
@@ -217,11 +222,9 @@ void VdoSlamBackend::process() {
 
                         cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatSta[frame_id][feature_id],map->vfDepSta[frame_id][feature_id],K);
                         gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
-
-                        cv::KeyPoint kp = map->vpFeatSta[frame_id][feature_id];
-                        gtsam::Point2 point(kp.pt.x, kp.pt.y);
-                        addPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
-                        // addPoint2DFactor(point, curr_camera_pose_vertex, count_unique_id);
+                        
+                        // addPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
+                        addPoint3DFactor(X_c_point, pose_key, count_unique_id);
                         n_factor_add++;
 
                         // update unique id
@@ -236,17 +239,14 @@ void VdoSlamBackend::process() {
                         // obs->was_added = true;
                         //lets do a sanity check
                         //previous obs key has been set
+                        CHECK(first_obs->tracklet_id == track_id);
                         CHECK(first_obs->was_added);
                         CHECK(first_obs->tracklet_position == 0);
 
                         CHECK(tracklet_key != -1) << "Previous key was " << tracklet_key;
                         cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatSta[frame_id][feature_id],map->vfDepSta[frame_id][feature_id],K);
                         gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
-                        
-                        cv::KeyPoint kp = map->vpFeatSta[frame_id][feature_id];
-                        gtsam::Point2 point(kp.pt.x, kp.pt.y);
-                        addPoint3DFactor(X_c_point, curr_camera_pose_vertex, tracklet_key);
-                        // addPoint2DFactor(point, curr_camera_pose_vertex, tracklet_key);
+                        addPoint3DFactor(X_c_point, pose_key, tracklet_key);
                         n_factor_add++;
                     }
                 }
@@ -260,6 +260,9 @@ void VdoSlamBackend::process() {
         }
     }
     static_points_timer.Stop();
+
+    // cv::Mat Xc = Optimizer::Get3DinWorld(map->vpFeatSta[frame_id][feature_id],map->vfDepSta[frame_id][feature_id],K, camera_pose_cv);
+
 
     LOG(INFO) << n_landmark_add << " " << n_factor_add;
     LOG(INFO) << "Finished for static";
@@ -291,6 +294,9 @@ void VdoSlamBackend::process() {
                         int track_id = obs->tracklet_id;
                         int position_id = obs->tracklet_position;
 
+                        gtsam::Key pose_key = unique_vertices[frame_id][0];
+
+
                         if(position_id == 0) {
                             // LOG(INFO) << obj_position_id << " " << obs_label;
                             gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[frame_id][feature_id]);
@@ -300,7 +306,8 @@ void VdoSlamBackend::process() {
 
                             cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatDyn[frame_id][feature_id],map->vfDepDyn[frame_id][feature_id],K);
                             gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
-                            addDynamicPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
+                            // addDynamicPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
+                            addDynamicPoint3DFactor(X_c_point, pose_key, count_unique_id);
                             //better to use track id as Symbol but then will need to make all variables use differnt symbols
                             vnFeaMakDyn[frame_id][feature_id] = count_unique_id;
                             count_unique_id++;
@@ -336,8 +343,8 @@ void VdoSlamBackend::process() {
 
                             cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatDyn[frame_id][feature_id],map->vfDepDyn[frame_id][feature_id],K);
                             gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
-                            addDynamicPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
-
+                            // addDynamicPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
+                            addDynamicPoint3DFactor(X_c_point, pose_key, count_unique_id);
                             //lets do a sanity check
                             //previous obs key has been set
                             CHECK(previous_obs->tracklet_id == track_id);
@@ -362,7 +369,11 @@ void VdoSlamBackend::process() {
     }
     dynamic_points_timer.Stop();
     pre_camera_pose_vertex = curr_camera_pose_vertex;
-    optimize();
+
+    if(run_as_incremental) {
+        optimize();
+    }
+    
     // updateMapFromIncremental();
 
 }
@@ -494,8 +505,8 @@ void VdoSlamBackend::setupNoiseModels() {
 
         point3DNoiseModel =pose3dNoiseModelTemp;
         //TODO: not using dynamic points yet
-        // huberObjectMotion = gtsam::noiseModel::Robust::Create(
-        //     gtsam::noiseModel::mEstimator::Huber::Create(params->k_huber_obj_motion), odometryNoiseModel);
+        dynamicPoint3DNoiseModel = gtsam::noiseModel::Robust::Create(
+            gtsam::noiseModel::mEstimator::Huber::Create(params->k_huber_obj_motion), dynamicPoint3DNoiseModel);
     }
 
 
@@ -577,14 +588,14 @@ void VdoSlamBackend::addPoint3DFactor(const gtsam::Point3& measurement, gtsam::K
     auto it = observed_landmarks.find(landmark_key);
     //must be added prior to the first factor? I guess?
     // CHECK(it != observed_landmarks.end()) << "Landmark measurment must be added before adding a point 3D factor";    //must be added prior to the first factor? I guess?
-    observed_landmarks[landmark_key].push_back(
-        boost::make_shared<Point3DFactor>(
-            pose_key,
-            landmark_key,
-            measurement,
-            point3DNoiseModel
-        )
-    );
+    // observed_landmarks[landmark_key].push_back(
+    //     boost::make_shared<Point3DFactor>(
+    //         pose_key,
+    //         landmark_key,
+    //         measurement,
+    //         point3DNoiseModel
+    //     )
+    // );
 
     graph.emplace_shared<Point3DFactor>(
         pose_key,
@@ -597,14 +608,14 @@ void VdoSlamBackend::addPoint3DFactor(const gtsam::Point3& measurement, gtsam::K
 
 void VdoSlamBackend::addDynamicPoint3DFactor(const gtsam::Point3& measurement, gtsam::Key pose_key, gtsam::Key landmark_key) {
     CHECK(new_dynamic_lmks.exists(landmark_key) || isam->valueExists(landmark_key)) << "Dyanmic point landmark must be added";
-    observed_dyn_landmarks[landmark_key].push_back(
-        boost::make_shared<Point3DFactor>(
-            pose_key,
-            landmark_key,
-            measurement,
-            dynamicPoint3DNoiseModel
-        )
-    );
+    // observed_dyn_landmarks[landmark_key].push_back(
+    //     boost::make_shared<Point3DFactor>(
+    //         pose_key,
+    //         landmark_key,
+    //         measurement,
+    //         dynamicPoint3DNoiseModel
+    //     )
+    // );
 
     graph.emplace_shared<Point3DFactor>(
         pose_key,
@@ -619,9 +630,9 @@ void VdoSlamBackend::addLandmarkMotionFactor(const gtsam::Point3& measurement, g
             gtsam::Key previous_point_key, gtsam::Key motion_key) {
                 //
     //check observed landmarks to ensure that the point is actually in the set of points
-    auto it = observed_dyn_landmarks.find(current_point_key);
-    CHECK(it != observed_dyn_landmarks.end()) << "Current landmark key must be added before adding landmark motion factor";
-    //I guess also can check for the previous one?
+    // auto it = observed_dyn_landmarks.find(current_point_key);
+    // CHECK(it != observed_dyn_landmarks.end()) << "Current landmark key must be added before adding landmark motion factor";
+    // //I guess also can check for the previous one?
     // LOG(INFO) << "Added motion between "
     //Super unclear in implementation if current or previous key is first
     // observed_motions[motion_key].push_back(
@@ -838,48 +849,81 @@ void VdoSlamBackend::optimizeLM() {
 }
 
 void VdoSlamBackend::makePlots() {
-    // // {
-    // //     plt::bar(change_error);
-    // //     plt::save("/root/data/vdo_slam/results/change_error.png");
-    // // }
-    // {
-    //     plt::bar(errorr_after);
-    //     plt::save("/root/data/vdo_slam/results/errorr_after.png");
-    // }
-    // Plot line from given x and y data. Color is selected automatically.
+    const std::string save_root_path = "/root/data/vdo_slam/results/";
     std::vector<double> x;
     for(const auto& i : error_after_v) {
         static int index = 1;
         x.push_back(index);
         index++;
     }
-    plt::plot(x, error_after_v);
 
-    // Plot a red dashed line from given x and y data.
-    plt::plot(x, error_before_v,"r--");
-    plt::save("/root/data/vdo_slam/results/errors.png");
+    plt::figure(1);
+    plt::title("Error before optimization");
+    plt::xlabel("n frames");
+    plt::ylabel("log-likelihood error");
+    plt::plot(x, error_before_v);
+    plt::save(save_root_path + "error_before_opt.png");
+   
+    plt::figure(2);
+    plt::title("Error after optimization");
+    plt::xlabel("n frames");
+    plt::ylabel("log-likelihood error");
+    plt::plot(x, error_after_v);
+    plt::save(save_root_path + "error_after_opt.png");
+
+    plt::figure(3);
+    plt::title("Time for each update step of iSAM2");
+    plt::xlabel("n frames");
+    plt::ylabel("time (s)");
+    plt::plot(x, time_to_optimize);
+    plt::save(save_root_path + "time_to_optimize.png");
+
+    plt::figure(4);
+    plt::title("Number of factors in the iSAM2 factor graph");
+    plt::xlabel("n frames");
+    plt::ylabel("n factors");
+    plt::plot(x, no_factors);
+    plt::save(save_root_path + "no_factors.png");
+
+    plt::figure(5);
+    plt::title("Number of variables in the iSAM2 factor graph");
+    plt::xlabel("n frames");
+    plt::ylabel("n variables");
+    plt::plot(x, no_variables);
+    plt::save(save_root_path + "no_variables.png");
+
+    
 
 
 
 
 }
 
+cv::Mat VdoSlamBackend::getBestPoseEstimate() {
+    gtsam::Key pose_key = unique_vertices[current_frame][0];
+    gtsam::Pose3 pose = state_.at<gtsam::Pose3>(pose_key);
+    return utils::gtsamPose3ToCvMat(pose.inverse());
+}
+
 void VdoSlamBackend::optimize() {
     ///failure is always on previous camera pose
-    if(current_frame >= 0) {
+    if(current_frame > 0) {
         //will throw KeyAlreadyExists<J> so a good test to see if the front end -> backend processing is working
         try {
             // gtsam::Values values = collectValuesToAdd();
             // all_values.insert(values);
             timing::Timer isam_udpate_timer("backend/isam2_update");
+            auto start = high_resolution_clock::now();
             result = isam->update(graph, all_values);
-            // result = isam->update();
-            // result = isam->update();
-            // result = isam->update();
+            auto stop = high_resolution_clock::now();
+            auto duration = duration_cast<seconds>(stop - start);
+            result = isam->update();
+            result = isam->update();
+            result = isam->update();
             isam_udpate_timer.Stop();
 
+            gtsam::NonlinearFactorGraph graph_ = gtsam::NonlinearFactorGraph(isam->getFactorsUnsafe());  // clone, expensive but safer!
             if(state_.size() > 0) {
-                gtsam::NonlinearFactorGraph graph_ = gtsam::NonlinearFactorGraph(isam->getFactorsUnsafe());  // clone, expensive but safer!
                 LOG(INFO) << "Size of current graph " << graph_.size();
                 LOG(INFO) << "Size of current state " << state_.size();
                 gtsam::Values state_before_opt = gtsam::Values(state_);
@@ -902,12 +946,16 @@ void VdoSlamBackend::optimize() {
             }
             else {
                 state_ = isam->calculateEstimate();
+                error_before_v.push_back(0);
+                error_after_v.push_back(0);
             }
+
+            no_factors.push_back(graph_.size());
+            no_variables.push_back(state_.size());
+            time_to_optimize.push_back(duration.count());
+
             
 
-            // errorr_after.push_back(*result.errorAfter);
-            // errorr_after.push_back(result.variablesRelinearized);
-            // errorr_after.push_back(isam->error(isam->getDelta()));
             all_values.clear();
             graph.resize(0);
 

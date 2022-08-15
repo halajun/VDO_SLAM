@@ -174,6 +174,9 @@ Tracking::Tracking(System *pSys, Map *pMap, const string &strSettingPath, const 
     else
         cout << "- used detected feature for background scene..." << endl;
 
+    param_parser->getParam("run_as_incremental", &run_as_incremental);
+    LOG(INFO) << "Running as incremental: " << run_as_incremental;
+
     graph = std::make_shared<FactorGraph>(pMap, mK);
 
     BackendParams::Ptr backend_params = BackendParams::loadFromParamParser(*param_parser);
@@ -1119,6 +1122,7 @@ void Tracking::Track()
             mpMap->TrackletDyn = GetDynamicTrackNew();  // (new added Nov 20 2019)
         }
 
+
         // (5) camera pose
         cv::Mat CameraPoseTmp = Converter::toInvMatrix(mCurrentFrame.mTcw);
         mpMap->vmCameraPose.push_back(CameraPoseTmp);
@@ -1215,7 +1219,12 @@ void Tracking::Track()
     // ============== Partial batch optimize on all the measurements (local optimization) ==============
     // =================================================================================================
     // graph->stepAndOptimize();
-    backend->process();
+     backend->process(run_as_incremental);
+
+    if(run_as_incremental && f_id > 1) {
+        cv::Mat best_pose = backend->getBestPoseEstimate();
+        mCurrentFrame.SetPose(best_pose);
+    }
 
     // if (f_id > 6) {
     //     throw std::invalid_argument("Stop");
@@ -1258,7 +1267,7 @@ void Tracking::Track()
 
 
         num_batch_update++;
-
+        // if(f_id==StopFrame) {
         if(num_batch_update > 1) {
 
             // Optimizer::FullBatchOptimization(mpMap,mK);
@@ -1267,8 +1276,14 @@ void Tracking::Track()
             GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
                         mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
             // backend->calculateError();
-            // backend->optimizeLM();
-            backend->makePlots();
+            if(run_as_incremental) {
+                backend->makePlots();
+            }
+            else {
+                backend->optimizeLM();
+            }
+            
+            
             throw std::invalid_argument("Stop");
         }
         

@@ -53,6 +53,7 @@ public:
       
       
     gtsam::Matrix H1, H2;
+
     gtsam::Vector expected = X.transformTo(l, H1, H2);
 
 /*

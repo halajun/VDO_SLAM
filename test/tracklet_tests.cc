@@ -89,29 +89,51 @@ int main() {
 
 
     //test for manual setting of mark as added
-    Tracklet<int, 2> tracklet(0);
+    // Tracklet<int, 2> tracklet(0);
 
-    std::vector<std::pair<int, int>> frontend_tracks;
-    frontend_tracks.push_back({0, 1});
-    frontend_tracks.push_back({1, 2});
-    frontend_tracks.push_back({2, 3});
+    // std::vector<std::pair<int, int>> frontend_tracks;
+    // frontend_tracks.push_back({0, 1});
+    // frontend_tracks.push_back({1, 2});
+    // frontend_tracks.push_back({2, 3});
 
-    tracklet.update(frontend_tracks, 0);
-    Tracklet<int, 2>::ObservationPtrVector observations = tracklet.getNotAdded();
-    CHECK(observations.size() == 3);
+    // tracklet.update(frontend_tracks, 0);
+    // Tracklet<int, 2>::ObservationPtrVector observations = tracklet.getNotAdded();
+    // CHECK(observations.size() == 3);
 
-    for(Tracklet<int, 2>::TypedObservationPtr obs : observations) {
-        LOG(INFO) <<obs->to_string();
-        obs->was_added = true;
-    }
+    // for(Tracklet<int, 2>::TypedObservationPtr obs : observations) {
+    //     LOG(INFO) <<obs->to_string();
+    //     obs->was_added = true;
+    // }
 
-    for(Tracklet<int, 2>::TypedObservationPtr obs : observations) {
-        LOG(INFO) <<obs->to_string();
-    }
+    // for(Tracklet<int, 2>::TypedObservationPtr obs : observations) {
+    //     LOG(INFO) <<obs->to_string();
+    // }
     
 
-    observations = tracklet.getNotAdded();
-    CHECK(observations.size() == 0);
+    // observations = tracklet.getNotAdded();
+    // CHECK(observations.size() == 0);
+
+    //tests for exists
+    TrackletManager<int, 3> tracklet_manager;
+    std::vector<std::vector<std::pair<int, int>>> tracklets;
+    tracklets.push_back({{0, 8}, {1, 10}});
+    tracklets[0].push_back({2, 11});
+    tracklet_manager.update(tracklets);
+
+    CHECK(tracklet_manager.exists(0, 8));
+    CHECK(tracklet_manager.exists(1, 10));
+    CHECK(tracklet_manager.exists(2, 11));
+    auto track = tracklet_manager.getTracklet(1, 10);
+    CHECK_EQ(track.TrackletId(), 0);
+
+    //add another tracklet
+    tracklets.push_back({{4, 7}, {5, 9}});
+    tracklet_manager.update(tracklets);
+    CHECK(tracklet_manager.exists(5, 9));
+    auto track1 = tracklet_manager.getTracklet(4, 7);
+    CHECK_EQ(track1.TrackletId(), 1);
+    CHECK_EQ(track1[0]->frame_id, 4);
+
 
 
 

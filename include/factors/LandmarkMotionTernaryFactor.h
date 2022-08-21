@@ -48,49 +48,37 @@ public:
         
   
   // note that use boost optional like a pointer
-    // only calculate jacobian matrix when non-null pointer exists                                    
+    // only calculate jacobian matrix when non-null pointer exists        
+
+    // gtsam::Vector3 invHl2 = H.inverse() * currentPoint;
+    // gtsam::Vector3 expected = previousPoint - invHl2;                     
     
-    gtsam::Vector3 invHl2 = H.inverse() * currentPoint;
-    gtsam::Vector3 expected = previousPoint - H.inverse()*currentPoint;
-    // gtsam::Matrix H2, H3;
-    // gtsam::Vector l2H = H.transformTo(currentPoint, H3, H2);
-    //gtsam::Matrix H1, H3;
-    //gtsam::Vector Hl1 = H.transform_from(l1, H3, H1);
-    
-    // gtsam::Vector3 expected = previousPoint - l2H;
-    //gtsam::Vector3 expected = l2.vector() - Hl1;
+    gtsam::Matrix H2, H3;
+    gtsam::Vector l2H = H.transformTo(currentPoint, H3, H2);
+    gtsam::Vector3 expected = previousPoint - l2H;
                                                                         
     if (J1) *J1 = (gtsam::Matrix33() << 1.0, 0.0, 0.0, 
                                         0.0, 1.0, 0.0,
                                         0.0, 0.0, 1.0).finished();
    
-    // if (J2) *J2 = (gtsam::Matrix33() << -H2).finished();
+    if (J2) *J2 = (gtsam::Matrix33() << -H2).finished();
     
-    // if (J3) *J3 = (gtsam::Matrix36() << -H3).finished();  
+    if (J3) *J3 = (gtsam::Matrix36() << -H3).finished();  
 
-    if (J2) *J2 = (gtsam::Matrix33() << -H.inverse().rotation().matrix()).finished();
+    // if (J2) *J2 = (gtsam::Matrix33() << -H.inverse().rotation().matrix()).finished();
     
-    if (J3) {
-      gtsam::Matrix36 J = gtsam::Matrix36::Identity();
-      J(0,4) =  invHl2(2);
-      J(0,5) = -invHl2(1);
-      J(1,3) = -invHl2(2);
-      J(1,5) =  invHl2(0);
-      J(2,3) =  invHl2(1);
-      J(2,4) = -invHl2(0);
-      *J3 = (gtsam::Matrix36() << J).finished();  
-    }
+    // if (J3) {
+    //   gtsam::Matrix36 J = gtsam::Matrix36::Identity();
+    //   J(0,4) =  invHl2(2);
+    //   J(0,5) = -invHl2(1);
+    //   J(1,3) = -invHl2(2);
+    //   J(1,5) =  invHl2(0);
+    //   J(2,3) =  invHl2(1);
+    //   J(2,4) = -invHl2(0);
+    //   *J3 = (gtsam::Matrix36() << J).finished();  
+    // }
     
-    
-    //if (J1) *J1 = (gtsam::Matrix33() << -H1).finished();
-    
-    //if (J2) *J2 = (gtsam::Matrix33() << 1.0, 0.0, 0.0, 
-    //                                    0.0, 1.0, 0.0,
-    //                                    0.0, 0.0, 1.0).finished();
-    
-    
-    //if (J3) *J3 = (gtsam::Matrix36() << -H3).finished();
-                                      
+  
     // return error vector
     return (gtsam::Vector3() << expected.x()-mx_, expected.y()-my_, expected.z()-mz_).finished();
   }

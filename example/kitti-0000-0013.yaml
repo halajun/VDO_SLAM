@@ -62,7 +62,7 @@ UseSampleFeature: 0
 #--------------------------------------------------------------------------------------------
 
 # ORB Extractor: Number of features per image
-ORBextractor.nFeatures: 500
+ORBextractor.nFeatures: 2500
 
 # ORB Extractor: Scale factor between levels in the scale pyramid
 ORBextractor.scaleFactor: 1.2
@@ -74,11 +74,11 @@ ORBextractor.nLevels: 8
 ORBextractor.iniThFAST: 20
 ORBextractor.minThFAST: 7
 
-run_as_incremental: true
+run_as_incremental: 1
 
 ## Viz params
 # use_2d must be on for the display Input and Frame params to do anything
-Viz.use_2d: 1
+Viz.use_2d: 0
 Viz.displayInput: 0
 Viz.displayFrame: 1
 
@@ -87,14 +87,15 @@ Viz.use_3d: 0
 
 ## Backend Params
 Backend.use_robust_kernel: 1
-Backend.var_camera: 1
-Backend.var_camera_prior: 0.00001
-Backend.var_3d_static: 0.1
-Backend.var_obj: 0.5
-Backend.var_3d_dyn: 1.0
-Backend.var_obj_smooth: 2.0
+# odom noise model
+Backend.var_camera: 0.2
+Backend.var_camera_prior: 0.000001
+Backend.var_3d_static: 0.5
+Backend.var_obj: 10
+Backend.var_3d_dyn: 2
+Backend.var_obj_smooth: 0.001
 Backend.k_huber_3d_points: 0.001
-Backend.k_huber_obj_motion: 0.1
+Backend.k_huber_obj_motion: 0.001
 
 
 

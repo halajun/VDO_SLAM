@@ -8,6 +8,7 @@
 
 
 #include "frontend/Tracking.h"
+#include "visualizer/Display.h"
 
 #include <Eigen/Core>
 #include <glog/logging.h>
@@ -527,6 +528,7 @@ cv::Mat Tracking::GrabImageRGBD(const cv::Mat &imRGB, cv::Mat &imD, const cv::Ma
     Display2DInput display_input;
     display_input.frame = mCurrentFrame;
     display_input.static_tracklets = mpMap->TrackletSta;
+    display_input.map = mpMap;
 
 
     //viz 
@@ -1218,7 +1220,7 @@ void Tracking::Track()
     // =================================================================================================
     // ============== Partial batch optimize on all the measurements (local optimization) ==============
     // =================================================================================================
-    // graph->stepAndOptimize();
+
      backend->process(run_as_incremental);
 
     if(run_as_incremental && f_id > 1) {

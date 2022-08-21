@@ -6,6 +6,10 @@
 #include "visualizer/Display.h"
 #include "visualizer/DisplayTypes.h"
 #include "frontend/Frame.h"
+#include "backend/Tracklet.h"
+#include "backend/Tracklet-Definitions.h"
+
+
 
 #include <opencv2/opencv.hpp>
 #include <glog/logging.h>
@@ -14,10 +18,13 @@
 
 namespace VDO_SLAM {
 
+class Map;
+
 struct Display2DInput {
 
     Frame frame;
     FeatureTrackletMatrix static_tracklets;
+    Map* map;
 };
 
 class OpenCvDisplay : public Display {
@@ -34,7 +41,8 @@ class OpenCvDisplay : public Display {
     private:
         void drawFrame(const Display2DInput& input);
         void drawInputImages(const Frame& frame);
-        // void drawFrameTextInfo()
+        
+        void drawTracklet(const cv::Mat& rgb, cv::Mat& rgb_tracks, const FeatureTrackletMatrix& static_tracks, const Map* map);
 
         void drawOpticalFlow(const cv::Mat& flow, cv::Mat& flow_viz);
         void drawSemanticInstances(const cv::Mat& rgb, const cv::Mat& mask, cv::Mat& mask_viz);
@@ -46,6 +54,9 @@ class OpenCvDisplay : public Display {
         ImageToDisplay::Vector display_images;
 
         static Color getColourFromInstanceMask(int value);
+
+            // for viz and debug currently
+            StaticTrackletManager static_tracklets;
 };
     
 } // namespace VDO_SLAM 

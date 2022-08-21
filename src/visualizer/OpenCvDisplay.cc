@@ -1,6 +1,10 @@
 #include "visualizer/OpenCvDisplay.h"
 #include "utils/UtilsOpenCv.h"
 
+#include "Map.h"
+
+#include <set>
+
 namespace VDO_SLAM {
 
 OpenCvDisplay::OpenCvDisplay(DisplayParams::Ptr params_)
@@ -50,13 +54,99 @@ void OpenCvDisplay::drawInputImages(const Frame& frame) {
 
 }
 
+void OpenCvDisplay::drawTracklet(const cv::Mat& rgb, cv::Mat& rgb_tracks, const FeatureTrackletMatrix& static_tracks, const Map* map) {
+    std::vector<std::vector<std::pair<int, int> > > StaTracks = map->TrackletSta;
+    static_tracklets.update(StaTracks);
+    rgb.copyTo(rgb_tracks);
+
+
+    std::set<int> unique_tracks;
+
+    const int current_frame = map->vpFeatSta.size() - 1;
+    for(size_t point_id = 0; point_id < map->vpFeatSta[current_frame].size(); point_id+=3) {
+        if(point_id >= map->vpFeatSta[current_frame].size()) {
+            break;
+        }
+        // for (int point_id = 0; point_id < vnFeaLabSta[current_frame].size(); ++point_id) {
+        if(static_tracklets.exists(current_frame, point_id)) {
+            StaticTrackletManager::TypedTracklet tracklet = static_tracklets.getTracklet(current_frame, point_id);
+
+            if(tracklet.isWellTracked()) {
+                StaticTrackletManager::Observations obs_to_add = tracklet.getNotAdded();
+                // LOG(INFO) << "obs to add " << obs_to_add.size() << " track Id " << tracklet.TrackletId();
+                for (StaticTrackletManager::Observation obs : obs_to_add) {
+                    FrameId frame_id = obs->frame_id;
+                    FeatureId feature_id = obs->point_id;
+                    int track_id = obs->tracklet_id;
+                    // obs->was_added = true;
+                    
+
+                    //dont draw if for another frame
+                    if (frame_id != current_frame) {
+                        continue;
+                    }
+
+                    CHECK_EQ(unique_tracks.count(track_id), 0);
+                    unique_tracks.insert(track_id);
+
+
+                    cv::KeyPoint kp = map->vpFeatSta[frame_id][feature_id];
+                    cv::Scalar colour = Display::getObjectColour(track_id);
+                    utils::drawCircleInPlace(rgb_tracks, kp, colour);
+
+                    int x= kp.pt.x;
+                    int y= kp.pt.y;
+
+                    cv::putText(rgb_tracks,std::to_string(track_id),
+                        cv::Point2i(x-5, y-5),cv::FONT_HERSHEY_SIMPLEX, 0.3, colour);
+                }
+
+                tracklet.markAsAdded(obs_to_add);
+
+
+            }
+        }
+    }
+
+
+    // for(int t = 0; t < static_tracklets.size(); t++) {
+    //     StaticTrackletManager::TypedTracklet tracklet = static_tracklets[t];
+    //     for(int i = 0; i < tracklet.size(); i++) {
+    //         StaticTrackletManager::Observation obs = tracklet[i];
+    //         if(obs) {
+    //             if(obs->frame_id == current_frame && obs->tracklet_position > 3) {
+    //                 FrameId frame_id = obs->frame_id;
+    //                 FeatureId feature_id = obs->point_id;
+    //                 int track_id = obs->tracklet_id;
+    //                 cv::KeyPoint kp = map->vpFeatSta[frame_id][feature_id];
+    //                 cv::Scalar colour = Display::getObjectColour(track_id);
+    //                 utils::drawCircleInPlace(rgb_tracks, kp, colour);
+
+    //                 int x= kp.pt.x;
+    //                 int y= kp.pt.y;
+
+    //                 cv::putText(rgb_tracks,std::to_string(track_id),
+    //                     cv::Point2i(x-5, y-5),cv::FONT_HERSHEY_SIMPLEX, 0.3, colour);
+    //             }
+    //         }
+    //     }
+        
+    // }
+   
+
+
+}
+
+
 void OpenCvDisplay::drawFrame(const Display2DInput& input) {
     const Frame& frame = input.frame;
     cv::Mat frame_viz, rgb;
     frame.rgb.copyTo(rgb);
     CHECK(rgb.channels() == 3) << "Expecting rgb in frame to gave 3 channels";
 
-    drawFeatures(rgb, frame, frame_viz);
+    drawTracklet(rgb, frame_viz, input.static_tracklets, input.map);
+
+    // drawFeatures(rgb, frame, frame_viz);
     addDisplayImages(frame_viz, "Current Frame");
 }
 

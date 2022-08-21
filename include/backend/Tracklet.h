@@ -44,13 +44,15 @@ class Tracklet {
                 return;
             }
 
-            //assume 0:new_observations are the same
+            // //assume 0:new_observations are the same
             for(size_t i = observations.size(); i < fontend_tracks_.size(); i++) {
                 const std::pair<int, int>& track = fontend_tracks_[i];
                 size_t tracklet_position = observations.size();
                 observations.push_back(std::make_shared<Observation<T>>(
                     track.first, track.second, tracklet_position, tracklet_id));
             }
+
+            
 
             CHECK_EQ(fontend_tracks_.size(), observations.size());
         }
@@ -267,6 +269,7 @@ class TrackletManager {
 
 
 };
+
 
 
 }

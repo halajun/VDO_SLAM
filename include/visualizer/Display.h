@@ -17,8 +17,9 @@ class Display {
 
         virtual void process() = 0;
 
+        static cv::Scalar getObjectColour(int label);
+
     protected:
-        cv::Scalar getObjectColour(int label);
         DisplayParams::Ptr params;
 
 

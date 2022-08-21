@@ -26,6 +26,7 @@
 #include "utils/types.h"
 #include "utils/camera.h"
 #include "backend/Tracklet.h"
+#include "backend/Tracklet-Definitions.h"
 #include "backend/VdoSlamBackend-types.h"
 #include "backend/VdoSlamBackendParams.h"
 #include "backend/DynamicObjectManager.h"
@@ -40,9 +41,6 @@ class VdoSlamBackend {
 
     public:
         VDO_SLAM_POINTER_TYPEDEFS(VdoSlamBackend);
-        using StaticTrackletManager = TrackletManager<gtsam::Point3, 4>;
-        using DynamicTrackletManager = TrackletManager<gtsam::Point3, 2>;
-
         VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_, BackendParams::Ptr params_);
         ~VdoSlamBackend() = default;
 

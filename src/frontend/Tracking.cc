@@ -1225,7 +1225,7 @@ void Tracking::Track()
 
     if(run_as_incremental && f_id > 1) {
         cv::Mat best_pose = backend->getBestPoseEstimate();
-        mCurrentFrame.SetPose(best_pose);
+        mLastFrame.SetPose(best_pose);
     }
 
     // if (f_id > 6) {

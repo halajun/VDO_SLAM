@@ -50,10 +50,10 @@ class VdoSlamBackend {
         gtsam::Values calculateCurrentEstimate() const;
 
         void calculateError();
-        //this updates the map from the last set of marked variables in the isam2 results object
-        void updateMapFromIncremental();
-        //updates the map using all values ever seen (as stored in key_to_unique_vertices)
-        void updateMapFull();
+        // //this updates the map from the last set of marked variables in the isam2 results object
+        // void updateMapFromIncremental();
+        // //updates the map using all values ever seen (as stored in key_to_unique_vertices)
+        // void updateMapFull();
 
         void writeG2o(const std::string& file_name);
 
@@ -67,7 +67,6 @@ class VdoSlamBackend {
         //some helper functions
         const size_t getMapSize() const;
 
-        // void
 
         //initliases covariances/robust kernals used for isam2 opt
         void setupNoiseModels();
@@ -95,11 +94,11 @@ class VdoSlamBackend {
         void addLandmarkMotionFactor(const gtsam::Point3& measurement, gtsam::Key current_point_key, 
             gtsam::Key previous_point_key, gtsam::Key motion_key);
 
-        gtsam::Values collectValuesToAdd();
         void optimize();
 
 
-        void updateMapFromSymbol(const gtsam::Key& key, const IJSymbol& vertex_symbol);
+
+        void updateMap(const gtsam::Values& state);
 
 
 
@@ -138,6 +137,10 @@ class VdoSlamBackend {
         gtsam::NonlinearFactorGraph graph;
         gtsam::Values new_camera_poses;
         gtsam::Values new_object_motions;
+
+        //keys to update after each optimization
+        std::map<gtsam::Key, FrameSlot> object_motions_to_update;
+        std::map<gtsam::Key, FrameSlot> static_points_to_update;
 
         gtsam::Values all_values; //currently used for writing out to g2o
 

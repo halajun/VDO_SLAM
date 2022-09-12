@@ -20,7 +20,7 @@ typedef std::vector<LandmarkMotionTernaryFactorPtr> LandmarkMotionTernaryFactors
 
 // typedef std::vector<gtsam::Key> VertexKeys;
 
-
+using FrameSlot = std::pair<FrameId, FeatureId>;
 
 
 //quick reverse lookup for unique vertices

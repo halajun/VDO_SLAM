@@ -1221,7 +1221,7 @@ void Tracking::Track()
     // ============== Partial batch optimize on all the measurements (local optimization) ==============
     // =================================================================================================
 
-     backend->process(run_as_incremental);
+    backend->process(run_as_incremental);
 
     if(run_as_incremental && f_id > 1) {
         cv::Mat best_pose = backend->getBestPoseEstimate();
@@ -1270,24 +1270,24 @@ void Tracking::Track()
 
         num_batch_update++;
         // if(f_id==StopFrame) {
-        if(num_batch_update > 1) {
+        // // if(num_batch_update > 1) {
 
-            // Optimizer::FullBatchOptimization(mpMap,mK);
-            // backend->updateMapFull();
-            // LOG(INFO) << "Error after incremental update";
-            GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
-                        mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
-            // backend->calculateError();
-            if(run_as_incremental) {
-                backend->makePlots();
-            }
-            else {
-                backend->optimizeLM();
-            }
+        //     // Optimizer::FullBatchOptimization(mpMap,mK);
+        //     // backend->updateMapFull();
+        //     // LOG(INFO) << "Error after incremental update";
+        //     GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
+        //                 mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
+        //     // backend->calculateError();
+        //     if(run_as_incremental) {
+        //         backend->makePlots();
+        //     }
+        //     else {
+        //         backend->optimizeLM();
+        //     }
             
             
-            throw std::invalid_argument("Stop");
-        }
+        //     // throw std::invalid_argument("Stop");
+        // }
         
 
 
@@ -1301,25 +1301,42 @@ void Tracking::Track()
     bGlobalBatch = true;
     if (f_id==StopFrame) // bFrame2Frame f_id>=2
     {
-        // Metric Error BEFORE Optimization
+        // // Metric Error BEFORE Optimization
+        // GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
+        //                mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
+        // // GetVelocityError(mpMap->vmRigidMotion, mpMap->vp3DPointDyn, mpMap->vnFeatLabel,
+        // //                  mpMap->vnRMLabel, mpMap->vfAllSpeed_GT, mpMap->vnAssoDyn, mpMap->vbObjStat);
+        // backend->writeG2o("no_opt.g2o");
+        // if (bGlobalBatch && mTestData==KITTI)
+        // {
+        //     // Get Full Batch Optimization
+        //     //we run this to get the full map saved to another g2o file (using the original g2o code)
+        //     //curently, we return before we get the optimization
+        //     // Optimizer::FullBatchOptimization(mpMap,mK);
+
+        //     // Metric Error AFTER Optimization
+        //     GetMetricError(mpMap->vmCameraPose_RF,mpMap->vmRigidMotion_RF, mpMap->vmObjPosePre,
+        //                    mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
+        //     // GetVelocityError(mpMap->vmRigidMotion_RF, mpMap->vp3DPointDyn, mpMap->vnFeatLabel,
+        //     //                  mpMap->vnRMLabel, mpMap->vfAllSpeed_GT, mpMap->vnAssoDyn, mpMap->vbObjStat);
+        // }
+
+        // GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
+        //                mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
+        if(run_as_incremental) {
+                backend->makePlots();
+        }
+        else {
+                LOG(INFO) << "Erro before LM";
+                GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
+                       mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
+
+                backend->optimizeLM();
+            }
+        LOG(INFO) << "Error after opt";
         GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
                        mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
-        // GetVelocityError(mpMap->vmRigidMotion, mpMap->vp3DPointDyn, mpMap->vnFeatLabel,
-        //                  mpMap->vnRMLabel, mpMap->vfAllSpeed_GT, mpMap->vnAssoDyn, mpMap->vbObjStat);
-        backend->writeG2o("no_opt.g2o");
-        if (bGlobalBatch && mTestData==KITTI)
-        {
-            // Get Full Batch Optimization
-            //we run this to get the full map saved to another g2o file (using the original g2o code)
-            //curently, we return before we get the optimization
-            // Optimizer::FullBatchOptimization(mpMap,mK);
 
-            // Metric Error AFTER Optimization
-            GetMetricError(mpMap->vmCameraPose_RF,mpMap->vmRigidMotion_RF, mpMap->vmObjPosePre,
-                           mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
-            // GetVelocityError(mpMap->vmRigidMotion_RF, mpMap->vp3DPointDyn, mpMap->vnFeatLabel,
-            //                  mpMap->vnRMLabel, mpMap->vfAllSpeed_GT, mpMap->vnAssoDyn, mpMap->vbObjStat);
-        }
     }
 
     mState = OK;
@@ -3203,175 +3220,6 @@ void Tracking::UpdateMask()
         // end of recovery
     }
 
-    // // === verify the updated labels ===
-    // cv::Mat imgLabel(mImGray.rows,mImGray.cols,CV_8UC3); // for display
-    // for (int i = 0; i < mSegMap.rows; ++i)
-    // {
-    //     for (int j = 0; j < mSegMap.cols; ++j)
-    //     {
-    //         int tmp = mSegMap.at<int>(i,j);
-    //         if (tmp>50)
-    //             tmp = tmp/2;
-    //         switch (tmp)
-    //         {
-    //             case 0:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(255,255,240);
-    //                 break;
-    //             case 1:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(0,0,255);
-    //                 break;
-    //             case 2:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(255,0,0);
-    //                 break;
-    //             case 3:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(255,255,0);
-    //                 break;
-    //             case 4:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(47,255,173); // greenyellow
-    //                 break;
-    //             case 5:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(128, 0, 128);
-    //                 break;
-    //             case 6:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(203,192,255);
-    //                 break;
-    //             case 7:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(196,228,255);
-    //                 break;
-    //             case 8:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(42,42,165);
-    //                 break;
-    //             case 9:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(255,255,255);
-    //                 break;
-    //             case 10:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(245,245,245); // whitesmoke
-    //                 break;
-    //             case 11:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(0,165,255); // orange
-    //                 break;
-    //             case 12:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(230,216,173); // lightblue
-    //                 break;
-    //             case 13:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(128,128,128); // grey
-    //                 break;
-    //             case 14:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(0,215,255); // gold
-    //                 break;
-    //             case 15:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(30,105,210); // chocolate
-    //                 break;
-    //             case 16:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(0,255,0);  // green
-    //                 break;
-    //             case 17:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(34, 34, 178);  // firebrick
-    //                 break;
-    //             case 18:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(240, 255, 240);  // honeydew
-    //                 break;
-    //             case 19:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(250, 206, 135);  // lightskyblue
-    //                 break;
-    //             case 20:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(238, 104, 123);  // mediumslateblue
-    //                 break;
-    //             case 21:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(225, 228, 255);  // mistyrose
-    //                 break;
-    //             case 22:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(128, 0, 0);  // navy
-    //                 break;
-    //             case 23:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(35, 142, 107);  // olivedrab
-    //                 break;
-    //             case 24:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(45, 82, 160);  // sienna
-    //                 break;
-    //             case 25:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(0, 255, 127); // chartreuse
-    //                 break;
-    //             case 26:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(139, 0, 0);  // darkblue
-    //                 break;
-    //             case 27:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(60, 20, 220);  // crimson
-    //                 break;
-    //             case 28:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(0, 0, 139);  // darkred
-    //                 break;
-    //             case 29:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(211, 0, 148);  // darkviolet
-    //                 break;
-    //             case 30:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(255, 144, 30);  // dodgerblue
-    //                 break;
-    //             case 31:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(105, 105, 105);  // dimgray
-    //                 break;
-    //             case 32:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(180, 105, 255);  // hotpink
-    //                 break;
-    //             case 33:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(204, 209, 72);  // mediumturquoise
-    //                 break;
-    //             case 34:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(173, 222, 255);  // navajowhite
-    //                 break;
-    //             case 35:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(143, 143, 188); // rosybrown
-    //                 break;
-    //             case 36:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(50, 205, 50);  // limegreen
-    //                 break;
-    //             case 37:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(34, 34, 178);  // firebrick
-    //                 break;
-    //             case 38:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(240, 255, 240);  // honeydew
-    //                 break;
-    //             case 39:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(250, 206, 135);  // lightskyblue
-    //                 break;
-    //             case 40:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(238, 104, 123);  // mediumslateblue
-    //                 break;
-    //             case 41:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(225, 228, 255);  // mistyrose
-    //                 break;
-    //             case 42:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(128, 0, 0);  // navy
-    //                 break;
-    //             case 43:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(35, 142, 107);  // olivedrab
-    //                 break;
-    //             case 44:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(45, 82, 160);  // sienna
-    //                 break;
-    //             case 45:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(30,105,210); // chocolate
-    //                 break;
-    //             case 46:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(0,255,0);  // green
-    //                 break;
-    //             case 47:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(34, 34, 178);  // firebrick
-    //                 break;
-    //             case 48:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(240, 255, 240);  // honeydew
-    //                 break;
-    //             case 49:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(250, 206, 135);  // lightskyblue
-    //                 break;
-    //             case 50:
-    //                 imgLabel.at<cv::Vec3b>(i,j) = cv::Vec3b(238, 104, 123);  // mediumslateblue
-    //                 break;
-    //         }
-    //     }
-    // }
-    // cv::imshow("Updated Mask Image", imgLabel);
-    // cv::waitKey(1);
 
     cout << "Update Mask, Done!" << endl;
 }

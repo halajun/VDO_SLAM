@@ -57,10 +57,10 @@ gtsam::Point3 cvMatToGtsamPoint3(const cv::Mat& cv_t) {
 }
 
 cv::Mat gtsamPoint3ToCvMat(const gtsam::Point3& point) {
-    cv::Mat T = cv::Mat(3, 1, CV_32F);
+    cv::Mat T(3, 1, CV_32F);
     cv::eigen2cv(point, T);
     T.convertTo(T, CV_32F);
-    return T;
+    return T.clone();
 }
 
 gtsam::Cal3_S2::shared_ptr cvMat2Cal3_S2(const cv::Mat& K) {

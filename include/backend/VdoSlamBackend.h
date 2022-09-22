@@ -32,7 +32,15 @@
 #include "backend/DynamicObjectManager.h"
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 
+#include <gtsam_unstable/nonlinear/IncrementalFixedLagSmoother.h>
+
+
 #include "Map.h"
+
+// using gtsam::symbol_shorthand::H;
+// using gtsam::symbol_shorthand::L;  // Dynamic point
+// using gtsam::symbol_shorthand::M; //static ppint
+// using gtsam::symbol_shorthand::X;  // Pose3 (x,y,z,r,p,y)
 
 
 namespace VDO_SLAM {
@@ -43,6 +51,9 @@ class VdoSlamBackend {
         VDO_SLAM_POINTER_TYPEDEFS(VdoSlamBackend);
         VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_, BackendParams::Ptr params_);
         ~VdoSlamBackend() = default;
+
+        using KeyTimestampMap = gtsam::FixedLagSmoother::KeyTimestampMap;
+
 
         //probably should be called process frontend of something like that
         void process(bool run_as_incremental = true);
@@ -105,6 +116,7 @@ class VdoSlamBackend {
     private:
         Map* map;
         std::unique_ptr<gtsam::ISAM2> isam;
+        // std::unique_ptr<gtsam::IncrementalFixedLagSmoother> isam;
         gtsam::ISAM2Result result;
         BackendParams::Ptr params;
 
@@ -139,8 +151,10 @@ class VdoSlamBackend {
         gtsam::Values new_object_motions;
 
         //keys to update after each optimization
+        std::map<gtsam::Key, FrameSlot> camera_pose_to_update;
         std::map<gtsam::Key, FrameSlot> object_motions_to_update;
         std::map<gtsam::Key, FrameSlot> static_points_to_update;
+        std::map<gtsam::Key, FrameSlot> dynamic_points_to_update;
 
         gtsam::Values all_values; //currently used for writing out to g2o
 

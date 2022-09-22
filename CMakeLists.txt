@@ -115,6 +115,7 @@ ${CSPARSE_LIBRARY}
 # for linux (ubuntu)
 ${PROJECT_SOURCE_DIR}/dependencies/g2o/lib/libg2o.so
 gtsam
+gtsam_unstable
 ${GFLAGS_LIBRARIES}
 ${GLOG_LIBRARIES}
 python2.7 #for matplotlib_cpp
@@ -151,28 +152,28 @@ target_link_libraries(vdo_slam ${PROJECT_NAME})
 
 
 # ##### Add some tests #####
-add_executable(tracklet_tests
-    test/tracklet_tests.cc
-)
+# add_executable(tracklet_tests
+#     test/tracklet_tests.cc
+# )
 
-target_link_libraries(tracklet_tests
-    gtsam
-    ${GFLAGS_LIBRARIES}
-    ${GLOG_LIBRARIES} 
-    ${PROJECT_NAME}
- )
+# target_link_libraries(tracklet_tests
+#     gtsam
+#     ${GFLAGS_LIBRARIES}
+#     ${GLOG_LIBRARIES} 
+#     ${PROJECT_NAME}
+#  )
 
- add_executable(plotting_test
-    test/plotting_test.cc
-)
+#  add_executable(plotting_test
+#     test/plotting_test.cc
+# )
 
-target_link_libraries(plotting_test
-    gtsam
-    ${GFLAGS_LIBRARIES}
-    ${GLOG_LIBRARIES} 
-    ${PROJECT_NAME}
-    python2.7
- )
+# target_link_libraries(plotting_test
+#     gtsam
+#     ${GFLAGS_LIBRARIES}
+#     ${GLOG_LIBRARIES} 
+#     ${PROJECT_NAME}
+#     python2.7
+#  )
 
 
 # ##### Add some tests #####

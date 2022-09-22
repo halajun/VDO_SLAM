@@ -51,9 +51,10 @@ VdoSlamBackend::VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_, BackendParams
 
         gtsam::ISAM2Params parameters;
         parameters.relinearizeThreshold = 0.01;
-        parameters.evaluateNonlinearError = true;
+        parameters.evaluateNonlinearError = false;
         parameters.relinearizeSkip = 1;
 
+        // isam = VDO_SLAM::make_unique<gtsam::IncrementalFixedLagSmoother>(5);
         isam = VDO_SLAM::make_unique<gtsam::ISAM2>(parameters);
         K_calib =  utils::cvMat2Cal3_S2(K);
 
@@ -161,20 +162,16 @@ void VdoSlamBackend::process(bool run_as_incremental) {
     gtsam::Pose3 camera_pose = utils::cvMatToGtsamPose3(map->vmCameraPose[current_frame]);
     cv::Mat camera_pose_cv = map->vmCameraPose[current_frame];
     // camera_pose = camera_pose.compose(gtsam::Pose3::identity());
-    addCameraPoseToGraph(camera_pose, count_unique_id, current_frame);
-    LOG(INFO) << "Added camera pose at " << count_unique_id;
+    addCameraPoseToGraph(camera_pose, (count_unique_id), current_frame);
+    LOG(INFO) << "Added camera pose at " << (count_unique_id);
    
     //is first (or current_frame == 0?)
     if(current_frame == 0) {
         // graph.addPrior(count_unique_id, camera_pose, cameraPosePrior);
-        graph.push_back(gtsam::PriorFactor<gtsam::Pose3>(count_unique_id, camera_pose, cameraPosePrior));
+        graph.push_back(gtsam::PriorFactor<gtsam::Pose3>((count_unique_id), camera_pose, cameraPosePrior));
         LOG(INFO) << "Added camera prior";
     }
 
-    //unique id for the first frame and the camera pose ???????
-    // if(current_frame != 0) {
-    //     unique_vertices[current_frame-1][0] = count_unique_id;
-    // }
     unique_vertices[current_frame][0] = count_unique_id;
     
     curr_camera_pose_vertex = count_unique_id;
@@ -184,12 +181,12 @@ void VdoSlamBackend::process(bool run_as_incremental) {
         CHECK(pre_camera_pose_vertex != -1);
         gtsam::Pose3 rigid_motion = utils::cvMatToGtsamPose3(map->vmRigidMotion[current_frame-1][0]);
         graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
-            pre_camera_pose_vertex,
-            curr_camera_pose_vertex,
+            (pre_camera_pose_vertex),
+            (curr_camera_pose_vertex),
             rigid_motion,
             odometryNoiseModel
         );
-        LOG(INFO) << "Added motion constraint factor between id: " <<pre_camera_pose_vertex << " " << curr_camera_pose_vertex;
+        LOG(INFO) << "Added motion constraint factor between id: " << (pre_camera_pose_vertex) << " " << (curr_camera_pose_vertex);
     }
 
     static int n_landmark_add = 0;
@@ -218,14 +215,14 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                         obs->key = static_cast<int>(count_unique_id);
                         // obs->was_added = true;
                         // LOG(INFO) << obs->key;
-                        addLandmarkToGraph(X_w, count_unique_id, frame_id, feature_id);
+                        addLandmarkToGraph(X_w, (count_unique_id), frame_id, feature_id);
                         n_landmark_add++;
 
                         cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatSta[frame_id][feature_id],map->vfDepSta[frame_id][feature_id],K);
                         gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
                         
                         // addPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
-                        addPoint3DFactor(X_c_point, pose_key, count_unique_id);
+                        addPoint3DFactor(X_c_point, (pose_key), (count_unique_id));
                         n_factor_add++;
 
                         // update unique id
@@ -250,7 +247,7 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                         CHECK(tracklet_key != -1) << "Previous key was " << tracklet_key;
                         cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatSta[frame_id][feature_id],map->vfDepSta[frame_id][feature_id],K);
                         gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
-                        addPoint3DFactor(X_c_point, pose_key, tracklet_key);
+                        addPoint3DFactor(X_c_point, (pose_key), (tracklet_key));
                         n_factor_add++;
                     }
                 }
@@ -264,8 +261,6 @@ void VdoSlamBackend::process(bool run_as_incremental) {
         }
     }
     static_points_timer.Stop();
-
-    // cv::Mat Xc = Optimizer::Get3DinWorld(map->vpFeatSta[frame_id][feature_id],map->vfDepSta[frame_id][feature_id],K, camera_pose_cv);
 
 
     LOG(INFO) << n_landmark_add << " " << n_factor_add;
@@ -291,30 +286,29 @@ void VdoSlamBackend::process(bool run_as_incremental) {
 
                 //if trace exists
                 if(trace_id != -1) {
-                    gtsam::Key previous_motion_key = unique_vertices[current_frame-2][trace_id];
+                    gtsam::Key previous_motion_key = (unique_vertices[current_frame-2][trace_id]);
                 
                     //if key is in the values
                     if(state_.exists(previous_motion_key)) {
-                        object_motion = isam->calculateEstimate<gtsam::Pose3>(previous_motion_key);
-                        LOG(INFO) << "Using motion prior " << previous_motion_key << " " << object_motion;
+                        object_motion = isam->calculateEstimate<gtsam::Pose3>((previous_motion_key));
+                        LOG(INFO) << "Using motion prior " << (previous_motion_key) << " " << object_motion;
 
                         // //also add a smoothing factor here
-                        // gtsam::Pose3 object_motion_smoother = gtsam::Pose3::identity() ;
-                        // graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
-                        //     previous_motion_key,
-                        //     count_unique_id,
-                        //     object_motion_smoother,
-                        //     objectMotionSmootherNoiseModel
-                        // );
+                        gtsam::Pose3 object_motion_smoother = gtsam::Pose3::identity() ;
+                        graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
+                            previous_motion_key,
+                            count_unique_id,
+                            object_motion_smoother,
+                            objectMotionSmootherNoiseModel
+                        );
 
                     }
 
                 }
 
             }
-            addMotionToGraph(object_motion, count_unique_id, current_frame-1, j);
-            FrameSlot frame_slot = std::make_pair(current_frame-1, j);
-            object_motions_to_update[count_unique_id] = frame_slot;
+            //if is first motion
+            addMotionToGraph(object_motion, (count_unique_id), current_frame-1, j);
 
             unique_vertices[current_frame-1][j]= count_unique_id;
             LOG(INFO) << "Added RM at " << current_frame -1 << " " << j << " " << count_unique_id;
@@ -342,12 +336,12 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                             gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[frame_id][feature_id]);
                             obs->key = static_cast<int>(count_unique_id);
                             obs->was_added = true;
-                            addDynamicLandmarkToGraph(X_w, count_unique_id, frame_id, feature_id);
+                            addDynamicLandmarkToGraph(X_w, (count_unique_id), frame_id, feature_id);
 
                             cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatDyn[frame_id][feature_id],map->vfDepDyn[frame_id][feature_id],K);
                             gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
                             // addDynamicPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
-                            addDynamicPoint3DFactor(X_c_point, pose_key, count_unique_id);
+                            addDynamicPoint3DFactor(X_c_point, (pose_key), (count_unique_id));
                             //better to use track id as Symbol but then will need to make all variables use differnt symbols
                             vnFeaMakDyn[frame_id][feature_id] = count_unique_id;
                             count_unique_id++;
@@ -379,12 +373,12 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                             gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[frame_id][feature_id]);
                             obs->key = static_cast<int>(count_unique_id);
                             obs->was_added = true;
-                            addDynamicLandmarkToGraph(X_w, count_unique_id, frame_id, feature_id);
+                            addDynamicLandmarkToGraph(X_w, (count_unique_id), frame_id, feature_id);
 
                             cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatDyn[frame_id][feature_id],map->vfDepDyn[frame_id][feature_id],K);
                             gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
                             // addDynamicPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
-                            addDynamicPoint3DFactor(X_c_point, pose_key, count_unique_id);
+                            addDynamicPoint3DFactor(X_c_point, (pose_key), (count_unique_id));
                             //lets do a sanity check
                             //previous obs key has been set
                             CHECK(previous_obs->tracklet_id == track_id);
@@ -395,7 +389,7 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                             CHECK_EQ(previous_key, vnFeaMakDyn[DynTracks[track_id][position_id-1].first][DynTracks[track_id][position_id-1].second]);
                             CHECK(obj_position_id != -1) << "Frame " << frame_id - 1 << " pos " << position_id;
                             gtsam::Point3 initial_measurement(0, 0, 0);
-                            addLandmarkMotionFactor(initial_measurement, count_unique_id, previous_key, obj_position_id);
+                            addLandmarkMotionFactor(initial_measurement, (count_unique_id), (previous_key), (obj_position_id));
                             //better to use track id as Symbol but then will need to make all variables use differnt symbols
                             vnFeaMakDyn[frame_id][feature_id] = count_unique_id;
                             count_unique_id++;
@@ -523,39 +517,47 @@ void VdoSlamBackend::addToKeyVertexMapping(const gtsam::Key& key, FrameId curr_f
 
 void VdoSlamBackend::addCameraPoseToGraph(const gtsam::Pose3& pose, gtsam::Key key, FrameId curr_frame) {
     all_values.insert(key, pose);
-    addToKeyVertexMapping(key, curr_frame, 0, kSymbolCameraPose3Key);
+    FrameSlot frame_slot = std::make_pair(curr_frame, 0);
+    camera_pose_to_update[key] = frame_slot;
+
+    // addToKeyVertexMapping(key, curr_frame, 0, kSymbolCameraPose3Key);
 }
 
 void VdoSlamBackend::addMotionToGraph(const gtsam::Pose3& motion, gtsam::Key key, FrameId curr_frame, FeatureId object_id) {
     all_values.insert(key, motion);
-    addToKeyVertexMapping(key, curr_frame, object_id, kSymbolMotion3Key);
+    FrameSlot frame_slot = std::make_pair(curr_frame, object_id);
+    object_motions_to_update[key] = frame_slot;
+    // addToKeyVertexMapping(key, curr_frame, object_id, kSymbolMotion3Key);
 }
 
 
 
 void VdoSlamBackend::addLandmarkToGraph(const gtsam::Point3& landmark, gtsam::Key key, FrameId curr_frame, FeatureId feature_id) {
-    auto it = observed_landmarks.find(key);
     all_values.insert(key, landmark);
+    FrameSlot frame_slot = std::make_pair(curr_frame, feature_id);
+    static_points_to_update[key] = frame_slot;
 }
 
 void VdoSlamBackend::addDynamicLandmarkToGraph(const gtsam::Point3& landmark, gtsam::Key key, FrameId curr_frame, FeatureId feature_id) {
     //straight up add everything as it should be unique...?
     all_values.insert(key, landmark);
-    addToKeyVertexMapping(key, curr_frame, feature_id, kSymbolDynamicPoint3Key);
+    FrameSlot frame_slot = std::make_pair(curr_frame, feature_id);
+    dynamic_points_to_update[key] = frame_slot;
+    // addToKeyVertexMapping(key, curr_frame, feature_id, kSymbolDynamicPoint3Key);
 }
 
-void VdoSlamBackend::addPoint2DFactor(const gtsam::Point2& measurement, gtsam::Key pose_key, gtsam::Key landmark_key) {
-    static gtsam::noiseModel::Base::shared_ptr point2DNoiseModel = gtsam::noiseModel::Diagonal::Sigmas(
-                    (gtsam::Vector(2) << gtsam::Vector2::Constant(params->var_3d_static)).finished());
-    // noiseModel::Isotropic::shared_ptr point2DNoiseModel = noiseModel::Isotropic::Sigma(2, 1.0);
-    graph.push_back(gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3_S2>(
-        measurement,
-        point2DNoiseModel,
-        pose_key,
-        landmark_key,
-        K_calib
-    ));
-}
+// void VdoSlamBackend::addPoint2DFactor(const gtsam::Point2& measurement, gtsam::Key pose_key, gtsam::Key landmark_key) {
+//     static gtsam::noiseModel::Base::shared_ptr point2DNoiseModel = gtsam::noiseModel::Diagonal::Sigmas(
+//                     (gtsam::Vector(2) << gtsam::Vector2::Constant(params->var_3d_static)).finished());
+//     // noiseModel::Isotropic::shared_ptr point2DNoiseModel = noiseModel::Isotropic::Sigma(2, 1.0);
+//     graph.push_back(gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3_S2>(
+//         measurement,
+//         point2DNoiseModel,
+//         pose_key,
+//         landmark_key,
+//         K_calib
+//     ));
+// }
 
 
 void VdoSlamBackend::addPoint3DFactor(const gtsam::Point3& measurement, gtsam::Key pose_key, gtsam::Key landmark_key) {
@@ -605,25 +607,91 @@ void VdoSlamBackend::addLandmarkMotionFactor(const gtsam::Point3& measurement, g
 }
 
 void VdoSlamBackend::updateMap(const gtsam::Values& state) {
-    LOG(INFO) << "Updating " << object_motions_to_update.size() << "Object motions";
-    LOG(INFO) << "Updating " << static_points_to_update.size() << "Static Points motions";
+    LOG(INFO) << "Updating " << camera_pose_to_update.size() << " Camera poses";
+    LOG(INFO) << "Updating " << object_motions_to_update.size() << " Object motions";
+    LOG(INFO) << "Updating " << static_points_to_update.size() << " Static Points";
+    LOG(INFO) << "Updating " << dynamic_points_to_update.size() << " Dynamic Points";
 
-    //first update camera motion
-    gtsam::Pose3 camea_pose_refined = isam->calculateEstimate<gtsam::Pose3>(curr_camera_pose_vertex);
-    cv::Mat cv_pose_refined = utils::gtsamPose3ToCvMat(camea_pose_refined);
-    map->vmCameraPose[current_frame] = cv_pose_refined;
-    // map->vmCameraPose_RF[frame_id] = cv_pose_refined;
+    //update camera pose
+    for (const auto& [key, frame_slot]: camera_pose_to_update ) {
+        if(!state.exists(key)) {
+            LOG(WARNING) << "pose key " << key << " should exist in the state";
+            continue;
+        }
 
-    //update camera motion
-    if(current_frame > 0) {
-         gtsam::Pose3 camera_pose_prev = utils::cvMatToGtsamPose3(map->vmCameraPose[current_frame-1]);
+        const auto& frame_id = frame_slot.first;
+        gtsam::Pose3 camea_pose_refined = isam->calculateEstimate<gtsam::Pose3>(key);
+        cv::Mat cv_pose_refined = utils::gtsamPose3ToCvMat(camea_pose_refined);
+        map->vmCameraPose[frame_id] = cv_pose_refined;
+
+        //now update camera motion
+        if (frame_id > 0) {
+            gtsam::Pose3 camera_pose_prev = utils::cvMatToGtsamPose3(map->vmCameraPose[frame_id-1]);
             gtsam::Pose3 rigid_motion_refied = camera_pose_prev.inverse() * camea_pose_refined;
-            //     map->vmRigidMotion[frame_id-1][0] = Converter::toInvMatrix(
-            //         map->vmCameraPose[frame_id-1])*map->vmCameraPose[frame_id];
-            map->vmRigidMotion[current_frame-1][0] = utils::gtsamPose3ToCvMat(rigid_motion_refied);
+            map->vmRigidMotion[frame_id-1][0] = utils::gtsamPose3ToCvMat(rigid_motion_refied);
+        }
     }
-    // for()
-    //TODO: clear keys to update
+
+    //update motion
+    for (const auto& [key, frame_slot]: object_motions_to_update ) {
+        if(!state.exists(key)) {
+            LOG(WARNING) << "motion key " << key << " should exist in the state";
+            continue;
+        }
+
+        gtsam::Pose3 object_motion = isam->calculateEstimate<gtsam::Pose3>(key);
+        cv::Mat object_motion_refined = utils::gtsamPose3ToCvMat(object_motion);
+        map->vmRigidMotion[frame_slot.first][frame_slot.second] = object_motion_refined;
+    }
+
+    //update static points
+    for (const auto& [key, frame_slot]: static_points_to_update ) {
+        if(!state.exists(key)) {
+            LOG(WARNING) << "static point key " << key << " should exist in the state";
+            continue;
+        }
+
+        gtsam::Point3 static_point = isam->calculateEstimate<gtsam::Point3>(key);
+        cv::Mat static_point_refined = utils::gtsamPoint3ToCvMat(static_point);
+        map->vp3DPointSta[frame_slot.first][frame_slot.second] = static_point_refined;
+    }
+
+    //update dynamic points
+    for (const auto& [key, frame_slot]: dynamic_points_to_update ) {
+        if(!state.exists(key)) {
+            LOG(WARNING) << "dynamic point key " << key << " should exist in the state";
+            continue;
+        }
+
+        gtsam::Point3 dynamic_point = isam->calculateEstimate<gtsam::Point3>(key);
+        cv::Mat dynamic_point_refined = utils::gtsamPoint3ToCvMat(dynamic_point);
+        // LOG(INFO) << dynamic_point_refined;
+        //TODO: causes cfree deallocate in cv::Mat
+        // map->vp3DPointDyn[frame_slot.first][frame_slot.second] = dynamic_point_refined;
+    }
+
+    //clear all maps
+    camera_pose_to_update.clear();
+    object_motions_to_update.clear();
+    static_points_to_update.clear();
+    dynamic_points_to_update.clear();
+
+    // //first update camera motion
+    // gtsam::Pose3 camea_pose_refined = isam->calculateEstimate<gtsam::Pose3>(curr_camera_pose_vertex);
+    // cv::Mat cv_pose_refined = utils::gtsamPose3ToCvMat(camea_pose_refined);
+    // map->vmCameraPose[current_frame] = cv_pose_refined;
+    // // map->vmCameraPose_RF[frame_id] = cv_pose_refined;
+
+    // //update camera motion
+    // if(current_frame > 0) {
+    //      gtsam::Pose3 camera_pose_prev = utils::cvMatToGtsamPose3(map->vmCameraPose[current_frame-1]);
+    //         gtsam::Pose3 rigid_motion_refied = camera_pose_prev.inverse() * camea_pose_refined;
+    //         //     map->vmRigidMotion[frame_id-1][0] = Converter::toInvMatrix(
+    //         //         map->vmCameraPose[frame_id-1])*map->vmCameraPose[frame_id];
+    //         map->vmRigidMotion[current_frame-1][0] = utils::gtsamPose3ToCvMat(rigid_motion_refied);
+    // }
+    // // for()
+    // //TODO: clear keys to update
 }
 
 void VdoSlamBackend::optimizeLM() {
@@ -649,6 +717,8 @@ void VdoSlamBackend::optimizeLM() {
         LOG(INFO) << "Done LM OPT";
         LOG(INFO) << "LM error " << lm_optimizer.error();
         LOG(INFO) << "LM iterations " << lm_optimizer.iterations();
+
+        updateMap(result);
     }
     catch (const gtsam::ValuesKeyDoesNotExist& e) {
             LOG(WARNING) << e.what();
@@ -728,7 +798,7 @@ void VdoSlamBackend::makePlots() {
 
 cv::Mat VdoSlamBackend::getBestPoseEstimate() {
     gtsam::Key pose_key = unique_vertices[current_frame][0];
-    gtsam::Pose3 pose = state_.at<gtsam::Pose3>(pose_key);
+    gtsam::Pose3 pose = state_.at<gtsam::Pose3>((pose_key));
     return utils::gtsamPose3ToCvMat(pose.inverse());
 }
 
@@ -737,18 +807,44 @@ void VdoSlamBackend::optimize() {
     if(current_frame > 0) {
         //will throw KeyAlreadyExists<J> so a good test to see if the front end -> backend processing is working
         try {
-            // gtsam::Values values = collectValuesToAdd();
-            // all_values.insert(values);
+
+            //attempt to marginalize out dynamic poins and motion... should maybe wait till i have good graphs but whatbeer
+            //shoudl be done before updateing map which cleanrs these std::maps
+            KeyTimestampMap timestamps;
+            
+
+            // for (const auto& [key, frame_slot]: camera_pose_to_update ) {
+            //     timestamps[key] = current_frame;
+            // }
+
+            // for (const auto& [key, frame_slot]: object_motions_to_update ) {
+            //     timestamps[key] = current_frame;
+            // }
+
+            // for (const auto& [key, frame_slot]: static_points_to_update ) {
+            //     timestamps[key] = current_frame;
+            // }
+
+            // for (const auto& [key, frame_slot]: dynamic_points_to_update ) {
+            //     timestamps[key] = current_frame;
+            // }
+
             timing::Timer isam_udpate_timer("backend/isam2_update");
             auto start = high_resolution_clock::now();
             result = isam->update(graph, all_values);
+
+            // gtsam::IncrementalFixedLagSmoother::Result fl_result = isam->update(graph, all_values, timestamps);
             auto stop = high_resolution_clock::now();
+
+            // result = isam->getISAM2Result();
+
             auto duration = duration_cast<seconds>(stop - start);
             // result = isam->update();
             // result = isam->update();
             // result = isam->update();
             isam_udpate_timer.Stop();
 
+            // gtsam::NonlinearFactorGraph graph_ = gtsam::NonlinearFactorGraph(isam->getFactors());  // clone, expensive but safer!
             gtsam::NonlinearFactorGraph graph_ = gtsam::NonlinearFactorGraph(isam->getFactorsUnsafe());  // clone, expensive but safer!
             if(state_.size() > 0) {
                 LOG(INFO) << "Size of current graph " << graph_.size();
@@ -791,28 +887,26 @@ void VdoSlamBackend::optimize() {
             debug_info.reset();
             // updateMapFromIncremental();
         }
-        catch (const gtsam::ValuesKeyDoesNotExist& e) {
-            LOG(WARNING) << e.what();
-            auto it = key_to_unique_vertices.find(e.key());
-            if (it == key_to_unique_vertices.end()) {
-                LOG(INFO) << "key was also not in key vertex mapping";
-            }
-            else {
-                LOG(INFO) << key_to_unique_vertices[e.key()];
-            }
-            throw e;
+        catch (const gtsam::ValuesKeyDoesNotExist& e)
+        {
+            LOG(ERROR) << e.what();
+            const gtsam::Key& var = e.key();
+            gtsam::Symbol symb(var);
 
-        }
-        catch(const gtsam::IndeterminantLinearSystemException& e) {
-            LOG(WARNING) << e.what();
-            auto it = key_to_unique_vertices.find(e.nearbyVariable());
-            if (it == key_to_unique_vertices.end()) {
-                LOG(INFO) << "key was also not in key vertex mapping";
-            }
-            else {
-                LOG(INFO) << key_to_unique_vertices[e.nearbyVariable()];
-            }
+            LOG(ERROR) << "ERROR: Variable has type '" << symb.chr() << "' "
+                    << "and index " << symb.index() << std::endl;
             throw e;
+        }
+        catch (const gtsam::IndeterminantLinearSystemException& e)
+        {
+            LOG(WARNING) << e.what();
+            const gtsam::Key& var = e.nearbyVariable();
+            gtsam::Symbol symb(var);
+
+            LOG(ERROR) << "ERROR: Variable has type '" << symb.chr() << "' "
+                    << "and index " << symb.index() << std::endl;
+            throw e;
+            
         }
         
     }

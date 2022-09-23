@@ -60,7 +60,7 @@ class VdoSlamBackend {
 
         gtsam::Values calculateCurrentEstimate() const;
 
-        void calculateError();
+        // void calculateError();
         // //this updates the map from the last set of marked variables in the isam2 results object
         // void updateMapFromIncremental();
         // //updates the map using all values ever seen (as stored in key_to_unique_vertices)
@@ -98,7 +98,7 @@ class VdoSlamBackend {
         void addDynamicLandmarkToGraph(const gtsam::Point3& landmark, gtsam::Key key, FrameId curr_frame, FeatureId feature_id);
 
         //for experimentation
-        void addPoint2DFactor(const gtsam::Point2& measurement, gtsam::Key pose_key, gtsam::Key landmark_key);
+        // void addPoint2DFactor(const gtsam::Point2& measurement, gtsam::Key pose_key, gtsam::Key landmark_key);
         void addPoint3DFactor(const gtsam::Point3& measurement, gtsam::Key pose_key, gtsam::Key landmark_key);
         void addDynamicPoint3DFactor(const gtsam::Point3& measurement, gtsam::Key pose_key, gtsam::Key landmark_key);
 
@@ -115,8 +115,8 @@ class VdoSlamBackend {
 
     private:
         Map* map;
-        std::unique_ptr<gtsam::ISAM2> isam;
-        // std::unique_ptr<gtsam::IncrementalFixedLagSmoother> isam;
+        // std::unique_ptr<gtsam::ISAM2> isam;
+        std::unique_ptr<gtsam::IncrementalFixedLagSmoother> isam;
         gtsam::ISAM2Result result;
         BackendParams::Ptr params;
 

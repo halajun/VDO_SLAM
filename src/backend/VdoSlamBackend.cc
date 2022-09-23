@@ -52,10 +52,10 @@ VdoSlamBackend::VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_, BackendParams
         gtsam::ISAM2Params parameters;
         parameters.relinearizeThreshold = 0.01;
         parameters.evaluateNonlinearError = false;
-        parameters.relinearizeSkip = 1;
+        parameters.relinearizeSkip = 2;
 
-        // isam = VDO_SLAM::make_unique<gtsam::IncrementalFixedLagSmoother>(5);
-        isam = VDO_SLAM::make_unique<gtsam::ISAM2>(parameters);
+        isam = VDO_SLAM::make_unique<gtsam::IncrementalFixedLagSmoother>(5, parameters);
+        // isam = VDO_SLAM::make_unique<gtsam::ISAM2>(parameters);
         K_calib =  utils::cvMat2Cal3_S2(K);
 
         //parsed in as float but we want it as a double... cuz gtsam
@@ -412,45 +412,6 @@ void VdoSlamBackend::process(bool run_as_incremental) {
 
 }
 
-void VdoSlamBackend::calculateError() {
-    // //first disp comparision to GT
-    // //go over all the frames?
-    // double t_sum_refined = 0, r_sum_refined  = 0;
-    // double t_sum_original = 0, r_sum_original  = 0;
-    // const size_t N = getMapSize();
-    // for (int i = 0; i < N; ++i) {
-    //     //get camera poses
-    //     gtsam::Key pose_key = unique_vertices[i][0];
-    //     gtsam::Pose3 refined_camera_pose = isam->calculateEstimate<gtsam::Pose3>(pose_key);
-
-    //     gtsam::Pose3 original_camera_pose = utils::cvMatToGtsamPose3(map->vmCameraPose[i]);
-    //     gtsam::Pose3 gt_camera_pose = utils::cvMatToGtsamPose3(map->vmCameraPose_GT[i]);
-
-    //     std::pair<double, double> errors_original = utils::computeRotationAndTranslationErrors(
-    //                                                     gt_camera_pose, original_camera_pose);
-
-    //     r_sum_original += errors_original.first;
-    //     t_sum_original += errors_original.second;
-
-    //     std::pair<double, double> errors_refined = utils::computeRotationAndTranslationErrors(
-    //                                                     gt_camera_pose, refined_camera_pose);
-
-    //     r_sum_refined += errors_refined.first;
-    //     t_sum_refined += errors_refined.second;
-    // }
-
-    // r_sum_original /= (N);
-    // t_sum_original /= (N);
-    // r_sum_refined /= (N);
-    // t_sum_refined /= (N);
-
-    // LOG(INFO) << "Average camera error GTSAM\n"
-    //           << "Original R: " << r_sum_original << " T: " << t_sum_original << "\n"
-    //           << "Refined R: " << r_sum_refined << " T: " << t_sum_refined;
-    result.print("Current estimate: ");
-
-}
-
 
 
 
@@ -546,19 +507,6 @@ void VdoSlamBackend::addDynamicLandmarkToGraph(const gtsam::Point3& landmark, gt
     // addToKeyVertexMapping(key, curr_frame, feature_id, kSymbolDynamicPoint3Key);
 }
 
-// void VdoSlamBackend::addPoint2DFactor(const gtsam::Point2& measurement, gtsam::Key pose_key, gtsam::Key landmark_key) {
-//     static gtsam::noiseModel::Base::shared_ptr point2DNoiseModel = gtsam::noiseModel::Diagonal::Sigmas(
-//                     (gtsam::Vector(2) << gtsam::Vector2::Constant(params->var_3d_static)).finished());
-//     // noiseModel::Isotropic::shared_ptr point2DNoiseModel = noiseModel::Isotropic::Sigma(2, 1.0);
-//     graph.push_back(gtsam::GenericProjectionFactor<gtsam::Pose3, gtsam::Point3, gtsam::Cal3_S2>(
-//         measurement,
-//         point2DNoiseModel,
-//         pose_key,
-//         landmark_key,
-//         K_calib
-//     ));
-// }
-
 
 void VdoSlamBackend::addPoint3DFactor(const gtsam::Point3& measurement, gtsam::Key pose_key, gtsam::Key landmark_key) {
 
@@ -573,16 +521,6 @@ void VdoSlamBackend::addPoint3DFactor(const gtsam::Point3& measurement, gtsam::K
 }
 
 void VdoSlamBackend::addDynamicPoint3DFactor(const gtsam::Point3& measurement, gtsam::Key pose_key, gtsam::Key landmark_key) {
-    // CHECK(new_dynamic_lmks.exists(landmark_key) || isam->valueExists(landmark_key)) << "Dyanmic point landmark must be added";
-    // observed_dyn_landmarks[landmark_key].push_back(
-    //     boost::make_shared<Point3DFactor>(
-    //         pose_key,
-    //         landmark_key,
-    //         measurement,
-    //         dynamicPoint3DNoiseModel
-    //     )
-    // );
-
     graph.emplace_shared<Point3DFactor>(
         pose_key,
         landmark_key,
@@ -813,30 +751,34 @@ void VdoSlamBackend::optimize() {
             KeyTimestampMap timestamps;
             
 
-            // for (const auto& [key, frame_slot]: camera_pose_to_update ) {
-            //     timestamps[key] = current_frame;
-            // }
+            for (const auto& [key, frame_slot]: camera_pose_to_update ) {
+                CHECK(timestamps.find(key) == timestamps.end());
+                timestamps[key] = current_frame;
+            }
 
-            // for (const auto& [key, frame_slot]: object_motions_to_update ) {
-            //     timestamps[key] = current_frame;
-            // }
+            for (const auto& [key, frame_slot]: object_motions_to_update ) {
+                CHECK(timestamps.find(key) == timestamps.end());
+                timestamps[key] = current_frame;
+            }
 
-            // for (const auto& [key, frame_slot]: static_points_to_update ) {
-            //     timestamps[key] = current_frame;
-            // }
+            for (const auto& [key, frame_slot]: static_points_to_update ) {
+                CHECK(timestamps.find(key) == timestamps.end());
+                timestamps[key] = current_frame;
+            }
 
-            // for (const auto& [key, frame_slot]: dynamic_points_to_update ) {
-            //     timestamps[key] = current_frame;
-            // }
+            for (const auto& [key, frame_slot]: dynamic_points_to_update ) {
+                CHECK(timestamps.find(key) == timestamps.end());
+                timestamps[key] = current_frame;
+            }
 
             timing::Timer isam_udpate_timer("backend/isam2_update");
             auto start = high_resolution_clock::now();
-            result = isam->update(graph, all_values);
+            // result = isam->update(graph, all_values);
 
-            // gtsam::IncrementalFixedLagSmoother::Result fl_result = isam->update(graph, all_values, timestamps);
+            gtsam::IncrementalFixedLagSmoother::Result fl_result = isam->update(graph, all_values, timestamps);
             auto stop = high_resolution_clock::now();
 
-            // result = isam->getISAM2Result();
+            result = isam->getISAM2Result();
 
             auto duration = duration_cast<seconds>(stop - start);
             // result = isam->update();
@@ -844,8 +786,8 @@ void VdoSlamBackend::optimize() {
             // result = isam->update();
             isam_udpate_timer.Stop();
 
-            // gtsam::NonlinearFactorGraph graph_ = gtsam::NonlinearFactorGraph(isam->getFactors());  // clone, expensive but safer!
-            gtsam::NonlinearFactorGraph graph_ = gtsam::NonlinearFactorGraph(isam->getFactorsUnsafe());  // clone, expensive but safer!
+            gtsam::NonlinearFactorGraph graph_ = gtsam::NonlinearFactorGraph(isam->getFactors());  // clone, expensive but safer!
+            // gtsam::NonlinearFactorGraph graph_ = gtsam::NonlinearFactorGraph(isam->getFactorsUnsafe());  // clone, expensive but safer!
             if(state_.size() > 0) {
                 LOG(INFO) << "Size of current graph " << graph_.size();
                 LOG(INFO) << "Size of current state " << state_.size();

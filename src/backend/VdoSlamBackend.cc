@@ -517,16 +517,14 @@ void VdoSlamBackend::addToKeyVertexMapping(const gtsam::Key& key, FrameId curr_f
 
 void VdoSlamBackend::addCameraPoseToGraph(const gtsam::Pose3& pose, gtsam::Key key, FrameId curr_frame) {
     all_values.insert(key, pose);
-    FrameSlot frame_slot = std::make_pair(curr_frame, 0);
-    camera_pose_to_update[key] = frame_slot;
+    camera_pose_to_update.emplace(key, std::make_pair(curr_frame, 0));
 
     // addToKeyVertexMapping(key, curr_frame, 0, kSymbolCameraPose3Key);
 }
 
 void VdoSlamBackend::addMotionToGraph(const gtsam::Pose3& motion, gtsam::Key key, FrameId curr_frame, FeatureId object_id) {
     all_values.insert(key, motion);
-    FrameSlot frame_slot = std::make_pair(curr_frame, object_id);
-    object_motions_to_update[key] = frame_slot;
+    object_motions_to_update.emplace(key, std::make_pair(curr_frame, object_id));
     // addToKeyVertexMapping(key, curr_frame, object_id, kSymbolMotion3Key);
 }
 
@@ -534,15 +532,12 @@ void VdoSlamBackend::addMotionToGraph(const gtsam::Pose3& motion, gtsam::Key key
 
 void VdoSlamBackend::addLandmarkToGraph(const gtsam::Point3& landmark, gtsam::Key key, FrameId curr_frame, FeatureId feature_id) {
     all_values.insert(key, landmark);
-    FrameSlot frame_slot = std::make_pair(curr_frame, feature_id);
-    static_points_to_update[key] = frame_slot;
+    static_points_to_update.emplace(key, std::make_pair(curr_frame, feature_id));
 }
 
 void VdoSlamBackend::addDynamicLandmarkToGraph(const gtsam::Point3& landmark, gtsam::Key key, FrameId curr_frame, FeatureId feature_id) {
-    //straight up add everything as it should be unique...?
     all_values.insert(key, landmark);
-    FrameSlot frame_slot = std::make_pair(curr_frame, feature_id);
-    dynamic_points_to_update[key] = frame_slot;
+    dynamic_points_to_update.emplace(key, std::make_pair(curr_frame, feature_id));
     // addToKeyVertexMapping(key, curr_frame, feature_id, kSymbolDynamicPoint3Key);
 }
 
@@ -608,9 +603,6 @@ void VdoSlamBackend::addLandmarkMotionFactor(const gtsam::Point3& measurement, g
 
 void VdoSlamBackend::updateMap(const gtsam::Values& state) {
     LOG(INFO) << "Updating " << camera_pose_to_update.size() << " Camera poses";
-    LOG(INFO) << "Updating " << object_motions_to_update.size() << " Object motions";
-    LOG(INFO) << "Updating " << static_points_to_update.size() << " Static Points";
-    LOG(INFO) << "Updating " << dynamic_points_to_update.size() << " Dynamic Points";
 
     //update camera pose
     for (const auto& [key, frame_slot]: camera_pose_to_update ) {
@@ -620,7 +612,7 @@ void VdoSlamBackend::updateMap(const gtsam::Values& state) {
         }
 
         const auto& frame_id = frame_slot.first;
-        gtsam::Pose3 camea_pose_refined = isam->calculateEstimate<gtsam::Pose3>(key);
+        gtsam::Pose3 camea_pose_refined = state.at<gtsam::Pose3>(key);
         cv::Mat cv_pose_refined = utils::gtsamPose3ToCvMat(camea_pose_refined);
         map->vmCameraPose[frame_id] = cv_pose_refined;
 
@@ -632,6 +624,7 @@ void VdoSlamBackend::updateMap(const gtsam::Values& state) {
         }
     }
 
+    LOG(INFO) << "Updating " << object_motions_to_update.size() << " Object motions";
     //update motion
     for (const auto& [key, frame_slot]: object_motions_to_update ) {
         if(!state.exists(key)) {
@@ -639,31 +632,34 @@ void VdoSlamBackend::updateMap(const gtsam::Values& state) {
             continue;
         }
 
-        gtsam::Pose3 object_motion = isam->calculateEstimate<gtsam::Pose3>(key);
+        gtsam::Pose3 object_motion = state.at<gtsam::Pose3>(key);
         cv::Mat object_motion_refined = utils::gtsamPose3ToCvMat(object_motion);
         map->vmRigidMotion[frame_slot.first][frame_slot.second] = object_motion_refined;
     }
 
     //update static points
+    LOG(INFO) << "Updating " << static_points_to_update.size() << " Static Points";
+
     for (const auto& [key, frame_slot]: static_points_to_update ) {
         if(!state.exists(key)) {
             LOG(WARNING) << "static point key " << key << " should exist in the state";
             continue;
         }
 
-        gtsam::Point3 static_point = isam->calculateEstimate<gtsam::Point3>(key);
+        gtsam::Point3 static_point = state.at<gtsam::Point3>(key);
         cv::Mat static_point_refined = utils::gtsamPoint3ToCvMat(static_point);
         map->vp3DPointSta[frame_slot.first][frame_slot.second] = static_point_refined;
     }
 
     //update dynamic points
+     LOG(INFO) << "Updating " << dynamic_points_to_update.size() << " Dynamic Points";
     for (const auto& [key, frame_slot]: dynamic_points_to_update ) {
         if(!state.exists(key)) {
             LOG(WARNING) << "dynamic point key " << key << " should exist in the state";
             continue;
         }
 
-        gtsam::Point3 dynamic_point = isam->calculateEstimate<gtsam::Point3>(key);
+        gtsam::Point3 dynamic_point = state.at<gtsam::Point3>(key);
         cv::Mat dynamic_point_refined = utils::gtsamPoint3ToCvMat(dynamic_point);
         // LOG(INFO) << dynamic_point_refined;
         //TODO: causes cfree deallocate in cv::Mat
@@ -671,11 +667,17 @@ void VdoSlamBackend::updateMap(const gtsam::Values& state) {
     }
 
     //clear all maps
-    camera_pose_to_update.clear();
-    object_motions_to_update.clear();
-    static_points_to_update.clear();
-    dynamic_points_to_update.clear();
+    // camera_pose_to_update.clear();
+    // object_motions_to_update.clear();
+    // static_points_to_update.clear();
+    // dynamic_points_to_update.clear();
 
+    camera_pose_to_update = std::map<gtsam::Key, FrameSlot>();
+    object_motions_to_update = std::map<gtsam::Key, FrameSlot>();
+    static_points_to_update = std::map<gtsam::Key, FrameSlot>();
+    dynamic_points_to_update = std::map<gtsam::Key, FrameSlot>();
+
+    LOG(INFO) << "Done update";
     // //first update camera motion
     // gtsam::Pose3 camea_pose_refined = isam->calculateEstimate<gtsam::Pose3>(curr_camera_pose_vertex);
     // cv::Mat cv_pose_refined = utils::gtsamPose3ToCvMat(camea_pose_refined);

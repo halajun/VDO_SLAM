@@ -88,7 +88,7 @@ Viz.use_3d: 0
 ## Backend Params
 Backend.use_robust_kernel: 1
 # odom noise model
-Backend.var_camera: 0.0001
+Backend.var_camera: 0.01
 Backend.var_camera_prior: 0.000000001
 Backend.var_3d_static: 8
 Backend.var_obj: 10

@@ -8,23 +8,24 @@
 
 namespace VDO_SLAM {
 
-DynamicObjectManager::DynamicObjectManager(Map* map_)
-    :   map(CHECK_NOTNULL(map_)) {}
+DynamicObjectManager::DynamicObjectManager(Map* map_, DynamicTrackletManager* tracklet_manager_)
+    :   map(CHECK_NOTNULL(map_)),
+        tracklet_manager(CHECK_NOTNULL(tracklet_manager_)) {}
 
-void DynamicObjectManager::process(const FrameId frame_id) {
-    LOG(INFO) << "DOM: processing frame: " << frame_id;
+void DynamicObjectManager::update(int current_frame) {
+    for(size_t tracklet_manager = 0; point_id < map->vpFeatDyn[current_frame].size(); point_id++) {
+        if(dynamic_tracklets.exists(current_frame, point_id)) {
 
-    //get all labels from pMap->vnRMLabel[frame_id]:
-
-    //make unnique?
-    //if in seconod frame or more
-    //loop through vnRMLabel and check if that label has been seen before 
-    //if so increase the count, indicating it has been seen again
-
-    //for all in windows and for all in vnRMLabel
-    //for all unique labels
-    //if the count on a specific label is >= tracking length,
-    //makr obj_check[frame][lables] = true, where labels j is also the number of motions
+        }
+    }
 }
+
+DynamicObject::Ptr DynamicObjectManager::operator[](int unique_label) const {
+    if(object_map.find(unique_label) == object_map.end()) {
+        return nullptr;
+    }
+    return object_map[unique_label];
+}
+
 
 }

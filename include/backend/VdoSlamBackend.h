@@ -32,8 +32,8 @@
 #include "backend/DynamicObjectManager.h"
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 
-#include <gtsam_unstable/nonlinear/IncrementalFixedLagSmoother.h>
-
+// #include <gtsam_unstable/nonlinear/IncrementalFixedLagSmoother.h>
+#include "backend/IncrementalFLS.h"
 
 #include "Map.h"
 
@@ -116,7 +116,7 @@ class VdoSlamBackend {
     private:
         Map* map;
         // std::unique_ptr<gtsam::ISAM2> isam;
-        std::unique_ptr<gtsam::IncrementalFixedLagSmoother> isam;
+        std::unique_ptr<IncrementalFLS> isam;
         gtsam::ISAM2Result result;
         BackendParams::Ptr params;
 

@@ -82,6 +82,7 @@ src/backend/VdoSlamBackend.cc
 src/backend/VdoSlamBackendParams.cc
 src/backend/VdoSlamBackend-types.cc
 src/backend/DynamicObjectManager.cc
+src/backend/IncrementalFLS.cc
 
 src/utils/ParamParser.cc
 src/utils/UtilsGTSAM.cc
@@ -140,6 +141,16 @@ target_link_libraries(vdo_slam ${PROJECT_NAME})
 #    ${GFLAGS_LIBRARIES}
 #    ${GLOG_LIBRARIES} 
 # )
+
+add_executable(remove_factor_tests
+   test/remove_factor_tests.cc
+)
+
+target_link_libraries(remove_factor_tests
+   gtsam
+   ${GFLAGS_LIBRARIES}
+   ${GLOG_LIBRARIES} 
+)
 
 
 # add_executable(opencv_viz3d_test

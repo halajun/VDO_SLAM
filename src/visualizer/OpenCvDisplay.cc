@@ -144,9 +144,9 @@ void OpenCvDisplay::drawFrame(const Display2DInput& input) {
     frame.rgb.copyTo(rgb);
     CHECK(rgb.channels() == 3) << "Expecting rgb in frame to gave 3 channels";
 
-    drawTracklet(rgb, frame_viz, input.static_tracklets, input.map);
+    // drawTracklet(rgb, frame_viz, input.static_tracklets, input.map);
 
-    // drawFeatures(rgb, frame, frame_viz);
+    drawFeatures(rgb, frame, frame_viz);
     addDisplayImages(frame_viz, "Current Frame");
 }
 

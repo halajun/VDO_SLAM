@@ -15,6 +15,8 @@ namespace VDO_SLAM {
 typedef boost::shared_ptr<Point3DFactor> Point3DFactorPtr;
 typedef std::vector<Point3DFactorPtr> Point3DFactors;
 
+typedef size_t Slot;
+
 typedef boost::shared_ptr<LandmarkMotionTernaryFactor> LandmarkMotionTernaryFactorPtr;
 typedef std::vector<LandmarkMotionTernaryFactorPtr> LandmarkMotionTernaryFactors;
 

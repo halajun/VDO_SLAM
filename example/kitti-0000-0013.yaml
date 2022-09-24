@@ -62,7 +62,7 @@ UseSampleFeature: 0
 #--------------------------------------------------------------------------------------------
 
 # ORB Extractor: Number of features per image
-ORBextractor.nFeatures: 2500
+ORBextractor.nFeatures: 1000 #2500
 
 # ORB Extractor: Scale factor between levels in the scale pyramid
 ORBextractor.scaleFactor: 1.2
@@ -78,7 +78,7 @@ run_as_incremental: 1
 
 ## Viz params
 # use_2d must be on for the display Input and Frame params to do anything
-Viz.use_2d: 0
+Viz.use_2d: 1
 Viz.displayInput: 0
 Viz.displayFrame: 1
 

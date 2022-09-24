@@ -51,10 +51,11 @@ VdoSlamBackend::VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_, BackendParams
 
         gtsam::ISAM2Params parameters;
         parameters.relinearizeThreshold = 0.01;
+        parameters.findUnusedFactorSlots = true;
         parameters.evaluateNonlinearError = false;
-        parameters.relinearizeSkip = 2;
+        parameters.relinearizeSkip = 1;
 
-        isam = VDO_SLAM::make_unique<gtsam::IncrementalFixedLagSmoother>(5, parameters);
+        isam = VDO_SLAM::make_unique<IncrementalFLS>(5, parameters);
         // isam = VDO_SLAM::make_unique<gtsam::ISAM2>(parameters);
         K_calib =  utils::cvMat2Cal3_S2(K);
 
@@ -289,7 +290,7 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                     gtsam::Key previous_motion_key = (unique_vertices[current_frame-2][trace_id]);
                 
                     //if key is in the values
-                    if(state_.exists(previous_motion_key)) {
+                    if(isam->valueExists(previous_motion_key)) {
                         object_motion = isam->calculateEstimate<gtsam::Pose3>((previous_motion_key));
                         LOG(INFO) << "Using motion prior " << (previous_motion_key) << " " << object_motion;
 
@@ -572,8 +573,8 @@ void VdoSlamBackend::updateMap(const gtsam::Values& state) {
 
     //update motion
     for (const auto& [key, frame_slot]: object_motions_to_update ) {
-        if(!state.exists(key)) {
-            LOG(WARNING) << "motion key " << key << " should exist in the state";
+        if(!isam->valueExists(key)) {
+            // LOG(WARNING) << "motion key " << key << " should exist in the state";
             continue;
         }
 
@@ -584,8 +585,8 @@ void VdoSlamBackend::updateMap(const gtsam::Values& state) {
 
     //update static points
     for (const auto& [key, frame_slot]: static_points_to_update ) {
-        if(!state.exists(key)) {
-            LOG(WARNING) << "static point key " << key << " should exist in the state";
+        if(!isam->valueExists(key)) {
+            // LOG(WARNING) << "static point key " << key << " should exist in the state";
             continue;
         }
 
@@ -596,8 +597,8 @@ void VdoSlamBackend::updateMap(const gtsam::Values& state) {
 
     //update dynamic points
     for (const auto& [key, frame_slot]: dynamic_points_to_update ) {
-        if(!state.exists(key)) {
-            LOG(WARNING) << "dynamic point key " << key << " should exist in the state";
+        if(!isam->valueExists(key)) {
+            // LOG(WARNING) << "dynamic point key " << key << " should exist in the state";
             continue;
         }
 
@@ -749,39 +750,39 @@ void VdoSlamBackend::optimize() {
             //attempt to marginalize out dynamic poins and motion... should maybe wait till i have good graphs but whatbeer
             //shoudl be done before updateing map which cleanrs these std::maps
             KeyTimestampMap timestamps;
-            
+            double current_time  = static_cast<double>(current_frame - 1);    
 
             for (const auto& [key, frame_slot]: camera_pose_to_update ) {
                 CHECK(timestamps.find(key) == timestamps.end());
-                timestamps[key] = current_frame;
+                timestamps[key] = current_time;
             }
 
             for (const auto& [key, frame_slot]: object_motions_to_update ) {
                 CHECK(timestamps.find(key) == timestamps.end());
-                timestamps[key] = current_frame;
+                timestamps[key] = current_time;
             }
 
             for (const auto& [key, frame_slot]: static_points_to_update ) {
                 CHECK(timestamps.find(key) == timestamps.end());
-                timestamps[key] = current_frame;
+                timestamps[key] = current_time;
             }
 
             for (const auto& [key, frame_slot]: dynamic_points_to_update ) {
                 CHECK(timestamps.find(key) == timestamps.end());
-                timestamps[key] = current_frame;
+                timestamps[key] = current_time;
             }
 
             timing::Timer isam_udpate_timer("backend/isam2_update");
             auto start = high_resolution_clock::now();
             // result = isam->update(graph, all_values);
-
-            gtsam::IncrementalFixedLagSmoother::Result fl_result = isam->update(graph, all_values, timestamps);
+            LOG(INFO) << "starting update";
+            IncrementalFLS::Result fl_result = isam->update(graph, all_values);
             auto stop = high_resolution_clock::now();
+            auto duration = duration_cast<seconds>(stop - start);
+            LOG(INFO) << "finished update in " << duration.count() << "s";
 
             result = isam->getISAM2Result();
-
-            auto duration = duration_cast<seconds>(stop - start);
-            // result = isam->update();
+            // result => isam->update();
             // result = isam->update();
             // result = isam->update();
             isam_udpate_timer.Stop();
@@ -825,8 +826,8 @@ void VdoSlamBackend::optimize() {
             all_values.clear();
             graph.resize(0);
 
-            debug_info.print();
-            debug_info.reset();
+            // debug_info.print();
+            // debug_info.reset();
             // updateMapFromIncremental();
         }
         catch (const gtsam::ValuesKeyDoesNotExist& e)

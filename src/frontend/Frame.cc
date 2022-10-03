@@ -65,6 +65,11 @@ Frame::Frame(const Frame &frame)
 }
 
 
+// Frame& Frame::operator=(const Frame &frame) {
+
+
+// }
+
 Frame::Frame(const cv::Mat &imRGB, const cv::Mat &imDepth, const cv::Mat &imFlow, const cv::Mat &maskSEM,
     const double &timeStamp, ORBextractor* extractor,cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, 
     const float &thDepthObj, const int &UseSampleFea)

@@ -1269,28 +1269,29 @@ void Tracking::Track()
         //             mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
 
 
-        num_batch_update++;
-        // if(f_id==StopFrame) {
-        if(num_batch_update > 1) {
+        // num_batch_update++;
+        // // if(f_id==StopFrame) {
+        // if(num_batch_update > 1) {
 
-            // Optimizer::FullBatchOptimization(mpMap,mK);
-            // backend->updateMapFull();
-            // LOG(INFO) << "Error after incremental update";
-            GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
-                        mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
-            // backend->calculateError();
-            if(run_as_incremental) {
-                // 
-                // Plotter::makePlots();
-                backend->makePlots();
-            }
-            else {
-                backend->optimizeLM();
-            }
+        //     // Optimizer::FullBatchOptimization(mpMap,mK);
+        //     // backend->updateMapFull();
+        //     // LOG(INFO) << "Error after incremental update";
+        //     // GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
+        //     //             mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
+        //     // backend->calculateError();
+        //     if(run_as_incremental) {
+        //         // 
+        //         // Plotter::makePlots();
+        //         backend->makePlots();
+        //         Plotter::PlotMetricError(mpMap, max_id);
+        //     }
+        //     else {
+        //         backend->optimizeLM();
+        //     }
             
             
-            throw std::invalid_argument("Stop");
-        }
+        //     throw std::invalid_argument("Stop");
+        // }
         
 
 
@@ -1328,7 +1329,8 @@ void Tracking::Track()
         //                mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
         if(run_as_incremental) {
                 // backend->makePlots();
-                Plotter::makePlots();
+                backend->makePlots();
+                Plotter::PlotMetricError(mpMap, max_id);
         }
         else {
                 LOG(INFO) << "Erro before LM";
@@ -1397,7 +1399,10 @@ void Tracking::Initialization()
     // cout << "current pose: " << endl << mCurrentFrame.mTcw_gt << endl;
     // cout << "current pose inverse: " << endl << mOriginInv << endl;
 
-    mLastFrame = Frame(mCurrentFrame);  //  important !!!
+    //this should call copy constructor
+    Frame tmp_frame = Frame(mCurrentFrame);
+    mLastFrame = tmp_frame;  //  important !!!
+    // mLastFrame = Frame(mCurrentFrame);  //  important !!!
     mLastFrame.mvObjKeys = mCurrentFrame.mvObjKeys; // new added Jul 30 2019
     mLastFrame.mvObjDepth = mCurrentFrame.mvObjDepth;  // new added Jul 30 2019
     mLastFrame.vSemObjLabel = mCurrentFrame.vSemObjLabel; // new added Aug 2 2019

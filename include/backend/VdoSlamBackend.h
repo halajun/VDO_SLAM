@@ -233,6 +233,8 @@ class VdoSlamBackend {
         std::map<int, std::vector<gtsam::Key>> dynamic_motion_map;
         //this is keys per frame -> we clear and update the one above every tick
         std::map<int, std::vector<std::vector<gtsam::Key>>> dynamic_motion_map_total;
+        //the key we first see the object .
+        std::map<int, int> when_dynamic_motion_added;
 
 
 };

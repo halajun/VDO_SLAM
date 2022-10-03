@@ -154,7 +154,7 @@ void VdoSlamBackend::process(bool run_as_incremental) {
 
     if(current_frame == 0) {
         CHECK_EQ(N, 1);
-        std::vector<gtsam::Key> v_id_tmp(1,-1);
+        std::vector<gtsam::Key> v_id_tmp(1,0);
         unique_vertices.push_back(v_id_tmp);
         
         std::vector<int> obj_id_tmp(1, -1);
@@ -162,12 +162,13 @@ void VdoSlamBackend::process(bool run_as_incremental) {
     }
     else {
         //careful about casting -> vnRMLabel is int and we're casting to uint32...?
-        std::vector<gtsam::Key> v_id_tmp(map->vnRMLabel[current_frame-1].size(),-1);
+        std::vector<gtsam::Key> v_id_tmp(map->vnRMLabel[current_frame-1].size(),0);
         unique_vertices.push_back(v_id_tmp);
 
         std::vector<int> obj_id_tmp(map->vmRigidMotion[current_frame-1].size()-1,-1);
         objUniqueId.push_back(obj_id_tmp);
     }
+
 
     CHECK_EQ(unique_vertices.size(), N);
     CHECK_EQ(objUniqueId.size(), N);
@@ -184,21 +185,6 @@ void VdoSlamBackend::process(bool run_as_incremental) {
         // LOG(INFO) << "N labels: " << i << " " <<  map->vnRMLabel[i].size();
     }
 
-    //can get from point to label from vnFeatLabel[i][j]
-
-    // CHECK_EQ(map->nObjID.size(), dynamic_tracklets.size());
-    // std::ofstream file_ti("dynamic_track_info.txt", std::ios_base::app);
-    // file_ti << "Frame N: " << current_frame << std::endl;
-    // for(size_t i = 0; i < dynamic_tracklets.size(); i++) {
-    //     DynamicTrackletManager::TypedTracklet& tracklet = dynamic_tracklets[i];
-    //     file_ti << "Tracklet ID: " << tracklet.TrackletId() << " is WT " << tracklet.isWellTracked() << "OBJ ID " << map->nObjID[tracklet.TrackletId()] << std::endl;
-
-    //     for(size_t j = 0; j < tracklet.size(); j++) {
-    //         DynamicTrackletManager::Observation obs = dynamic_tracklets[i][j];
-    //         file_ti << obs->to_string();
-    //     }
-    // }
-    // file_ti.close();
     gtsam::Pose3 camera_pose = utils::cvMatToGtsamPose3(map->vmCameraPose[current_frame]);
     cv::Mat camera_pose_cv = map->vmCameraPose[current_frame];
     // camera_pose = camera_pose.compose(gtsam::Pose3::identity());
@@ -348,13 +334,14 @@ void VdoSlamBackend::process(bool run_as_incremental) {
 
             }
             //if is first motion
-            logObjectMotion(count_unique_id, map->vnRMLabel[current_frame-1][j]);
-            addMotionToGraph(object_motion, (count_unique_id), current_frame-1, j);
-
-            unique_vertices[current_frame-1][j]= count_unique_id;
-            LOG(INFO) << "Added RM at " << current_frame -1 << " " << j << " " << count_unique_id;
-            count_unique_id++;
+            // logObjectMotion(count_unique_id, map->vnRMLabel[current_frame-1][j]);
+            // addMotionToGraph(object_motion, (count_unique_id), current_frame-1, j);
+            // unique_vertices[current_frame-1][j]= count_unique_id;
+            // LOG(INFO) << "Added RM at " << current_frame -1 << " " << j << " " << count_unique_id;
+            // count_unique_id++;
         }
+        LOG(INFO) << "rigid motion size - " << map->vmRigidMotion[current_frame-1].size();
+
 
         for(size_t point_id = 0; point_id < map->vpFeatDyn[current_frame].size(); point_id++) {
             if(dynamic_tracklets.exists(current_frame, point_id)) {
@@ -384,7 +371,7 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                             cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatDyn[frame_id][feature_id],map->vfDepDyn[frame_id][feature_id],K);
                             gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
                             // addDynamicPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
-                            addDynamicPoint3DFactor(X_c_point, (pose_key), (count_unique_id));
+                            addDynamicPoint3DFactor(X_c_point, pose_key, (count_unique_id));
                             // logObjectMotion(count_unique_id, obs_label);
                             //better to use track id as Symbol but then will need to make all variables use differnt symbols
                             vnFeaMakDyn[frame_id][feature_id] = count_unique_id;
@@ -395,20 +382,23 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                             DynamicTrackletManager::Observation previous_obs = tracklet.getPreviousObservation(obs);
                             int previous_key = previous_obs->key;
                             int previous_frame = previous_obs->frame_id;
+
                             CHECK(previous_frame >= 0);
-                            
-                            int obj_position_id = -1;
-                            // if(frame_id > 0) {
+
+                            // for(const auto& e : unique_vertices[frame_id]) {
+                            //     std::cout << e << " ";
+                            // }
+                            // std::cout << std::endl;
+
                                 //find which obj has the same label the vmLabel and this should be the correct index
                                 //ignore index zero as this is camera motion
-                            CHECK_EQ(map->vnRMLabel[previous_frame].size(), map->vmRigidMotion[previous_frame].size());
-                            for(size_t i = 1; i < map->vnRMLabel[previous_frame].size(); i++) {
-                                if(map->vnRMLabel[previous_frame][i] == obs_label) {
-                                    obj_position_id = unique_vertices[previous_frame][i];
-                                    CHECK(obj_position_id != -1) << "Frame " << previous_frame << " i " << i << " " << obj_position_id;
-                                    break;
-                                }
-                            }
+                            // CHECK_EQ(map->vnRMLabel[previous_frame].size(), map->vmRigidMotion[previous_frame].size());
+                            // for(size_t i = 1; i < map->vnRMLabel[previous_frame].size(); i++) {
+                            //     if(map->vnRMLabel[previous_frame][i] == obs_label) {
+                            //         obj_position_id = unique_vertices[previous_frame][i];
+                            //         CHECK(obj_position_id != -1) << "Frame " << previous_frame << " i " << i << " " << obj_position_id;
+                            //         break;
+                            //     }
                             // }
 
 
@@ -418,30 +408,95 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                             obs->was_added = true;
                             addDynamicLandmarkToGraph(X_w, (count_unique_id), frame_id, feature_id);
                             logObjectMotion(count_unique_id, obs_label);
+                            vnFeaMakDyn[frame_id][feature_id] = count_unique_id;
+                            gtsam::Key dynamic_lmk_key = count_unique_id;
+                            count_unique_id++;
 
                             cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatDyn[frame_id][feature_id],map->vfDepDyn[frame_id][feature_id],K);
                             gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
                             // addDynamicPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
-                            addDynamicPoint3DFactor(X_c_point, (pose_key), (count_unique_id));
+                            addDynamicPoint3DFactor(X_c_point, (pose_key), (dynamic_lmk_key));
                             // logObjectMotion(count_unique_id, obs_label);
-                            //lets do a sanity check
-                            //previous obs key has been set
+                         
                             CHECK(previous_obs->tracklet_id == track_id);
                             CHECK(previous_obs->was_added);
                             CHECK(previous_key != -1) << "Previous key was " << previous_key;
 
-                            CHECK_EQ(previous_key, vnFeaMakDyn[frame_id-1][previous_obs->point_id]);
-                            CHECK_EQ(previous_key, vnFeaMakDyn[DynTracks[track_id][position_id-1].first][DynTracks[track_id][position_id-1].second]);
-                            CHECK(obj_position_id != -1) << "Frame " << frame_id - 1 << " pos " << position_id;
+                            //get object motion associated with this object ID
+                            int object_motion_index = -1;
+                            for (int j = 1; j < map->vmRigidMotion[previous_frame].size(); j++) {
+
+                                if(map->vnRMLabel[previous_frame][j] == obs_label) {
+                                    object_motion_index = j;
+                                    break;
+                                }
+
+                            }
+                            CHECK(object_motion_index != -1);
+                            gtsam::Key object_motion_key;
+                            if(unique_vertices[frame_id][object_motion_index] == 0) {
+                                gtsam::Pose3 object_motion = gtsam::Pose3::identity();
+                                // gtsam::Pose3 object_motion = utils::cvMatToGtsamPose3(map->vmRigidMotion[previous_frame][object_motion_index]);
+
+                                if(previous_frame>1) {
+
+                                    // trace back the previous id in vnRMLabel
+                                    int trace_id = -1;
+                                    for (int k = 0; k < map->vnRMLabel[previous_frame-1].size(); ++k)
+                                    {
+                                        if (map->vnRMLabel[previous_frame-1][k]==obs_label)
+                                        {
+                                            trace_id = k;
+                                            break;
+                                        }
+                                    }
+
+                                    //if trace exists
+                                    if(trace_id != -1) {
+                                        gtsam::Key previous_motion_key = unique_vertices[previous_frame][trace_id];
+                                    
+                                        //if key is in the values
+                                        if(state_.exists(previous_motion_key)) {
+                                            object_motion = isam->calculateEstimate<gtsam::Pose3>((previous_motion_key));
+                                            LOG(INFO) << "Using motion prior " << (previous_motion_key) << " " << object_motion;
+
+                                            // //also add a smoothing factor here
+                                            gtsam::Pose3 object_motion_smoother = gtsam::Pose3::identity() ;
+                                            graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
+                                                previous_motion_key,
+                                                count_unique_id,
+                                                object_motion_smoother,
+                                                objectMotionSmootherNoiseModel
+                                            );
+
+                                        }
+
+                                    }
+
+                                }
+
+
+                                addMotionToGraph(object_motion, count_unique_id, previous_frame, object_motion_index);
+                                unique_vertices[frame_id][object_motion_index] = count_unique_id;
+                                object_motion_key = count_unique_id;
+
+                                count_unique_id++;
+                            }
+                            else {
+                                // LOG(INFO) << "Reusing object motion " << frame_id << " " << object_motion_index << " " << obs_label;
+                                //WILL the object motion index be the same!? Probably not!
+                                object_motion_key = unique_vertices[frame_id][object_motion_index];
+                            }
+
+                            // LOG(INFO) << object_motion_index << " " << obs_label;
+
                             gtsam::Point3 initial_measurement(0, 0, 0);
-                            addLandmarkMotionFactor(initial_measurement, (count_unique_id), (previous_key), (obj_position_id));
-                            // logObjectMotion(count_unique_id, obs_label);
-                            //better to use track id as Symbol but then will need to make all variables use differnt symbols
-                            vnFeaMakDyn[frame_id][feature_id] = count_unique_id;
-                            count_unique_id++;
+                            // LOG(INFO) << dynamic_lmk_key << " " << previous_key << " " << obj_position_id;
+                            addLandmarkMotionFactor(initial_measurement, (dynamic_lmk_key), (previous_key), (object_motion_key));
+                            
                         }
                     }
-                    tracklet.markAsAdded(obs_to_add);
+                    // tracklet.markAsAdded(obs_to_add);
                 
                 }
             }
@@ -709,7 +764,7 @@ void VdoSlamBackend::updateMap(const gtsam::Values& state) {
         cv::Mat dynamic_point_refined = utils::gtsamPoint3ToCvMat(dynamic_point);
         // LOG(INFO) << dynamic_point_refined;
         //TODO: causes cfree deallocate in cv::Mat
-        map->vp3DPointDyn[frame_slot.first][frame_slot.second] = dynamic_point_refined;
+        // map->vp3DPointDyn[frame_slot.first][frame_slot.second] = dynamic_point_refined;
     }
 
     //clear all maps
@@ -800,7 +855,7 @@ void VdoSlamBackend::makePlots() {
     //     x.push_back(i+1);
     // }
     Plotter::makePlots();
-    Plotter::drawDynamicSize(dynamic_motion_map_total);
+    Plotter::drawDynamicSize(dynamic_motion_map_total, when_dynamic_motion_added);
 
     isam->saveGraph("/root/data/vdo_slam/results/isam2.dot");
 
@@ -989,10 +1044,12 @@ void VdoSlamBackend::optimize() {
             for(auto& e : dynamic_motion_map) {
                 if(dynamic_motion_map_total.find(e.first) == dynamic_motion_map_total.end()) {
                     dynamic_motion_map_total[e.first]= std::vector<std::vector<gtsam::Key>>();
+                    when_dynamic_motion_added[e.first] = current_frame;
                 }
                 
                 dynamic_motion_map_total[e.first].push_back(e.second);
-                e.second = std::vector<gtsam::Key>();
+                dynamic_motion_map[e.first] = std::vector<gtsam::Key>();
+                // dynamic_motion_map[e.first].clear();
             }
             
             all_values.clear();

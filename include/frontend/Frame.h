@@ -31,6 +31,10 @@ public:
     // Copy constructor.
     Frame(const Frame &frame);
 
+    // assignment operator
+    // Frame& operator=(const Frame &frame);
+
+
     // Constructor for RGB-D cameras.
     Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlow, const cv::Mat &maskSEM, const double &timeStamp, ORBextractor* extractor,
           cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, const float &thDepthObj, const int &UseSampleFea);

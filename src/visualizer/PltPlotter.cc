@@ -1,4 +1,6 @@
 #include "visualizer/PltPlotter.h"
+#include "Map.h"
+#include "Converter.h"
 #include <glog/logging.h>
 
 
@@ -82,25 +84,32 @@ void Plotter::makePlot(const std::string& path, const std::string& title, int fi
     
 }
 
-void Plotter::drawDynamicSize(const std::map<int, std::vector<std::vector<gtsam::Key>>>& dynmic_motions, const std::string& path) {
+void Plotter::drawDynamicSize(const std::map<int, std::vector<std::vector<gtsam::Key>>>& dynmic_motions, 
+        const std::map<int, int>& when_added,
+        const std::string& path) {
     plt::figure(Plotter::figure);
     plt::title("Values in system per dynamic object");
     plt::xlabel("n frames");
     plt::ylabel("# values");
 
-    std::vector<double> x;
-    //assume we add (even an emtpy) vector at each update so the number of rows will be the number of frames
-    //for each object. 
-    for(int i = 0; i < dynmic_motions.at(1).size(); i++) {
-        x.push_back(i+1);
-    }
+
     LOG(INFO) << "Plotting for n dynamic motions - " << dynmic_motions.size();
     for(const auto& e : dynmic_motions) {
         int total = 0;
+        int index = when_added.at(e.first);
         std::vector<int> num_vars;
+        std::vector<int> x;
         for(const auto& f : e.second) {
-            total += f.size();
-            num_vars.push_back(total);
+            
+            //only add if non zero (ie. the object actually appeared in this frame)
+            if(f.size() > 0) {
+                total += f.size();
+                num_vars.push_back(total);                
+                x.push_back(index);
+            }
+            //  LOG(INFO) << f.size() << " plot for obj " << e.first ;
+            
+            index++;
         }
 
         LOG(INFO) << "Plotting for obj " << e.first;
@@ -113,6 +122,212 @@ void Plotter::drawDynamicSize(const std::map<int, std::vector<std::vector<gtsam:
     plt::save(path + "object_variables.png");
     Plotter::figure++;
 }
+
+
+
+
+void Plotter::PlotMetricError(Map* map, int max_id,  const std::string& path) {
+
+    const std::vector<cv::Mat> &CamPose = map->vmCameraPose;
+    const std::vector<std::vector<cv::Mat>>& RigMot = map->vmRigidMotion;
+    const std::vector<std::vector<cv::Mat>>& ObjPosePre = map->vmObjPosePre;
+    const std::vector<cv::Mat> &CamPose_gt = map->vmCameraPose_GT;
+    const std::vector<std::vector<cv::Mat>>& RigMot_gt = map->vmRigidMotion_GT;
+    const std::vector<std::vector<bool>>& ObjStat = map->vbObjStat;
+
+    const std::vector<std::vector<int>>& ObjLabel = map->vnRMLabel;
+
+    //sanity check that we have object motions - 1 to frames
+    CHECK_EQ(CamPose.size(), RigMot.size() + 1);
+        
+    bool bRMSError = false;
+
+    std::vector<double> x;
+    std::vector<double> t_camera_error;
+    std::vector<double> r_camera_error;
+
+    std::vector<std::vector<double>> t_object_errors(max_id-1);
+    std::vector<std::vector<double>> r_object_errors(max_id-1);
+
+    std::vector<std::vector<int>> t_object_frames(max_id-1);
+    std::vector<std::vector<int>> r_object_frames(max_id-1);
+
+
+    float t_sum = 0, r_sum = 0;
+    for (int i = 1; i < CamPose.size(); ++i)
+    {
+        
+        x.push_back(i);
+        cv::Mat T_lc_inv = CamPose[i]*Converter::toInvMatrix(CamPose[i-1]);
+        cv::Mat T_lc_gt = CamPose_gt[i-1]*Converter::toInvMatrix(CamPose_gt[i]);
+        cv::Mat ate_cam = T_lc_inv*T_lc_gt;
+        // cv::Mat ate_cam = CamPose[i]*Converter::toInvMatrix(CamPose_gt[i]);
+
+        // translation
+        float t_ate_cam = std::sqrt(ate_cam.at<float>(0,3)*ate_cam.at<float>(0,3) + ate_cam.at<float>(1,3)*ate_cam.at<float>(1,3) + ate_cam.at<float>(2,3)*ate_cam.at<float>(2,3));
+        if (bRMSError)
+            t_sum = t_sum + t_ate_cam*t_ate_cam;
+        else
+            t_sum = t_sum + t_ate_cam;
+
+        // rotation
+        float trace_ate = 0;
+        for (int j = 0; j < 3; ++j)
+        {
+            if (ate_cam.at<float>(j,j)>1.0)
+                trace_ate = trace_ate + 1.0-(ate_cam.at<float>(j,j)-1.0);
+            else
+                trace_ate = trace_ate + ate_cam.at<float>(j,j);
+        }
+        float r_ate_cam = acos( (trace_ate -1.0)/2.0 )*180.0/3.1415926;
+        if (bRMSError)
+            r_sum = r_sum + r_ate_cam*r_ate_cam;
+        else
+            r_sum = r_sum + r_ate_cam;
+
+        // cout << " t: " << t_ate_cam << " R: " << r_ate_cam << endl;
+        t_camera_error.push_back(static_cast<double>(t_ate_cam));
+        r_camera_error.push_back(static_cast<double>(r_ate_cam));
+
+    }
+    if (bRMSError)
+    {
+        t_sum = std::sqrt(t_sum/(CamPose.size()-1));
+        r_sum = std::sqrt(r_sum/(CamPose.size()-1));
+    }
+    else
+    {
+        t_sum = t_sum/(CamPose.size()-1);
+        r_sum = r_sum/(CamPose.size()-1);
+    }
+
+    // std::cout << "average error (Camera):" << " t: " << t_sum << " R: " << r_sum << endl;
+
+    std::vector<float> each_obj_t(max_id-1,0);
+    std::vector<float> each_obj_r(max_id-1,0);
+    std::vector<int> each_obj_count(max_id-1,0);
+
+    // all motion error for OBJECTS (mean error)
+    // cout << "OBJECTS:" << endl;
+    float r_rpe_sum = 0, t_rpe_sum = 0, obj_count = 0;
+    for (int i = 0; i < RigMot.size(); ++i)
+    {
+        
+        
+        CHECK_EQ(RigMot[i].size(), ObjLabel[i].size());
+        if (RigMot[i].size()>1)
+        {
+            for (int j = 1; j < RigMot[i].size(); ++j)
+            {
+                if (!ObjStat[i][j])
+                {
+                    // std::cout << "(" << map->vnRMLabel[i][j] << ")" << " is a failure case." << std::endl;
+                    continue;
+                }
+
+                cv::Mat RigMotBody = Converter::toInvMatrix(ObjPosePre[i][j])*RigMot[i][j]*ObjPosePre[i][j];
+                cv::Mat rpe_obj = Converter::toInvMatrix(RigMotBody)*RigMot_gt[i][j];
+
+                // translation error
+                float t_rpe_obj = std::sqrt( rpe_obj.at<float>(0,3)*rpe_obj.at<float>(0,3) + rpe_obj.at<float>(1,3)*rpe_obj.at<float>(1,3) + rpe_obj.at<float>(2,3)*rpe_obj.at<float>(2,3) );
+                if (bRMSError){
+                    each_obj_t[map->vnRMLabel[i][j]-1] = each_obj_t[map->vnRMLabel[i][j]-1] + t_rpe_obj*t_rpe_obj;
+                    t_rpe_sum = t_rpe_sum + t_rpe_obj*t_rpe_obj;
+                }
+                else{
+                    each_obj_t[map->vnRMLabel[i][j]-1] = each_obj_t[map->vnRMLabel[i][j]-1] + t_rpe_obj;
+                    t_rpe_sum = t_rpe_sum + t_rpe_obj;
+                }
+
+                // rotation error
+                float trace_rpe = 0;
+                for (int k = 0; k < 3; ++k)
+                {
+                    if (rpe_obj.at<float>(k,k)>1.0)
+                        trace_rpe = trace_rpe + 1.0-(rpe_obj.at<float>(k,k)-1.0);
+                    else
+                        trace_rpe = trace_rpe + rpe_obj.at<float>(k,k);
+                }
+                float r_rpe_obj = acos( ( trace_rpe -1.0 )/2.0 )*180.0/3.1415926;
+                if (bRMSError){
+                    each_obj_r[map->vnRMLabel[i][j]-1] = each_obj_r[map->vnRMLabel[i][j]-1] + r_rpe_obj*r_rpe_obj;
+                    r_rpe_sum = r_rpe_sum + r_rpe_obj*r_rpe_obj;
+                }
+                else{
+                    each_obj_r[map->vnRMLabel[i][j]-1] = each_obj_r[map->vnRMLabel[i][j]-1] + r_rpe_obj;
+                    r_rpe_sum = r_rpe_sum + r_rpe_obj;
+                }
+
+                // cout << "(" << map->vnRMLabel[i][j] << ")" << " t: " << t_rpe_obj << " R: " << r_rpe_obj << endl;
+                obj_count++;
+                each_obj_count[map->vnRMLabel[i][j]-1] = each_obj_count[map->vnRMLabel[i][j]-1] + 1;
+
+
+                //add to object motion
+                t_object_errors[map->vnRMLabel[i][j]-1].push_back(static_cast<double>(t_rpe_obj));
+                r_object_errors[map->vnRMLabel[i][j]-1].push_back(static_cast<double>(r_rpe_obj));
+
+                t_object_frames[map->vnRMLabel[i][j]-1].push_back(i);
+                r_object_frames[map->vnRMLabel[i][j]-1].push_back(i);
+
+            }
+        }
+    }
+    if (bRMSError)
+    {
+        t_rpe_sum = std::sqrt(t_rpe_sum/obj_count);
+        r_rpe_sum = std::sqrt(r_rpe_sum/obj_count);
+    }
+    else
+    {
+        t_rpe_sum = t_rpe_sum/obj_count;
+        r_rpe_sum = r_rpe_sum/obj_count;
+    }
+    // cout << "average error (Over All Objects):" << " t: " << t_rpe_sum << " R: " << r_rpe_sum << endl;
+
+    // show each object
+    for (int i = 0; i < each_obj_count.size(); ++i)
+    {
+        if (bRMSError)
+        {
+            each_obj_t[i] = std::sqrt(each_obj_t[i]/each_obj_count[i]);
+            each_obj_r[i] = std::sqrt(each_obj_r[i]/each_obj_count[i]);
+        }
+        else
+        {
+            each_obj_t[i] = each_obj_t[i]/each_obj_count[i];
+            each_obj_r[i] = each_obj_r[i]/each_obj_count[i];
+        }
+        if (each_obj_count[i]>=3) {}
+            // cout << endl << "average error of Object " << i+1 << ": " << " t: " << each_obj_t[i] << " R: " << each_obj_r[i] << " TrackCount: " << each_obj_count[i] << endl;
+    }
+
+    // cout << "=================================================" << endl;
+
+    //now make plots
+    plt::figure(Plotter::figure);
+    plt::title("ATE (translation)");
+    plt::xlabel("n frames");
+    plt::ylabel("Translation Error (m)");
+    plt::named_plot("Camera", x, t_camera_error);      
+
+    x = std::vector<double>();
+    for(size_t i = 0; i < t_object_errors.size(); i++) {
+
+        LOG(INFO) << "Obj" << i + 1 << " - " << t_object_errors.at(i).size();
+        plt::named_plot("Obj: " + std::to_string(i + 1), t_object_frames.at(i), t_object_errors.at(i));  
+        x.clear();      
+    }  
+
+    // Enable legend.
+    plt::legend();
+    plt::save(path + "ate_translation_errors.png");
+
+    Plotter::figure++;
+
+
+}
+
 
 bool Plotter::checkPlot(const std::string& title) {
     if (plots.find(title) == plots.end()) {

@@ -10,6 +10,8 @@
 
 namespace VDO_SLAM {
 
+class Map;
+
 struct PlotInfo {
     std::string title;
     std::string x_label;
@@ -27,7 +29,9 @@ public:
     static void appendData(const std::string& title, double data);
     static void makePlots(const std::string& path = "/root/data/vdo_slam/results/");
     static void makePlot(const std::string& path, const std::string& title, int fig = 1);
-    static void drawDynamicSize(const std::map<int, std::vector<std::vector<gtsam::Key>>>& dynmic_motions, const std::string& path = "/root/data/vdo_slam/results/");
+    static void drawDynamicSize(const std::map<int, std::vector<std::vector<gtsam::Key>>>& dynmic_motions, const std::map<int, int>& when_added, const std::string& path = "/root/data/vdo_slam/results/");
+
+    static void PlotMetricError(Map* map, int max_id, const std::string& path = "/root/data/vdo_slam/results/");
 
 private:
     static bool checkPlot(const std::string& title);

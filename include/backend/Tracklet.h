@@ -24,6 +24,7 @@ class Tracklet {
         VDO_SLAM_POINTER_TYPEDEFS(Tracklet);
         using TypedObservation = Observation<T>;
         using TypedObservationPtr = typename Observation<T>::Ptr;
+
         using ObservationVector = std::vector<TypedObservation>;
         using ObservationPtrVector = std::vector<TypedObservationPtr>;
         const size_t MinObservations = N;
@@ -200,7 +201,7 @@ class TrackletManager {
 
             //make and update new tracklets
             for(size_t i = tracklets.size(); i < frontend_tracklets_.size(); i++) {
-                Tracklet<T, N> tracklet(i);
+                TypedTracklet tracklet(i);
                 tracklets.push_back(tracklet);
                 tracklets[i].update(frontend_tracklets_[i], i);
             }

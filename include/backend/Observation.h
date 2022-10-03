@@ -23,6 +23,8 @@ class Observation {
                 tracklet_position(position_),
                 tracklet_id(tracklet_id_) {}
 
+        virtual ~Observation() {}
+
         std::string to_string(const std::string& ending = "\n") {
             std::stringstream ss;
             ss << "Frame Id: " << frame_id << "\n";
@@ -46,6 +48,7 @@ class Observation {
         bool was_added = false;
 
 };
+
 
 
 }

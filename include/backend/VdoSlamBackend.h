@@ -110,7 +110,7 @@ class VdoSlamBackend {
 
 
         void updateMap(const gtsam::Values& state);
-
+        void logObjectMotion(gtsam::Key key, int object_label);
 
 
     private:
@@ -227,6 +227,13 @@ class VdoSlamBackend {
         std::vector<double> time_to_optimize;
         std::vector<int> no_factors;
         std::vector<int> no_variables;
+
+        //key-> object label
+        //vector of variables (via keys) for all the values associated with that particular object
+        std::map<int, std::vector<gtsam::Key>> dynamic_motion_map;
+        //this is keys per frame -> we clear and update the one above every tick
+        std::map<int, std::vector<std::vector<gtsam::Key>>> dynamic_motion_map_total;
+
 
 };
 

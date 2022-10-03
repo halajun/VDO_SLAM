@@ -9,6 +9,7 @@
 
 #include "frontend/Tracking.h"
 #include "visualizer/Display.h"
+#include "visualizer/PltPlotter.h"
 
 #include <Eigen/Core>
 #include <glog/logging.h>
@@ -858,7 +859,7 @@ void Tracking::Track()
             for (int k = 0; k < mCurrentFrame.nSemPosi_gt.size(); ++k)
             {
                 if (mCurrentFrame.nSemPosi_gt[k]==mCurrentFrame.nSemPosition[i]){
-                    cout << "it is " << mCurrentFrame.nSemPosi_gt[k] << "!" << endl;
+                    // cout << "it is " << mCurrentFrame.nSemPosi_gt[k] << "!" << endl;
                     if (mTestData==OMD)
                     {
                         L_w_c = mCurrentFrame.vObjPose_gt[k];
@@ -1270,24 +1271,26 @@ void Tracking::Track()
 
         num_batch_update++;
         // if(f_id==StopFrame) {
-        // // if(num_batch_update > 1) {
+        if(num_batch_update > 1) {
 
-        //     // Optimizer::FullBatchOptimization(mpMap,mK);
-        //     // backend->updateMapFull();
-        //     // LOG(INFO) << "Error after incremental update";
-        //     GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
-        //                 mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
-        //     // backend->calculateError();
-        //     if(run_as_incremental) {
-        //         backend->makePlots();
-        //     }
-        //     else {
-        //         backend->optimizeLM();
-        //     }
+            // Optimizer::FullBatchOptimization(mpMap,mK);
+            // backend->updateMapFull();
+            // LOG(INFO) << "Error after incremental update";
+            GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
+                        mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
+            // backend->calculateError();
+            if(run_as_incremental) {
+                // 
+                // Plotter::makePlots();
+                backend->makePlots();
+            }
+            else {
+                backend->optimizeLM();
+            }
             
             
-        //     // throw std::invalid_argument("Stop");
-        // }
+            throw std::invalid_argument("Stop");
+        }
         
 
 
@@ -1324,7 +1327,8 @@ void Tracking::Track()
         // GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
         //                mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
         if(run_as_incremental) {
-                backend->makePlots();
+                // backend->makePlots();
+                Plotter::makePlots();
         }
         else {
                 LOG(INFO) << "Erro before LM";

@@ -28,8 +28,12 @@
 #include <chrono>
 using namespace std::chrono;
 
+#include "visualizer/PltPlotter.h"
 #include <matplotlibcpp.h>
+
 namespace plt = matplotlibcpp;
+
+
 
 namespace VDO_SLAM {
 
@@ -86,6 +90,42 @@ VdoSlamBackend::VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_, BackendParams
         dynamicPoint3DNoiseModel->print("Dynamic 3d point ");
         objectMotionNoiseModel->print("Object Motion model: ");
         CHECK_NOTNULL(K_calib);
+
+        //init plots
+        Plotter::initPlot((PlotInfo){
+            .title = "Error before optimization",
+            .x_label = "# Frames",
+            .y_label = "Chi-squared error"});
+
+        Plotter::initPlot((PlotInfo){
+            .title = "Error after optimization",
+            .x_label = "# Frames",
+            .y_label = "Chi-squared error"});
+
+        Plotter::initPlot((PlotInfo){
+            .title = "Time for each update step of iSAM2",
+            .x_label = "# Frames",
+            .y_label = "Time (s)"});
+
+        Plotter::initPlot((PlotInfo){
+            .title = "Number of factors in the iSAM2 factor graph",
+            .x_label = "# Frames",
+            .y_label = "-"});
+
+        Plotter::initPlot((PlotInfo){
+            .title = "Number of variables in the system",
+            .x_label = "# Frames",
+            .y_label = "-"});
+
+        Plotter::initPlot((PlotInfo){
+            .title = "# of Cliques",
+            .x_label = "# Frames",
+            .y_label = "-"});
+
+        Plotter::initPlot((PlotInfo){
+            .title = "Max Clique Size",
+            .x_label = "# Frames",
+            .y_label = "-"});
 
         // do_manager = VDO_SLAM::make_unique<DynamicObjectManager>(map_);
     }
@@ -285,29 +325,30 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                 }
 
                 //if trace exists
-                if(trace_id != -1) {
-                    gtsam::Key previous_motion_key = (unique_vertices[current_frame-2][trace_id]);
+                // if(trace_id != -1) {
+                //     gtsam::Key previous_motion_key = (unique_vertices[current_frame-2][trace_id]);
                 
-                    //if key is in the values
-                    if(state_.exists(previous_motion_key)) {
-                        object_motion = isam->calculateEstimate<gtsam::Pose3>((previous_motion_key));
-                        LOG(INFO) << "Using motion prior " << (previous_motion_key) << " " << object_motion;
+                //     //if key is in the values
+                //     if(state_.exists(previous_motion_key)) {
+                //         object_motion = isam->calculateEstimate<gtsam::Pose3>((previous_motion_key));
+                //         LOG(INFO) << "Using motion prior " << (previous_motion_key) << " " << object_motion;
 
-                        // //also add a smoothing factor here
-                        gtsam::Pose3 object_motion_smoother = gtsam::Pose3::identity() ;
-                        graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
-                            previous_motion_key,
-                            count_unique_id,
-                            object_motion_smoother,
-                            objectMotionSmootherNoiseModel
-                        );
+                //         // //also add a smoothing factor here
+                //         gtsam::Pose3 object_motion_smoother = gtsam::Pose3::identity() ;
+                //         graph.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(
+                //             previous_motion_key,
+                //             count_unique_id,
+                //             object_motion_smoother,
+                //             objectMotionSmootherNoiseModel
+                //         );
 
-                    }
+                //     }
 
-                }
+                // }
 
             }
             //if is first motion
+            logObjectMotion(count_unique_id, map->vnRMLabel[current_frame-1][j]);
             addMotionToGraph(object_motion, (count_unique_id), current_frame-1, j);
 
             unique_vertices[current_frame-1][j]= count_unique_id;
@@ -327,6 +368,7 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                         FeatureId feature_id = obs->point_id;
                         int track_id = obs->tracklet_id;
                         int position_id = obs->tracklet_position;
+                        int obs_label = map->nObjID[track_id];
 
                         gtsam::Key pose_key = unique_vertices[frame_id][0];
 
@@ -337,11 +379,13 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                             obs->key = static_cast<int>(count_unique_id);
                             obs->was_added = true;
                             addDynamicLandmarkToGraph(X_w, (count_unique_id), frame_id, feature_id);
+                            logObjectMotion(count_unique_id, obs_label);
 
                             cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatDyn[frame_id][feature_id],map->vfDepDyn[frame_id][feature_id],K);
                             gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
                             // addDynamicPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
                             addDynamicPoint3DFactor(X_c_point, (pose_key), (count_unique_id));
+                            // logObjectMotion(count_unique_id, obs_label);
                             //better to use track id as Symbol but then will need to make all variables use differnt symbols
                             vnFeaMakDyn[frame_id][feature_id] = count_unique_id;
                             count_unique_id++;
@@ -353,7 +397,6 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                             int previous_frame = previous_obs->frame_id;
                             CHECK(previous_frame >= 0);
                             
-                            int obs_label = map->nObjID[track_id];
                             int obj_position_id = -1;
                             // if(frame_id > 0) {
                                 //find which obj has the same label the vmLabel and this should be the correct index
@@ -374,11 +417,13 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                             obs->key = static_cast<int>(count_unique_id);
                             obs->was_added = true;
                             addDynamicLandmarkToGraph(X_w, (count_unique_id), frame_id, feature_id);
+                            logObjectMotion(count_unique_id, obs_label);
 
                             cv::Mat Xc = Optimizer::Get3DinCamera(map->vpFeatDyn[frame_id][feature_id],map->vfDepDyn[frame_id][feature_id],K);
                             gtsam::Point3 X_c_point = utils::cvMatToGtsamPoint3(Xc);
                             // addDynamicPoint3DFactor(X_c_point, curr_camera_pose_vertex, count_unique_id);
                             addDynamicPoint3DFactor(X_c_point, (pose_key), (count_unique_id));
+                            // logObjectMotion(count_unique_id, obs_label);
                             //lets do a sanity check
                             //previous obs key has been set
                             CHECK(previous_obs->tracklet_id == track_id);
@@ -390,6 +435,7 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                             CHECK(obj_position_id != -1) << "Frame " << frame_id - 1 << " pos " << position_id;
                             gtsam::Point3 initial_measurement(0, 0, 0);
                             addLandmarkMotionFactor(initial_measurement, (count_unique_id), (previous_key), (obj_position_id));
+                            // logObjectMotion(count_unique_id, obs_label);
                             //better to use track id as Symbol but then will need to make all variables use differnt symbols
                             vnFeaMakDyn[frame_id][feature_id] = count_unique_id;
                             count_unique_id++;
@@ -663,7 +709,7 @@ void VdoSlamBackend::updateMap(const gtsam::Values& state) {
         cv::Mat dynamic_point_refined = utils::gtsamPoint3ToCvMat(dynamic_point);
         // LOG(INFO) << dynamic_point_refined;
         //TODO: causes cfree deallocate in cv::Mat
-        // map->vp3DPointDyn[frame_slot.first][frame_slot.second] = dynamic_point_refined;
+        map->vp3DPointDyn[frame_slot.first][frame_slot.second] = dynamic_point_refined;
     }
 
     //clear all maps
@@ -748,48 +794,66 @@ void VdoSlamBackend::optimizeLM() {
 }
 
 void VdoSlamBackend::makePlots() {
-    const std::string save_root_path = "/root/data/vdo_slam/results/";
-    std::vector<double> x;
-    for(const auto& i : error_after_v) {
-        static int index = 1;
-        x.push_back(index);
-        index++;
-    }
+    // const std::string save_root_path = "/root/data/vdo_slam/results/";
+    // std::vector<double> x;
+    // for(int i = 0; i < getMapSize(); i++) {
+    //     x.push_back(i+1);
+    // }
+    Plotter::makePlots();
+    Plotter::drawDynamicSize(dynamic_motion_map_total);
 
-    plt::figure(1);
-    plt::title("Error before optimization");
-    plt::xlabel("n frames");
-    plt::ylabel("log-likelihood error");
-    plt::plot(x, error_before_v);
-    plt::save(save_root_path + "error_before_opt.png");
+    isam->saveGraph("/root/data/vdo_slam/results/isam2.dot");
+
+
+    // // // plt::figure(1);
+    // plt::title("Dyanamic Object tracksd");
+    // plt::xlabel("n frames");
+    // plt::ylabel("Total number of vars");
+
+    // for(const auto& e : dynamic_motion_map_total) {
+    //     int total = 0;
+    //     std::vector<int> num_vars;
+    //     for(const auto& f : e.second) {
+    //         total += f.size();
+    //         num_vars.push_back(total);
+    //     }
+
+    //     plt::named_plot("Obj: " + std::to_string(e.first), x, num_vars);        
+    // }
+
+
+    // // Enable legend.
+    // plt::legend();
+
+    // plt::save(save_root_path + "object_variables.png");
    
-    plt::figure(2);
-    plt::title("Error after optimization");
-    plt::xlabel("n frames");
-    plt::ylabel("log-likelihood error");
-    plt::plot(x, error_after_v);
-    plt::save(save_root_path + "error_after_opt.png");
+    // plt::figure(2);
+    // plt::title("Error after optimization");
+    // plt::xlabel("n frames");
+    // plt::ylabel("log-likelihood error");
+    // plt::plot(x, error_after_v);
+    // plt::save(save_root_path + "error_after_opt.png");
 
-    plt::figure(3);
-    plt::title("Time for each update step of iSAM2");
-    plt::xlabel("n frames");
-    plt::ylabel("time (s)");
-    plt::plot(x, time_to_optimize);
-    plt::save(save_root_path + "time_to_optimize.png");
+    // plt::figure(3);
+    // plt::title("Time for each update step of iSAM2");
+    // plt::xlabel("n frames");
+    // plt::ylabel("time (s)");
+    // plt::plot(x, time_to_optimize);
+    // plt::save(save_root_path + "time_to_optimize.png");
 
-    plt::figure(4);
-    plt::title("Number of factors in the iSAM2 factor graph");
-    plt::xlabel("n frames");
-    plt::ylabel("n factors");
-    plt::plot(x, no_factors);
-    plt::save(save_root_path + "no_factors.png");
+    // plt::figure(4);
+    // plt::title("Number of factors in the iSAM2 factor graph");
+    // plt::xlabel("n frames");
+    // plt::ylabel("n factors");
+    // plt::plot(x, no_factors);
+    // plt::save(save_root_path + "no_factors.png");
 
-    plt::figure(5);
-    plt::title("Number of variables in the iSAM2 factor graph");
-    plt::xlabel("n frames");
-    plt::ylabel("n variables");
-    plt::plot(x, no_variables);
-    plt::save(save_root_path + "no_variables.png");
+    // plt::figure(5);
+    // plt::title("Number of variables in the iSAM2 factor graph");
+    // plt::xlabel("n frames");
+    // plt::ylabel("n variables");
+    // plt::plot(x, no_variables);
+    // plt::save(save_root_path + "no_variables.png");
 
     
 
@@ -840,7 +904,7 @@ void VdoSlamBackend::optimize() {
 
             // result = isam->getISAM2Result();
 
-            auto duration = duration_cast<seconds>(stop - start);
+            auto duration = duration_cast<milliseconds>(stop - start);
             // result = isam->update();
             // result = isam->update();
             // result = isam->update();
@@ -866,26 +930,75 @@ void VdoSlamBackend::optimize() {
                         << "\n"
                         << "Error after: " << error_after;
                 double change = error_before - error_after;
-                // change_error.push_back(change);
-                error_before_v.push_back(error_before);
-                error_after_v.push_back(error_after);
+
+                Plotter::appendData("Error before optimization", error_before);
+                Plotter::appendData("Error after optimization", error_after);
+                // // change_error.push_back(change);
+                // error_before_v.push_back(error_before);
+                // error_after_v.push_back(error_after);
             }
             else {
                 state_ = isam->calculateEstimate();
-                error_before_v.push_back(0);
-                error_after_v.push_back(0);
+                // error_before_v.push_back(0);
+                // error_after_v.push_back(0);
+                Plotter::appendData("Error before optimization", 0);
+                Plotter::appendData("Error after optimization", 0);
             }
 
-            no_factors.push_back(graph_.size());
-            no_variables.push_back(state_.size());
-            time_to_optimize.push_back(duration.count());
+            Plotter::appendData("Number of factors in the iSAM2 factor graph", static_cast<double>(graph_.size()));
+            Plotter::appendData("Number of variables in the system", static_cast<double>(state_.size()));
+            Plotter::appendData("Time for each update step of iSAM2", duration.count());
+            // no_factors.push_back(graph_.size());
+            // no_variables.push_back(state_.size());
+            // time_to_optimize.push_back(duration.count());
 
+            double num_cliques = static_cast<double>(isam->size());
+            LOG(INFO) << "# cliques " << num_cliques;
+            Plotter::appendData("# of Cliques", num_cliques);
+
+            double num_roots = static_cast<double>(isam->roots().size());
+            LOG(INFO) << "# roots " << num_roots;
+
+            //find maximum clique
+            int max_clique_size = 0;
+            const auto& nodes = isam->nodes();
+            //each shared clique is a ISAM2Clique
+            for(const auto& e : nodes) {
+                const ISAM2Clique::shared_ptr& clique = e.second;
+                double tree_size = static_cast<double>(clique->treeSize());
+                
+
+                //ignore root node?
+                if(tree_size > max_clique_size && !clique->isRoot()) {
+                    max_clique_size = tree_size;
+                }
+            }
+
+            for(const auto& e : dynamic_motion_map) {
+                LOG(INFO) << "Vars for object " << e.first << " - size " << e.second.size();
+            }
+
+            LOG(INFO) << "Max Clique Size " << max_clique_size;
+            Plotter::appendData("Max Clique Size", static_cast<double>(max_clique_size));
+
+            isam->printStats();
+
+
+            //updayte the dynamic motion total map by adding all the newly added keys
+            //and then clearing the map so its fresh for the next update
+            for(auto& e : dynamic_motion_map) {
+                if(dynamic_motion_map_total.find(e.first) == dynamic_motion_map_total.end()) {
+                    dynamic_motion_map_total[e.first]= std::vector<std::vector<gtsam::Key>>();
+                }
+                
+                dynamic_motion_map_total[e.first].push_back(e.second);
+                e.second = std::vector<gtsam::Key>();
+            }
             
-
             all_values.clear();
             graph.resize(0);
 
-            debug_info.print();
+            // debug_info.print();
             debug_info.reset();
             // updateMapFromIncremental();
         }
@@ -914,6 +1027,14 @@ void VdoSlamBackend::optimize() {
     }
     
 
+}
+
+void VdoSlamBackend::logObjectMotion(gtsam::Key key, int object_label) {
+    if(dynamic_motion_map.find(object_label)== dynamic_motion_map.end()) {
+        dynamic_motion_map[object_label] = std::vector<gtsam::Key>();
+    }
+
+    dynamic_motion_map[object_label].push_back(key);
 }
 
 void VdoSlamBackend::writeG2o(const std::string& file_name) {

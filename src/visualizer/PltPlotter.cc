@@ -73,7 +73,7 @@ void Plotter::makePlot(const std::string& path, const std::string& title, int fi
         x_data[i] = i + 1;
     }
 
-    // LOG(INFO) << "Saving plot - " << plot_info.title;
+    LOG(INFO) << "Saving plot - " << plot_info.title;
     // LOG(INFO) << data.size() << " " << x_data.size();
     plt::figure(fig);
     plt::title(plot_info.title);

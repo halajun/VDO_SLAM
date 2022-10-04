@@ -1269,29 +1269,29 @@ void Tracking::Track()
         //             mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
 
 
-        // num_batch_update++;
+        num_batch_update++;
         // // if(f_id==StopFrame) {
-        // if(num_batch_update > 1) {
+        if(num_batch_update > 1) {
 
-        //     // Optimizer::FullBatchOptimization(mpMap,mK);
-        //     // backend->updateMapFull();
-        //     // LOG(INFO) << "Error after incremental update";
-        //     // GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
-        //     //             mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
-        //     // backend->calculateError();
-        //     if(run_as_incremental) {
-        //         // 
-        //         // Plotter::makePlots();
-        //         backend->makePlots();
-        //         Plotter::PlotMetricError(mpMap, max_id);
-        //     }
-        //     else {
-        //         backend->optimizeLM();
-        //     }
+            // Optimizer::FullBatchOptimization(mpMap,mK);
+            // backend->updateMapFull();
+            // LOG(INFO) << "Error after incremental update";
+            // GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
+            //             mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
+            // backend->calculateError();
+            if(run_as_incremental) {
+                // 
+                // Plotter::makePlots();
+                backend->makePlots();
+                Plotter::PlotMetricError(mpMap, max_id);
+            }
+            else {
+                backend->optimizeLM();
+            }
             
             
-        //     throw std::invalid_argument("Stop");
-        // }
+            throw std::invalid_argument("Stop");
+        }
         
 
 

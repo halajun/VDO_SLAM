@@ -477,6 +477,7 @@ void VdoSlamBackend::process(bool run_as_incremental) {
 
 
                                 addMotionToGraph(object_motion, count_unique_id, previous_frame, object_motion_index);
+                                logObjectMotion(count_unique_id, obs_label);
                                 unique_vertices[frame_id][object_motion_index] = count_unique_id;
                                 object_motion_key = count_unique_id;
 

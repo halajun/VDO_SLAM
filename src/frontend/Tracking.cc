@@ -1227,6 +1227,13 @@ void Tracking::Track()
     if(run_as_incremental && f_id > 1) {
         cv::Mat best_pose = backend->getBestPoseEstimate();
         mLastFrame.SetPose(best_pose);
+        //size - 1 for camera motion
+        CHECK_EQ(mLastFrame.vObjMod.size(), mpMap->vmRigidMotion_RF.back().size() - 1);
+         for (int i = 0; i < mLastFrame.vObjMod.size(); ++i) {
+            //updating motion
+            mLastFrame.vObjMod[i] = mpMap->vmRigidMotion_RF.back()[i];
+         }  
+        // mCurrentFrame.vObjMod[i]
     }
 
     // if (f_id > 6) {
@@ -1240,6 +1247,13 @@ void Tracking::Track()
     //     GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
     //                     mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
     // }
+
+    // if(f_id > 7) {
+    //     backend->makePlots();
+    //     Plotter::PlotMetricError(mpMap, max_id);
+    //     throw std::invalid_argument("Stop");
+    // }
+
     static int num_batch_update = 0;
     bLocalBatch = true;
     if ( (f_id-nOVERLAP_SIZE+1)%(nWINDOW_SIZE-nOVERLAP_SIZE)==0 && f_id>=nWINDOW_SIZE-1 && bLocalBatch)

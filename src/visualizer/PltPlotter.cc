@@ -328,6 +328,105 @@ void Plotter::PlotMetricError(Map* map, int max_id,  const std::string& path) {
 
 }
 
+void Plotter::PlotMotionComparison(Map* map, const std::string& path) {
+    const std::vector<std::vector<cv::Mat>>& RigMot_gt = map->vmRigidMotion_GT;
+    //estimates from the frontend
+    const std::vector<std::vector<cv::Mat>>& RigMot = map->vmRigidMotion;
+
+    const std::vector<std::vector<cv::Mat>>& RigMot_RF = map->vmRigidMotion_RF;
+
+    const std::vector<std::vector<cv::Mat>>& ObjPosePre = map->vmObjPosePre;
+
+    float r_rpe_sum = 0, t_rpe_sum = 0, obj_count = 0;
+
+    std::vector<float> frontend_errors;
+    std::vector<float> backend_errors;
+    std::vector<float> frames;
+    float t_rpe_sum_frontend = 0, t_rpe_sum_backend = 0;
+    for (int i = 0; i < RigMot.size(); ++i)
+    {
+        
+        
+        // CHECK_EQ(RigMot[i].size(), ObjLabel[i].size());
+        if (RigMot[i].size()>1)
+        {
+            for (int j = 1; j < RigMot[i].size(); ++j)
+            {
+                // if (!ObjStat[i][j])
+                // {
+                //     // std::cout << "(" << map->vnRMLabel[i][j] << ")" << " is a failure case." << std::endl;
+                //     continue;
+                // }
+
+                cv::Mat RigMotBodyFrontEnd = Converter::toInvMatrix(ObjPosePre[i][j])*RigMot[i][j]*ObjPosePre[i][j];
+                cv::Mat RigMotBodyBackEnd = Converter::toInvMatrix(ObjPosePre[i][j])*RigMot_RF[i][j]*ObjPosePre[i][j];
+                cv::Mat rpe_obj_frontend = Converter::toInvMatrix(RigMotBodyFrontEnd)*RigMot_gt[i][j];
+                cv::Mat rpe_obj_backend = Converter::toInvMatrix(RigMotBodyBackEnd)*RigMot_gt[i][j];
+
+                // translation error
+                float t_rpe_obj_front = std::sqrt( rpe_obj_frontend.at<float>(0,3)*rpe_obj_frontend.at<float>(0,3) + rpe_obj_frontend.at<float>(1,3)*rpe_obj_frontend.at<float>(1,3) + rpe_obj_frontend.at<float>(2,3)*rpe_obj_frontend.at<float>(2,3) );
+                float t_rpe_obj_back = std::sqrt( rpe_obj_backend.at<float>(0,3)*rpe_obj_backend.at<float>(0,3) + rpe_obj_backend.at<float>(1,3)*rpe_obj_backend.at<float>(1,3) + rpe_obj_backend.at<float>(2,3)*rpe_obj_backend.at<float>(2,3) );
+
+                // rotation error front
+                float trace_rpe_front = 0, trace_rpe_back = 0;
+                for (int k = 0; k < 3; ++k)
+                {
+                    if (rpe_obj_frontend.at<float>(k,k)>1.0)
+                        trace_rpe_front = trace_rpe_front + 1.0-(rpe_obj_frontend.at<float>(k,k)-1.0);
+                    else
+                        trace_rpe_front = trace_rpe_front + rpe_obj_frontend.at<float>(k,k);
+                }
+                float r_rpe_obj_front = acos( ( trace_rpe_front -1.0 )/2.0 )*180.0/3.1415926;
+                // frontend_errors.push_back(r_rpe_obj_front);
+                //rotation error back
+                for (int k = 0; k < 3; ++k)
+                {
+                    if (rpe_obj_backend.at<float>(k,k)>1.0)
+                        trace_rpe_back = trace_rpe_back + 1.0-(rpe_obj_backend.at<float>(k,k)-1.0);
+                    else
+                        trace_rpe_back = trace_rpe_back + rpe_obj_backend.at<float>(k,k);
+                }
+                float r_rpe_obj_back = acos( ( trace_rpe_back -1.0 )/2.0 )*180.0/3.1415926;
+                // backend_errors.push_back(r_rpe_obj_back);
+
+                t_rpe_sum_frontend+= t_rpe_obj_front;
+                t_rpe_sum_backend += t_rpe_obj_back;
+                obj_count++;
+            
+
+            }
+            //count the total errors
+            frontend_errors.push_back(t_rpe_sum_frontend/obj_count);
+            backend_errors.push_back(t_rpe_sum_backend/obj_count);
+            frames.push_back(i + 1);
+        }
+    }
+
+    plt::figure(Plotter::figure);
+    plt::title("Motion Comparison");
+    plt::xlabel("n frames");
+    plt::ylabel("Translation Error (m)");
+    // plt::named_plot("Camera", x, t_camera_error);      
+
+    // for(size_t i = 0; i < t_object_errors.size(); i++) {
+
+    //     LOG(INFO) << "Obj" << i + 1 << " - " << t_object_errors.at(i).size();
+    //     plt::named_plot("Obj: " + std::to_string(i + 1), t_object_frames.at(i), t_object_errors.at(i));  
+    //     x.clear();      
+    // }  
+    plt::named_plot("Frontend Errors", frames, frontend_errors);  
+    plt::named_plot("Backend Errors", frames, backend_errors);  
+
+
+    // Enable legend.
+    plt::legend();
+    plt::save(path + "motion_comparison.png");
+
+    Plotter::figure++;
+
+
+}
+
 
 bool Plotter::checkPlot(const std::string& title) {
     if (plots.find(title) == plots.end()) {

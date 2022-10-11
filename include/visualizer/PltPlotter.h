@@ -32,6 +32,9 @@ public:
     static void drawDynamicSize(const std::map<int, std::vector<std::vector<gtsam::Key>>>& dynmic_motions, const std::map<int, int>& when_added, const std::string& path = "/root/data/vdo_slam/results/");
 
     static void PlotMetricError(Map* map, int max_id, const std::string& path = "/root/data/vdo_slam/results/");
+    
+    //requires not updating the motion in the map (or updating the refined motion)
+    static void PlotMotionComparison(Map* map, const std::string& path = "/root/data/vdo_slam/results/");
 
 private:
     static bool checkPlot(const std::string& title);

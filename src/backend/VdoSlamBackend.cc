@@ -127,6 +127,11 @@ VdoSlamBackend::VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_, BackendParams
             .x_label = "# Frames",
             .y_label = "-"});
 
+        // Plotter::initPlot((PlotInfo){
+        //     .title = "Motion Frontend/Backend Comparison",
+        //     .x_label = "# Frames",
+        //     .y_label = "SE(3"});
+
         // do_manager = VDO_SLAM::make_unique<DynamicObjectManager>(map_);
     }
 
@@ -457,7 +462,7 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                                     
                                         //if key is in the values
                                         if(state_.exists(previous_motion_key)) {
-                                            object_motion = isam->calculateEstimate<gtsam::Pose3>((previous_motion_key));
+                                            // object_motion = isam->calculateEstimate<gtsam::Pose3>((previous_motion_key));
                                             LOG(INFO) << "Using motion prior " << (previous_motion_key) << " " << object_motion;
 
                                             // //also add a smoothing factor here
@@ -480,6 +485,7 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                                 logObjectMotion(count_unique_id, obs_label);
                                 unique_vertices[frame_id][object_motion_index] = count_unique_id;
                                 object_motion_key = count_unique_id;
+                                LOG(INFO) << "Added motion with key: " << object_motion_key;
 
                                 count_unique_id++;
                             }
@@ -494,6 +500,8 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                             gtsam::Point3 initial_measurement(0, 0, 0);
                             // LOG(INFO) << dynamic_lmk_key << " " << previous_key << " " << obj_position_id;
                             addLandmarkMotionFactor(initial_measurement, (dynamic_lmk_key), (previous_key), (object_motion_key));
+                            LOG(INFO) << "motion factor - lmk " << dynamic_lmk_key << " prev " << previous_key << " motion key " << object_motion_key;
+                
                             
                         }
                     }
@@ -736,7 +744,8 @@ void VdoSlamBackend::updateMap(const gtsam::Values& state) {
 
         gtsam::Pose3 object_motion = state.at<gtsam::Pose3>(key);
         cv::Mat object_motion_refined = utils::gtsamPose3ToCvMat(object_motion);
-        map->vmRigidMotion[frame_slot.first][frame_slot.second] = object_motion_refined;
+        // map->vmRigidMotion[frame_slot.first][frame_slot.second] = object_motion_refined;
+        map->vmRigidMotion_RF[frame_slot.first][frame_slot.second] = object_motion_refined;
     }
 
     //update static points
@@ -857,6 +866,7 @@ void VdoSlamBackend::makePlots() {
     // }
     Plotter::makePlots();
     Plotter::drawDynamicSize(dynamic_motion_map_total, when_dynamic_motion_added);
+    Plotter::PlotMotionComparison(map);
 
     isam->saveGraph("/root/data/vdo_slam/results/isam2.dot");
 

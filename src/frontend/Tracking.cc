@@ -1228,11 +1228,11 @@ void Tracking::Track()
         cv::Mat best_pose = backend->getBestPoseEstimate();
         mLastFrame.SetPose(best_pose);
         //size - 1 for camera motion
-        CHECK_EQ(mLastFrame.vObjMod.size(), mpMap->vmRigidMotion_RF.back().size() - 1);
-         for (int i = 0; i < mLastFrame.vObjMod.size(); ++i) {
-            //updating motion
-            mLastFrame.vObjMod[i] = mpMap->vmRigidMotion_RF.back()[i];
-         }  
+        // CHECK_EQ(mLastFrame.vObjMod.size(), mpMap->vmRigidMotion_RF.back().size() - 1);
+        //  for (int i = 0; i < mLastFrame.vObjMod.size(); ++i) {
+        //     //updating motion
+        //     mLastFrame.vObjMod[i] = mpMap->vmRigidMotion_RF.back()[i];
+        //  }  
         // mCurrentFrame.vObjMod[i]
     }
 

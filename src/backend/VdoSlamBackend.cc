@@ -442,6 +442,7 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                             if(unique_vertices[frame_id][object_motion_index] == 0) {
                                 gtsam::Pose3 object_motion = gtsam::Pose3::identity();
                                 // gtsam::Pose3 object_motion = utils::cvMatToGtsamPose3(map->vmRigidMotion[previous_frame][object_motion_index]);
+                                LOG(INFO) << "Obj motion from frontnend " << object_motion;
 
                                 if(previous_frame>1) {
 
@@ -606,8 +607,10 @@ void VdoSlamBackend::setupNoiseModels() {
 
         point3DNoiseModel =pose3dNoiseModelTemp;
         //TODO: not using dynamic points yet
-        dynamicPoint3DNoiseModel = gtsam::noiseModel::Robust::Create(
-            gtsam::noiseModel::mEstimator::Huber::Create(params->k_huber_obj_motion), dynamicPoint3DNoiseModel);
+        // dynamicPoint3DNoiseModel = gtsam::noiseModel::Robust::Create(
+        //     gtsam::noiseModel::mEstimator::Huber::Create(params->k_huber_obj_motion), dynamicPoint3DNoiseModel);
+        objectMotionNoiseModel = gtsam::noiseModel::Robust::Create(
+            gtsam::noiseModel::mEstimator::Huber::Create(params->k_huber_obj_motion), objectMotionNoiseModel);
     }
 
 

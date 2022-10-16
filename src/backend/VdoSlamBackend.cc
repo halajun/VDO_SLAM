@@ -442,9 +442,17 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                             if(unique_vertices[frame_id][object_motion_index] == 0) {
                                 gtsam::Pose3 object_motion = gtsam::Pose3::identity();
                                 // gtsam::Pose3 object_motion = utils::cvMatToGtsamPose3(map->vmRigidMotion[previous_frame][object_motion_index]);
-                                LOG(INFO) << "Obj motion from frontnend " << object_motion;
+                                // object_motion = object_motion.inverse();
+
 
                                 if(previous_frame>1) {
+
+                                    gtsam::Key previous_pose_key = unique_vertices[previous_frame][0];
+                                    // gtsam::Pose3 previous_pose = isam->calculateEstimate<gtsam::Pose3>(previous_pose_key);
+                                    
+                                    //calculate relative motion
+                                    // object_motion = previous_pose * object_motion * previous_pose.inverse();
+
 
                                     // trace back the previous id in vnRMLabel
                                     int trace_id = -1;
@@ -481,6 +489,7 @@ void VdoSlamBackend::process(bool run_as_incremental) {
 
                                 }
 
+                                LOG(INFO) << "Obj motion from frontnend " << object_motion;
 
                                 addMotionToGraph(object_motion, count_unique_id, previous_frame, object_motion_index);
                                 logObjectMotion(count_unique_id, obs_label);
@@ -974,9 +983,9 @@ void VdoSlamBackend::optimize() {
             // result = isam->getISAM2Result();
 
             auto duration = duration_cast<milliseconds>(stop - start);
-            // result = isam->update();
-            // result = isam->update();
-            // result = isam->update();
+            result = isam->update();
+            result = isam->update();
+            result = isam->update();
             isam_udpate_timer.Stop();
 
             // gtsam::NonlinearFactorGraph graph_ = gtsam::NonlinearFactorGraph(isam->getFactors());  // clone, expensive but safer!

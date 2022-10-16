@@ -892,7 +892,10 @@ void Tracking::Track()
             cv::Mat L_w_p_inv = Converter::toInvMatrix(L_w_p);
             cv::Mat L_w_c_inv = Converter::toInvMatrix(L_w_c);
             H_p_c = L_w_c*L_w_p_inv;
-            H_p_c_body = L_w_p_inv*L_w_c; // for new metric (26 Feb 2020).
+            // H_p_c_body = Converter::toInvMatrix(L_p)*L_c; // for new metric (26 Feb 2020).
+            H_p_c_body = L_w_p_inv*L_w_c; // actually world
+
+            // cv::Mat H_p_c_world = 
             mCurrentFrame.vObjMod_gt[i] = H_p_c_body;
             // mCurrentFrame.vObjCentre3D[i] = L_w_p.rowRange(0,3).col(3);
             mCurrentFrame.vObjPosePre[i] = L_w_p; // for new metric (26 Feb 2020).
@@ -1283,7 +1286,7 @@ void Tracking::Track()
         //             mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
 
 
-        num_batch_update++;
+        // num_batch_update++;
         // // if(f_id==StopFrame) {
         if(num_batch_update > 1) {
 

@@ -130,6 +130,7 @@ void Plotter::PlotMetricError(Map* map, int max_id,  const std::string& path) {
 
     const std::vector<cv::Mat> &CamPose = map->vmCameraPose;
     const std::vector<std::vector<cv::Mat>>& RigMot = map->vmRigidMotion;
+    const std::vector<std::vector<cv::Mat>>& RigMot_RF = map->vmRigidMotion_RF;
     const std::vector<std::vector<cv::Mat>>& ObjPosePre = map->vmObjPosePre;
     const std::vector<cv::Mat> &CamPose_gt = map->vmCameraPose_GT;
     const std::vector<std::vector<cv::Mat>>& RigMot_gt = map->vmRigidMotion_GT;
@@ -201,7 +202,7 @@ void Plotter::PlotMetricError(Map* map, int max_id,  const std::string& path) {
         r_sum = r_sum/(CamPose.size()-1);
     }
 
-    // std::cout << "average error (Camera):" << " t: " << t_sum << " R: " << r_sum << endl;
+    LOG(INFO) << "average error (Camera):" << " t: " << t_sum << " R: " << r_sum;
 
     std::vector<float> each_obj_t(max_id-1,0);
     std::vector<float> each_obj_r(max_id-1,0);
@@ -225,8 +226,9 @@ void Plotter::PlotMetricError(Map* map, int max_id,  const std::string& path) {
                     continue;
                 }
 
-                cv::Mat RigMotBody = Converter::toInvMatrix(ObjPosePre[i][j])*RigMot[i][j]*ObjPosePre[i][j];
+                cv::Mat RigMotBody = Converter::toInvMatrix(ObjPosePre[i][j])*RigMot_RF[i][j]*ObjPosePre[i][j];
                 cv::Mat rpe_obj = Converter::toInvMatrix(RigMotBody)*RigMot_gt[i][j];
+                // cv::Mat rpe_obj = Converter::toInvMatrix(RigMot_RF[i][j])*RigMot_gt[i][j];
 
                 // translation error
                 float t_rpe_obj = std::sqrt( rpe_obj.at<float>(0,3)*rpe_obj.at<float>(0,3) + rpe_obj.at<float>(1,3)*rpe_obj.at<float>(1,3) + rpe_obj.at<float>(2,3)*rpe_obj.at<float>(2,3) );
@@ -283,7 +285,7 @@ void Plotter::PlotMetricError(Map* map, int max_id,  const std::string& path) {
         t_rpe_sum = t_rpe_sum/obj_count;
         r_rpe_sum = r_rpe_sum/obj_count;
     }
-    // cout << "average error (Over All Objects):" << " t: " << t_rpe_sum << " R: " << r_rpe_sum << endl;
+    LOG(INFO) << "average error (Over All Objects):" << " t: " << t_rpe_sum << " R: " << r_rpe_sum;
 
     // show each object
     for (int i = 0; i < each_obj_count.size(); ++i)
@@ -299,7 +301,7 @@ void Plotter::PlotMetricError(Map* map, int max_id,  const std::string& path) {
             each_obj_r[i] = each_obj_r[i]/each_obj_count[i];
         }
         if (each_obj_count[i]>=3) {}
-            // cout << endl << "average error of Object " << i+1 << ": " << " t: " << each_obj_t[i] << " R: " << each_obj_r[i] << " TrackCount: " << each_obj_count[i] << endl;
+            LOG(INFO) << "average error of Object " << i+1 << ": " << " t: " << each_obj_t[i] << " R: " << each_obj_r[i] << " TrackCount: " << each_obj_count[i];
     }
 
     // cout << "=================================================" << endl;
@@ -362,6 +364,8 @@ void Plotter::PlotMotionComparison(Map* map, const std::string& path) {
                 cv::Mat RigMotBodyBackEnd = Converter::toInvMatrix(ObjPosePre[i][j])*RigMot_RF[i][j]*ObjPosePre[i][j];
                 cv::Mat rpe_obj_frontend = Converter::toInvMatrix(RigMotBodyFrontEnd)*RigMot_gt[i][j];
                 cv::Mat rpe_obj_backend = Converter::toInvMatrix(RigMotBodyBackEnd)*RigMot_gt[i][j];
+                // cv::Mat rpe_obj_frontend = Converter::toInvMatrix(RigMot[i][j])*RigMot_gt[i][j];
+                // cv::Mat rpe_obj_backend = Converter::toInvMatrix(RigMot_RF[i][j])*RigMot_gt[i][j];
 
                 // translation error
                 float t_rpe_obj_front = std::sqrt( rpe_obj_frontend.at<float>(0,3)*rpe_obj_frontend.at<float>(0,3) + rpe_obj_frontend.at<float>(1,3)*rpe_obj_frontend.at<float>(1,3) + rpe_obj_frontend.at<float>(2,3)*rpe_obj_frontend.at<float>(2,3) );

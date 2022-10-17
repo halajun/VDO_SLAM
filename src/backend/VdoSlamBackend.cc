@@ -439,7 +439,7 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                             }
                             CHECK(object_motion_index != -1);
                             gtsam::Key object_motion_key;
-                            if(unique_vertices[frame_id][object_motion_index] == 0) {
+                            if(unique_vertices[previous_frame][object_motion_index] == 0) {
                                 gtsam::Pose3 object_motion = gtsam::Pose3::identity();
                                 // gtsam::Pose3 object_motion = utils::cvMatToGtsamPose3(map->vmRigidMotion[previous_frame][object_motion_index]);
                                 // object_motion = object_motion.inverse();
@@ -447,7 +447,7 @@ void VdoSlamBackend::process(bool run_as_incremental) {
 
                                 if(previous_frame>1) {
 
-                                    gtsam::Key previous_pose_key = unique_vertices[previous_frame][0];
+                                    gtsam::Key previous_pose_key = unique_vertices[previous_frame-1][0];
                                     // gtsam::Pose3 previous_pose = isam->calculateEstimate<gtsam::Pose3>(previous_pose_key);
                                     
                                     //calculate relative motion
@@ -467,7 +467,7 @@ void VdoSlamBackend::process(bool run_as_incremental) {
 
                                     //if trace exists
                                     if(trace_id != -1) {
-                                        gtsam::Key previous_motion_key = unique_vertices[previous_frame][trace_id];
+                                        gtsam::Key previous_motion_key = unique_vertices[previous_frame-1][trace_id];
                                     
                                         //if key is in the values
                                         if(state_.exists(previous_motion_key)) {
@@ -493,7 +493,7 @@ void VdoSlamBackend::process(bool run_as_incremental) {
 
                                 addMotionToGraph(object_motion, count_unique_id, previous_frame, object_motion_index);
                                 logObjectMotion(count_unique_id, obs_label);
-                                unique_vertices[frame_id][object_motion_index] = count_unique_id;
+                                unique_vertices[previous_frame][object_motion_index] = count_unique_id;
                                 object_motion_key = count_unique_id;
                                 LOG(INFO) << "Added motion with key: " << object_motion_key;
 
@@ -502,7 +502,7 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                             else {
                                 // LOG(INFO) << "Reusing object motion " << frame_id << " " << object_motion_index << " " << obs_label;
                                 //WILL the object motion index be the same!? Probably not!
-                                object_motion_key = unique_vertices[frame_id][object_motion_index];
+                                object_motion_key = unique_vertices[previous_frame][object_motion_index];
                             }
 
                             // LOG(INFO) << object_motion_index << " " << obs_label;
@@ -725,9 +725,15 @@ void VdoSlamBackend::addLandmarkMotionFactor(const gtsam::Point3& measurement, g
 
 void VdoSlamBackend::updateMap(const gtsam::Values& state) {
     LOG(INFO) << "Updating " << camera_pose_to_update.size() << " Camera poses";
-
+    
+     //fill maps
+    all_camera_pose_to_update.insert(camera_pose_to_update.begin(), camera_pose_to_update.end());
+    all_object_motions_to_update.insert(object_motions_to_update.begin(), object_motions_to_update.end());
+    //very lazy: just go through all the keys and udpate all the motions and camera poses
+    //instead of checking which keys were re-linearized we just track all the keys in the isam and update
+    //the object motions and poses with best estimate regardless. These are the only ones we use for error metrics anyway
     //update camera pose
-    for (const auto& [key, frame_slot]: camera_pose_to_update ) {
+    for (const auto& [key, frame_slot]: all_camera_pose_to_update ) {
         if(!state.exists(key)) {
             LOG(WARNING) << "pose key " << key << " should exist in the state";
             continue;
@@ -748,7 +754,7 @@ void VdoSlamBackend::updateMap(const gtsam::Values& state) {
 
     LOG(INFO) << "Updating " << object_motions_to_update.size() << " Object motions";
     //update motion
-    for (const auto& [key, frame_slot]: object_motions_to_update ) {
+    for (const auto& [key, frame_slot]: all_object_motions_to_update ) {
         if(!state.exists(key)) {
             LOG(WARNING) << "motion key " << key << " should exist in the state";
             continue;
@@ -756,7 +762,7 @@ void VdoSlamBackend::updateMap(const gtsam::Values& state) {
 
         gtsam::Pose3 object_motion = state.at<gtsam::Pose3>(key);
         cv::Mat object_motion_refined = utils::gtsamPose3ToCvMat(object_motion);
-        // map->vmRigidMotion[frame_slot.first][frame_slot.second] = object_motion_refined;
+        map->vmRigidMotion[frame_slot.first][frame_slot.second] = object_motion_refined;
         map->vmRigidMotion_RF[frame_slot.first][frame_slot.second] = object_motion_refined;
     }
 
@@ -771,7 +777,7 @@ void VdoSlamBackend::updateMap(const gtsam::Values& state) {
 
         gtsam::Point3 static_point = state.at<gtsam::Point3>(key);
         cv::Mat static_point_refined = utils::gtsamPoint3ToCvMat(static_point);
-        map->vp3DPointSta[frame_slot.first][frame_slot.second] = static_point_refined;
+        map->vp3DPointSta[frame_slot.first][frame_slot.second] = static_point_refined.clone();
     }
 
     //update dynamic points
@@ -786,37 +792,18 @@ void VdoSlamBackend::updateMap(const gtsam::Values& state) {
         cv::Mat dynamic_point_refined = utils::gtsamPoint3ToCvMat(dynamic_point);
         // LOG(INFO) << dynamic_point_refined;
         //TODO: causes cfree deallocate in cv::Mat
-        // map->vp3DPointDyn[frame_slot.first][frame_slot.second] = dynamic_point_refined;
+        map->vp3DPointDyn[frame_slot.first][frame_slot.second] = dynamic_point_refined.clone();
     }
 
-    //clear all maps
-    // camera_pose_to_update.clear();
-    // object_motions_to_update.clear();
-    // static_points_to_update.clear();
-    // dynamic_points_to_update.clear();
 
     camera_pose_to_update = std::map<gtsam::Key, FrameSlot>();
     object_motions_to_update = std::map<gtsam::Key, FrameSlot>();
     static_points_to_update = std::map<gtsam::Key, FrameSlot>();
     dynamic_points_to_update = std::map<gtsam::Key, FrameSlot>();
 
-    LOG(INFO) << "Done update";
-    // //first update camera motion
-    // gtsam::Pose3 camea_pose_refined = isam->calculateEstimate<gtsam::Pose3>(curr_camera_pose_vertex);
-    // cv::Mat cv_pose_refined = utils::gtsamPose3ToCvMat(camea_pose_refined);
-    // map->vmCameraPose[current_frame] = cv_pose_refined;
-    // // map->vmCameraPose_RF[frame_id] = cv_pose_refined;
 
-    // //update camera motion
-    // if(current_frame > 0) {
-    //      gtsam::Pose3 camera_pose_prev = utils::cvMatToGtsamPose3(map->vmCameraPose[current_frame-1]);
-    //         gtsam::Pose3 rigid_motion_refied = camera_pose_prev.inverse() * camea_pose_refined;
-    //         //     map->vmRigidMotion[frame_id-1][0] = Converter::toInvMatrix(
-    //         //         map->vmCameraPose[frame_id-1])*map->vmCameraPose[frame_id];
-    //         map->vmRigidMotion[current_frame-1][0] = utils::gtsamPose3ToCvMat(rigid_motion_refied);
-    // }
-    // // for()
-    // //TODO: clear keys to update
+    LOG(INFO) << "Done update";
+
 }
 
 void VdoSlamBackend::optimizeLM() {

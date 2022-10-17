@@ -19,7 +19,7 @@ namespace VDO_SLAM {
 
 // template<size_t N>
 // inline gtsam:: Tracklet::convert(FrameId frame_id, FeatureId point_id, Map* map);
-using StaticTrackletManager = TrackletManager<gtsam::Point3, 2>;
-using DynamicTrackletManager = TrackletManager<gtsam::Point3, 2>;
+using StaticTrackletManager = TrackletManager<gtsam::Point3, 3>;
+using DynamicTrackletManager = TrackletManager<gtsam::Point3, 3>;
 
 }

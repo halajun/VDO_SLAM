@@ -1227,16 +1227,27 @@ void Tracking::Track()
 
     backend->process(run_as_incremental);
 
-    if(run_as_incremental && f_id > 1) {
+    if(run_as_incremental && f_id > 2) {
         cv::Mat best_pose = backend->getBestPoseEstimate();
         mLastFrame.SetPose(best_pose);
         //size - 1 for camera motion
         // CHECK_EQ(mLastFrame.vObjMod.size(), mpMap->vmRigidMotion_RF.back().size() - 1);
-        //  for (int i = 0; i < mLastFrame.vObjMod.size(); ++i) {
-        //     //updating motion
-        //     mLastFrame.vObjMod[i] = mpMap->vmRigidMotion_RF.back()[i];
-        //  }  
-        // mCurrentFrame.vObjMod[i]
+        const size_t last_update_static = mpMap->vpFeatSta.size() -1;
+        const size_t last_update_motion = mpMap->vmRigidMotion.size() - 1;
+        const size_t last_update_dynamic_points = mpMap->vp3DPointDyn.size() - 1;
+        // for (int i = 0; i < mLastFrame.vObjMod.size(); ++i) {
+        // //updating motion
+        //     mLastFrame.vObjMod[i] = mpMap->vmRigidMotion[last_update_motion][i].clone();
+        // }  
+
+        for (int i = 0; i < mLastFrame.mvObj3DPoint.size(); ++i) {
+            //updating dynamic points
+            mLastFrame.mvObj3DPoint[i] = mpMap->vp3DPointDyn[last_update_dynamic_points][i].clone();
+        }  
+        for (int i = 0; i < mLastFrame.mvStat3DPointTmp.size(); ++i) {
+            //updating static points
+            mLastFrame.mvStat3DPointTmp[i] = mpMap->vp3DPointSta[last_update_static][i].clone();
+        }  
     }
 
     // if (f_id > 6) {

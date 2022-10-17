@@ -156,6 +156,11 @@ class VdoSlamBackend {
         std::map<gtsam::Key, FrameSlot> static_points_to_update;
         std::map<gtsam::Key, FrameSlot> dynamic_points_to_update;
 
+
+        //these will hold all the keys every had so we can reference them later
+        std::map<gtsam::Key, FrameSlot> all_camera_pose_to_update;
+        std::map<gtsam::Key, FrameSlot> all_object_motions_to_update;
+
         gtsam::Values all_values; //currently used for writing out to g2o
 
         //just used currently while writing to g2o so we can add values to an "optimizer"

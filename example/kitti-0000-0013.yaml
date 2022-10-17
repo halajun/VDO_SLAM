@@ -46,7 +46,7 @@ ThDepthOBJ: 25.0
 # MaxTrackPointBG: 1200 # 1200 1500 2000
 # MaxTrackPointOBJ: 800 # 800
 MaxTrackPointBG: 800 # 1200 1500 2000
-MaxTrackPointOBJ: 400 # 800
+MaxTrackPointOBJ: 500 # 800
 
 # Scene Flow Magnitude and Distribution Threshold
 SFMgThres: 0.12 # 0.05
@@ -95,10 +95,10 @@ Backend.use_robust_kernel: 1
 # odom noise model
 Backend.var_camera: 0.0001
 Backend.var_camera_prior: 0.000000001
-Backend.var_3d_static: 0.01
+Backend.var_3d_static: 0.001
 Backend.var_obj: 5.0
-Backend.var_3d_dyn: 0.01
-Backend.var_obj_smooth: 0.0001
+Backend.var_3d_dyn: 0.001
+Backend.var_obj_smooth: 2
 Backend.k_huber_3d_points: 0.001
 Backend.k_huber_obj_motion: 0.00001
 

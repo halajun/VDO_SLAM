@@ -156,6 +156,9 @@ class VdoSlamBackend {
         std::map<gtsam::Key, FrameSlot> static_points_to_update;
         std::map<gtsam::Key, FrameSlot> dynamic_points_to_update;
 
+        //each vector should be the same length as the graph for evety frame, but only true for the dynamic ones
+        std::vector<std::vector<bool>> dynamic_factor_indicies;
+
 
         //these will hold all the keys every had so we can reference them later
         std::map<gtsam::Key, FrameSlot> all_camera_pose_to_update;

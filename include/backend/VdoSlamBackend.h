@@ -188,6 +188,7 @@ class VdoSlamBackend {
 
         //the frame count.The size of the map (N) - 1. Assuming we call update every iteration
         int current_frame;
+        int last_frame_with_dynamic;
 
         //camera matrix
         const cv::Mat K;

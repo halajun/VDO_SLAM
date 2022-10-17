@@ -45,6 +45,7 @@ VdoSlamBackend::VdoSlamBackend(Map* map_, const cv::Mat& Calib_K_, BackendParams
         pre_camera_pose_vertex(-1),
         curr_camera_pose_vertex(0),
         current_frame(-1),
+        last_frame_with_dynamic(-1),
         key_to_unique_vertices(),
         cameraPosePrior(nullptr),
         odometryNoiseModel(nullptr),
@@ -385,6 +386,9 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                         else {
 
                             DynamicTrackletManager::Observation previous_obs = tracklet.getPreviousObservation(obs);
+
+                            CHECK(previous_obs->tracklet_id == track_id);
+
                             int previous_key = previous_obs->key;
                             int previous_frame = previous_obs->frame_id;
 
@@ -439,15 +443,17 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                             }
                             CHECK(object_motion_index != -1);
                             gtsam::Key object_motion_key;
-                            if(unique_vertices[previous_frame][object_motion_index] == 0) {
-                                gtsam::Pose3 object_motion = gtsam::Pose3::identity();
-                                // gtsam::Pose3 object_motion = utils::cvMatToGtsamPose3(map->vmRigidMotion[previous_frame][object_motion_index]);
+                            if(unique_vertices[frame_id][object_motion_index] == 0) {
+                                LOG(INFO) << "Object motion at f: " << frame_id << " motion index " << object_motion_index << " seen first - " << count_unique_id;
+
+                                // gtsam::Pose3 object_motion = gtsam::Pose3::identity();
+                                gtsam::Pose3 object_motion = utils::cvMatToGtsamPose3(map->vmRigidMotion[previous_frame][object_motion_index]);
                                 // object_motion = object_motion.inverse();
 
 
                                 if(previous_frame>1) {
 
-                                    gtsam::Key previous_pose_key = unique_vertices[previous_frame-1][0];
+                                    gtsam::Key previous_pose_key = unique_vertices[previous_frame][0];
                                     // gtsam::Pose3 previous_pose = isam->calculateEstimate<gtsam::Pose3>(previous_pose_key);
                                     
                                     //calculate relative motion
@@ -467,7 +473,7 @@ void VdoSlamBackend::process(bool run_as_incremental) {
 
                                     //if trace exists
                                     if(trace_id != -1) {
-                                        gtsam::Key previous_motion_key = unique_vertices[previous_frame-1][trace_id];
+                                        gtsam::Key previous_motion_key = unique_vertices[previous_frame][trace_id];
                                     
                                         //if key is in the values
                                         if(state_.exists(previous_motion_key)) {
@@ -493,7 +499,7 @@ void VdoSlamBackend::process(bool run_as_incremental) {
 
                                 addMotionToGraph(object_motion, count_unique_id, previous_frame, object_motion_index);
                                 logObjectMotion(count_unique_id, obs_label);
-                                unique_vertices[previous_frame][object_motion_index] = count_unique_id;
+                                unique_vertices[frame_id][object_motion_index] = count_unique_id;
                                 object_motion_key = count_unique_id;
                                 LOG(INFO) << "Added motion with key: " << object_motion_key;
 
@@ -502,7 +508,7 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                             else {
                                 // LOG(INFO) << "Reusing object motion " << frame_id << " " << object_motion_index << " " << obs_label;
                                 //WILL the object motion index be the same!? Probably not!
-                                object_motion_key = unique_vertices[previous_frame][object_motion_index];
+                                object_motion_key = unique_vertices[frame_id][object_motion_index];
                             }
 
                             // LOG(INFO) << object_motion_index << " " << obs_label;
@@ -510,12 +516,12 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                             gtsam::Point3 initial_measurement(0, 0, 0);
                             // LOG(INFO) << dynamic_lmk_key << " " << previous_key << " " << obj_position_id;
                             addLandmarkMotionFactor(initial_measurement, (dynamic_lmk_key), (previous_key), (object_motion_key));
-                            LOG(INFO) << "motion factor - lmk " << dynamic_lmk_key << " prev " << previous_key << " motion key " << object_motion_key;
+                            LOG(INFO) << "motion factor - lmk " << dynamic_lmk_key << " prev " << previous_key << " motion key " << object_motion_key << " frame id" << frame_id << " previous frame id" << previous_frame;
                 
                             
                         }
                     }
-                    // tracklet.markAsAdded(obs_to_add);
+                    tracklet.markAsAdded(obs_to_add);
                 
                 }
             }
@@ -795,11 +801,17 @@ void VdoSlamBackend::updateMap(const gtsam::Values& state) {
         map->vp3DPointDyn[frame_slot.first][frame_slot.second] = dynamic_point_refined.clone();
     }
 
+     //for funsies lets see what happens when i clear the map
+    //do it when there are no dynamic motions for n frames
+    if(dynamic_points_to_update.size() > 0) {
+        last_frame_with_dynamic = current_frame;
+    }
 
     camera_pose_to_update = std::map<gtsam::Key, FrameSlot>();
     object_motions_to_update = std::map<gtsam::Key, FrameSlot>();
     static_points_to_update = std::map<gtsam::Key, FrameSlot>();
     dynamic_points_to_update = std::map<gtsam::Key, FrameSlot>();
+
 
 
     LOG(INFO) << "Done update";
@@ -1060,6 +1072,11 @@ void VdoSlamBackend::optimize() {
                 dynamic_motion_map_total[e.first].push_back(e.second);
                 dynamic_motion_map[e.first] = std::vector<gtsam::Key>();
                 // dynamic_motion_map[e.first].clear();
+            }
+
+            if(last_update_dynamic_points - current_frame > 5) {
+                LOG(INFO) << "Last frame with dynamic points was frame " << last_update_dynamic_points << " vs. now " <<  current_frame;
+                gtsam::noiseModel::Gaussian::shared_ptr updatedPoseNoise = gtsam::noiseModel::Gaussian::Covariance(isam->marginalCovariance(curr_camera_pose_vertex));
             }
             
             all_values.clear();

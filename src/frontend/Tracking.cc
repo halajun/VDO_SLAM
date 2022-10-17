@@ -1235,15 +1235,15 @@ void Tracking::Track()
         const size_t last_update_static = mpMap->vpFeatSta.size() -1;
         const size_t last_update_motion = mpMap->vmRigidMotion.size() - 1;
         const size_t last_update_dynamic_points = mpMap->vp3DPointDyn.size() - 1;
-        // for (int i = 0; i < mLastFrame.vObjMod.size(); ++i) {
-        // //updating motion
-        //     mLastFrame.vObjMod[i] = mpMap->vmRigidMotion[last_update_motion][i].clone();
-        // }  
-
-        for (int i = 0; i < mLastFrame.mvObj3DPoint.size(); ++i) {
-            //updating dynamic points
-            mLastFrame.mvObj3DPoint[i] = mpMap->vp3DPointDyn[last_update_dynamic_points][i].clone();
+        for (int i = 0; i < mLastFrame.vObjMod.size(); ++i) {
+        //updating motion
+            mLastFrame.vObjMod[i] = mpMap->vmRigidMotion[last_update_motion][i].clone();
         }  
+
+        // for (int i = 0; i < mLastFrame.mvObj3DPoint.size(); ++i) {
+        //     //updating dynamic points
+        //     mLastFrame.mvObj3DPoint[i] = mpMap->vp3DPointDyn[last_update_dynamic_points][i].clone();
+        // }  
         for (int i = 0; i < mLastFrame.mvStat3DPointTmp.size(); ++i) {
             //updating static points
             mLastFrame.mvStat3DPointTmp[i] = mpMap->vp3DPointSta[last_update_static][i].clone();

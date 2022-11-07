@@ -48,7 +48,7 @@ Frame::Frame(const Frame &frame)
      // new added
      mTcw_gt(frame.mTcw_gt), vObjPose_gt(frame.vObjPose_gt), nSemPosi_gt(frame.nSemPosi_gt),
      vObjLabel(frame.vObjLabel), nModLabel(frame.nModLabel), nSemPosition(frame.nSemPosition),
-     bObjStat(frame.bObjStat), vObjMod(frame.vObjMod), mvCorres(frame.mvCorres), mvObjCorres(frame.mvObjCorres),
+     bObjStat(frame.bObjStat), vObjMod(frame.vObjMod), vObjModCamera(frame.vObjModCamera), mvCorres(frame.mvCorres), mvObjCorres(frame.mvObjCorres),
      mvFlowNext(frame.mvFlowNext), mvObjFlowNext(frame.mvObjFlowNext),
      rgb(frame.rgb.clone()), 
      depth(frame.depth.clone()), 

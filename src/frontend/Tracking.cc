@@ -819,8 +819,10 @@ void Tracking::Track()
 
         mCurrentFrame.bObjStat.resize(ObjIdNew.size(),true);
         mCurrentFrame.vObjMod.resize(ObjIdNew.size());
+        mCurrentFrame.vObjModCamera.resize(ObjIdNew.size());
         mCurrentFrame.vObjPosePre.resize(ObjIdNew.size());
         mCurrentFrame.vObjMod_gt.resize(ObjIdNew.size());
+        mCurrentFrame.vObjModCamera_gt.resize(ObjIdNew.size());
         mCurrentFrame.vObjSpeed_gt.resize(ObjIdNew.size());
         mCurrentFrame.vSpeed.resize(ObjIdNew.size());
         mCurrentFrame.vObjBoxID.resize(ObjIdNew.size());
@@ -835,7 +837,8 @@ void Tracking::Track()
         {
             cout << endl << "Processing Object No.[" << mCurrentFrame.nModLabel[i] << "]:" << endl;
             // Get the ground truth object motion
-            cv::Mat L_p, L_c, L_w_p, L_w_c, H_p_c, H_p_c_body;
+            // cv::Mat L_p, L_c, L_w_p, L_w_c, H_p_c, H_p_c_body;
+            cv::Mat L_c_prev, L_c_curr, L_w_prev, L_w_curr, H_p_c, H_p_c_w, H_p_c_c;
             bool bCheckGT1 = false, bCheckGT2 = false;
             for (int k = 0; k < mLastFrame.nSemPosi_gt.size(); ++k)
             {
@@ -843,13 +846,13 @@ void Tracking::Track()
                     cout << "it is " << mLastFrame.nSemPosi_gt[k] << "!" << endl;
                     if (mTestData==OMD)
                     {
-                        L_w_p = mLastFrame.vObjPose_gt[k];
+                        L_w_prev = mLastFrame.vObjPose_gt[k];
                     }
                     else if (mTestData==KITTI)
                     {
-                        L_p = mLastFrame.vObjPose_gt[k];
+                        L_c_prev = mLastFrame.vObjPose_gt[k];
                         // cout << "what is L_p: " << endl << L_p << endl;
-                        L_w_p = Last_Twc_gt*L_p;
+                        L_w_prev = Last_Twc_gt*L_c_prev;
                         // cout << "what is L_w_p: " << endl << L_w_p << endl;
                     }
                     bCheckGT1 = true;
@@ -862,13 +865,13 @@ void Tracking::Track()
                     // cout << "it is " << mCurrentFrame.nSemPosi_gt[k] << "!" << endl;
                     if (mTestData==OMD)
                     {
-                        L_w_c = mCurrentFrame.vObjPose_gt[k];
+                        L_w_curr = mCurrentFrame.vObjPose_gt[k];
                     }
                     else if (mTestData==KITTI)
                     {
-                        L_c = mCurrentFrame.vObjPose_gt[k];
+                        L_c_curr = mCurrentFrame.vObjPose_gt[k];
                         // cout << "what is L_c: " << endl << L_c << endl;
-                        L_w_c = Curr_Twc_gt*L_c;
+                        L_w_curr = Curr_Twc_gt*L_c_curr;
                         // cout << "what is L_w_c: " << endl << L_w_c << endl;
                     }
                     mCurrentFrame.vObjBoxID[i] = k;
@@ -883,22 +886,36 @@ void Tracking::Track()
                 mCurrentFrame.bObjStat[i] = false;
                 mCurrentFrame.vObjMod_gt[i] = cv::Mat::eye(4,4, CV_32F);
                 mCurrentFrame.vObjMod[i] = cv::Mat::eye(4,4, CV_32F);
+                mCurrentFrame.vObjModCamera[i] = cv::Mat::eye(4,4, CV_32F);
+                mCurrentFrame.vObjModCamera_gt[i] = cv::Mat::eye(4,4, CV_32F);
                 mCurrentFrame.vObjCentre3D[i] = (cv::Mat_<float>(3,1) << 0.f, 0.f, 0.f);
                 mCurrentFrame.vObjSpeed_gt[i] = 0.0;
                 mCurrentFrame.vnObjInlierID[i] = ObjIdNew[i];
                 continue;
             }
+            //Object pose L in camera frame at t -1 (inverse)
+            cv::Mat L_c_prev_inv = Converter::toInvMatrix(L_c_prev);
+            //Object pose L in camera frame at t (inverse)
+            cv::Mat L_c_inv_curr = Converter::toInvMatrix(L_c_curr);
+            //motion H in frame L from t-1 to t
+            cv::Mat H_l_prev_curr =  L_c_prev_inv * L_c_curr;
 
-            cv::Mat L_w_p_inv = Converter::toInvMatrix(L_w_p);
-            cv::Mat L_w_c_inv = Converter::toInvMatrix(L_w_c);
-            H_p_c = L_w_c*L_w_p_inv;
-            // H_p_c_body = Converter::toInvMatrix(L_p)*L_c; // for new metric (26 Feb 2020).
-            H_p_c_body = L_w_p_inv*L_w_c; // actually world
+            cv::Mat L_w_prev_inv = Converter::toInvMatrix(L_w_prev);
+            // motion H in world frame from t-1 to t
+            cv::Mat H_w_prev_curr = L_w_prev * H_l_prev_curr * L_w_prev_inv;
+            // cv::Mat L_w_p_inv = Converter::toInvMatrix(L_w_p);
+            // cv::Mat L_w_c_inv = Converter::toInvMatrix(L_w_c);
+            // cv::Mat H_p_c_l = L_w_c*L_w_p_inv;
+            // // H_p_c_body = Converter::toInvMatrix(L_p)*L_c; // for new metric (26 Feb 2020).
+            // H_p_c_body = L_w_p_inv*L_w_c; // actually world
 
+            // motion H in camera frame from t-1 to t
+            cv::Mat H_c_prev_curr = L_c_prev * H_l_prev_curr * L_c_prev_inv;
+            mCurrentFrame.vObjModCamera_gt[i] = H_c_prev_curr;
             // cv::Mat H_p_c_world = 
-            mCurrentFrame.vObjMod_gt[i] = H_p_c_body;
+            mCurrentFrame.vObjMod_gt[i] = H_w_prev_curr;
             // mCurrentFrame.vObjCentre3D[i] = L_w_p.rowRange(0,3).col(3);
-            mCurrentFrame.vObjPosePre[i] = L_w_p; // for new metric (26 Feb 2020).
+            mCurrentFrame.vObjPosePre[i] = L_w_prev; // for new metric (26 Feb 2020).
 
             // cout << "ground truth motion of object No. " << mCurrentFrame.nSemPosition[i] << " :" << endl;
             // cout << H_p_c << endl;
@@ -934,6 +951,8 @@ void Tracking::Track()
                 mCurrentFrame.bObjStat[i] = false;
                 mCurrentFrame.vObjMod_gt[i] = cv::Mat::eye(4,4, CV_32F);
                 mCurrentFrame.vObjMod[i] = cv::Mat::eye(4,4, CV_32F);
+                mCurrentFrame.vObjModCamera[i] = cv::Mat::eye(4,4, CV_32F);
+                mCurrentFrame.vObjModCamera_gt[i] = cv::Mat::eye(4,4, CV_32F);
                 mCurrentFrame.vObjCentre3D[i] = (cv::Mat_<float>(3,1) << 0.f, 0.f, 0.f);
                 mCurrentFrame.vObjSpeed_gt[i] = 0.0;
                 mCurrentFrame.vSpeed[i] = cv::Point2f(0.f, 0.f);
@@ -982,10 +1001,13 @@ void Tracking::Track()
             if (bJoint)
             {
                 cv::Mat Obj_X_tmp = Optimizer::PoseOptimizationFlow2(&mCurrentFrame,&mLastFrame,ObjIdTest_in,InlierID);
-                mCurrentFrame.vObjMod[i] = Converter::toInvMatrix(mCurrentFrame.mTcw)*Obj_X_tmp;
+                mCurrentFrame.vObjMod[i] = Converter::toInvMatrix(mCurrentFrame.mTcw)*Obj_X_tmp * mCurrentFrame.mTcw;
+                mCurrentFrame.vObjModCamera[i] = Obj_X_tmp;
             }
-            else
+            else {
                 mCurrentFrame.vObjMod[i] = Optimizer::PoseOptimizationObjMot(&mCurrentFrame,&mLastFrame,ObjIdTest_in,InlierID);
+            }
+            // mCurrentFrame.vObjMod[i] = Optimizer::PoseOptimizationObjMot(&mCurrentFrame,&mLastFrame,ObjIdTest_in,InlierID);
             e_3_2 = clock();
             t_con = t_con + 1;
             obj_mot_time = obj_mot_time + (double)(e_3_1-s_3_1)/CLOCKS_PER_SEC*1000 + (double)(e_3_2-s_3_2)/CLOCKS_PER_SEC*1000;
@@ -999,8 +1021,8 @@ void Tracking::Track()
 
             // // ***** get the ground truth object speed here ***** (use version 1 here)
             cv::Mat sp_gt_v, sp_gt_v2;
-            sp_gt_v = H_p_c.rowRange(0,3).col(3) - (cv::Mat::eye(3,3,CV_32F)-H_p_c.rowRange(0,3).colRange(0,3))*ObjCentre3D_pre; // L_w_p.rowRange(0,3).col(3) or ObjCentre3D_pre
-            sp_gt_v2 = L_w_p.rowRange(0,3).col(3) - L_w_c.rowRange(0,3).col(3);
+            sp_gt_v = H_c_prev_curr.rowRange(0,3).col(3) - (cv::Mat::eye(3,3,CV_32F)-H_c_prev_curr.rowRange(0,3).colRange(0,3))*ObjCentre3D_pre; // L_w_p.rowRange(0,3).col(3) or ObjCentre3D_pre
+            sp_gt_v2 = L_w_prev.rowRange(0,3).col(3) - L_w_curr.rowRange(0,3).col(3);
             float sp_gt_norm = std::sqrt( sp_gt_v.at<float>(0)*sp_gt_v.at<float>(0) + sp_gt_v.at<float>(1)*sp_gt_v.at<float>(1) + sp_gt_v.at<float>(2)*sp_gt_v.at<float>(2) )*36;
             // float sp_gt_norm2 = std::sqrt( sp_gt_v2.at<float>(0)*sp_gt_v2.at<float>(0) + sp_gt_v2.at<float>(1)*sp_gt_v2.at<float>(1) + sp_gt_v2.at<float>(2)*sp_gt_v2.at<float>(2) )*36;
             mCurrentFrame.vObjSpeed_gt[i] = sp_gt_norm;
@@ -1029,25 +1051,25 @@ void Tracking::Track()
 
             // (3) metric
             // cv::Mat H_p_c_body_est = L_w_p_inv*mCurrentFrame.vObjMod[i]*L_w_p;
-            cv::Mat H_p_c_body_est = L_w_p_inv*mCurrentFrame.vObjMod[i]*L_w_p;
-            cv::Mat RePoEr = Converter::toInvMatrix(H_p_c_body_est)*H_p_c_body;
+            // cv::Mat H_p_c_body_est = L_w_p_inv*mCurrentFrame.vObjMod[i]*L_w_p;
+            // cv::Mat RePoEr = Converter::toInvMatrix(H_p_c_body_est)*H_p_c_body;
 
             // (4) metric
             // cv::Mat H_p_c_body = L_w_p_inv*L_w_c;
             // cv::Mat H_p_c_body_est_inv = Converter::toInvMatrix(mCurrentFrame.vObjMod[i]);
             // cv::Mat RePoEr = H_p_c_body_est_inv*H_p_c_body;
 
-            float t_rpe = std::sqrt( RePoEr.at<float>(0,3)*RePoEr.at<float>(0,3) + RePoEr.at<float>(1,3)*RePoEr.at<float>(1,3) + RePoEr.at<float>(2,3)*RePoEr.at<float>(2,3) );
-            float trace_rpe = 0;
-            for (int i = 0; i < 3; ++i)
-            {
-                if (RePoEr.at<float>(i,i)>1.0)
-                     trace_rpe = trace_rpe + 1.0-(RePoEr.at<float>(i,i)-1.0);
-                else
-                    trace_rpe = trace_rpe + RePoEr.at<float>(i,i);
-            }
-            float r_rpe = acos( ( trace_rpe -1.0 )/2.0 )*180.0/3.1415926;
-            cout << "the relative pose error of the object, " << "t: " << t_rpe <<  " R: " << r_rpe << endl;
+            // float t_rpe = std::sqrt( RePoEr.at<float>(0,3)*RePoEr.at<float>(0,3) + RePoEr.at<float>(1,3)*RePoEr.at<float>(1,3) + RePoEr.at<float>(2,3)*RePoEr.at<float>(2,3) );
+            // float trace_rpe = 0;
+            // for (int i = 0; i < 3; ++i)
+            // {
+            //     if (RePoEr.at<float>(i,i)>1.0)
+            //          trace_rpe = trace_rpe + 1.0-(RePoEr.at<float>(i,i)-1.0);
+            //     else
+            //         trace_rpe = trace_rpe + RePoEr.at<float>(i,i);
+            // }
+            // float r_rpe = acos( ( trace_rpe -1.0 )/2.0 )*180.0/3.1415926;
+            // cout << "the relative pose error of the object, " << "t: " << t_rpe <<  " R: " << r_rpe << endl;
 
             // *****************************************************************************
         }
@@ -1134,12 +1156,13 @@ void Tracking::Track()
         mpMap->vmCameraPose.push_back(CameraPoseTmp);
         mpMap->vmCameraPose_RF.push_back(CameraPoseTmp);
         // (6) Rigid motions and label, including camera (label=0) and objects (label>0)
-        std::vector<cv::Mat> Mot_Tmp, ObjPose_Tmp;
+        std::vector<cv::Mat> Mot_Tmp, Mot_Tmp_Camera, ObjPose_Tmp;
         std::vector<int> Mot_Lab_Tmp, Sem_Lab_Tmp;
         std::vector<bool> Obj_Stat_Tmp;
         // (6.1) Save Camera Motion and Label
         cv::Mat CameraMotionTmp = Converter::toInvMatrix(mVelocity);
         Mot_Tmp.push_back(CameraMotionTmp);
+        Mot_Tmp_Camera.push_back(CameraMotionTmp);
         ObjPose_Tmp.push_back(CameraMotionTmp);
         Mot_Lab_Tmp.push_back(0);
         Sem_Lab_Tmp.push_back(0);
@@ -1151,12 +1174,14 @@ void Tracking::Track()
                 continue;
             Obj_Stat_Tmp.push_back(mCurrentFrame.bObjStat[i]);
             Mot_Tmp.push_back(mCurrentFrame.vObjMod[i]);
+            Mot_Tmp_Camera.push_back(mCurrentFrame.vObjModCamera[i]);
             ObjPose_Tmp.push_back(mCurrentFrame.vObjPosePre[i]);
             Mot_Lab_Tmp.push_back(mCurrentFrame.nModLabel[i]);
             Sem_Lab_Tmp.push_back(mCurrentFrame.nSemPosition[i]);
         }
         // (6.3) Save to The Map
         mpMap->vmRigidMotion.push_back(Mot_Tmp);
+        mpMap->vmRigidMotionCamera.push_back(Mot_Tmp_Camera);
         mpMap->vmObjPosePre.push_back(ObjPose_Tmp);
         mpMap->vmRigidMotion_RF.push_back(Mot_Tmp);
         mpMap->vnRMLabel.push_back(Mot_Lab_Tmp);
@@ -1174,19 +1199,22 @@ void Tracking::Track()
         mpMap->vmCameraPose_GT.push_back(CameraPoseTmpGT);
 
         // (8) Ground Truth Rigid Motions
-        std::vector<cv::Mat> Mot_Tmp_gt;
+        std::vector<cv::Mat> Mot_Tmp_gt, Mot_Tmp_Camera_gt;
         // (8.1) Save Camera Motion
         cv::Mat CameraMotionTmp_gt = mLastFrame.mTcw_gt*Converter::toInvMatrix(mCurrentFrame.mTcw_gt);
         Mot_Tmp_gt.push_back(CameraMotionTmp_gt);
+        Mot_Tmp_Camera_gt.push_back(CameraMotionTmp_gt);
         // (8.2) Save Object Motions
         for (int i = 0; i < mCurrentFrame.vObjMod_gt.size(); ++i)
         {
             if (!mCurrentFrame.bObjStat[i])
                 continue;
             Mot_Tmp_gt.push_back(mCurrentFrame.vObjMod_gt[i]);
+            Mot_Tmp_Camera_gt.push_back(mCurrentFrame.vObjModCamera_gt[i]);
         }
         // (8.3) Save to The Map
         mpMap->vmRigidMotion_GT.push_back(Mot_Tmp_gt);
+        mpMap->vmRigidMotionCamera_GT.push_back(Mot_Tmp_Camera_gt);
 
         // (9) Ground Truth Camera and Object Speeds
         std::vector<float> Speed_Tmp_gt;
@@ -1297,7 +1325,7 @@ void Tracking::Track()
         //             mpMap->vmCameraPose_GT,mpMap->vmRigidMotion_GT, mpMap->vbObjStat);
 
 
-        // num_batch_update++;
+        num_batch_update++;
         // // if(f_id==StopFrame) {
         if(num_batch_update > 1) {
 

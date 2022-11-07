@@ -447,7 +447,11 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                                 LOG(INFO) << "Object motion at f: " << frame_id << " motion index " << object_motion_index << " seen first - " << count_unique_id;
 
                                 // gtsam::Pose3 object_motion = gtsam::Pose3::identity();
-                                gtsam::Pose3 object_motion = utils::cvMatToGtsamPose3(map->vmRigidMotion[previous_frame][object_motion_index]);
+                                gtsam::Pose3 object_motion_camera = utils::cvMatToGtsamPose3(map->vmRigidMotionCamera[previous_frame][object_motion_index]);
+                                gtsam::Key previous_pose_key = unique_vertices[previous_frame][0];
+                                gtsam::Pose3 previous_camera_pose = isam->calculateEstimate<gtsam::Pose3>(previous_pose_key);
+                                gtsam::Pose3 object_motion = camera_pose * object_motion_camera * camera_pose.inverse();
+                                // gtsam::Pose3 object_motion = utils::cvMatToGtsamPose3(map->vmRigidMotion[previous_frame][object_motion_index]);
                                 // object_motion = object_motion.inverse();
 
 
@@ -755,6 +759,7 @@ void VdoSlamBackend::updateMap(const gtsam::Values& state) {
             gtsam::Pose3 camera_pose_prev = utils::cvMatToGtsamPose3(map->vmCameraPose[frame_id-1]);
             gtsam::Pose3 rigid_motion_refied = camera_pose_prev.inverse() * camea_pose_refined;
             map->vmRigidMotion[frame_id-1][0] = utils::gtsamPose3ToCvMat(rigid_motion_refied);
+            map->vmRigidMotion_RF[frame_id-1][0] = utils::gtsamPose3ToCvMat(rigid_motion_refied);
         }
     }
 
@@ -1074,10 +1079,10 @@ void VdoSlamBackend::optimize() {
                 // dynamic_motion_map[e.first].clear();
             }
 
-            if(last_update_dynamic_points - current_frame > 5) {
-                LOG(INFO) << "Last frame with dynamic points was frame " << last_update_dynamic_points << " vs. now " <<  current_frame;
-                gtsam::noiseModel::Gaussian::shared_ptr updatedPoseNoise = gtsam::noiseModel::Gaussian::Covariance(isam->marginalCovariance(curr_camera_pose_vertex));
-            }
+            // if(last_update_dynamic_points - current_frame > 5) {
+            //     LOG(INFO) << "Last frame with dynamic points was frame " << last_update_dynamic_points << " vs. now " <<  current_frame;
+            //     gtsam::noiseModel::Gaussian::shared_ptr updatedPoseNoise = gtsam::noiseModel::Gaussian::Covariance(isam->marginalCovariance(curr_camera_pose_vertex));
+            // }
             
             all_values.clear();
             graph.resize(0);

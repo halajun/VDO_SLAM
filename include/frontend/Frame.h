@@ -170,6 +170,7 @@ public:
 
     // Store the motion of objects
     std::vector<cv::Mat> vObjMod;
+    std::vector<cv::Mat> vObjModCamera; //motion of objects in the camera frame
     std::vector<cv::Mat> vObjPosePre;
     std::vector<cv::Point2f> vSpeed;
     std::vector<int> nModLabel; //unique tracking label across frames
@@ -206,6 +207,7 @@ public:
     std::vector<cv::Mat> vObjPose_gt;
     std::vector<int> nSemPosi_gt;
     std::vector<cv::Mat> vObjMod_gt;
+    std::vector<cv::Mat> vObjModCamera_gt;
     std::vector<float> vObjSpeed_gt;
 
     cv::Mat mTcw_gt;

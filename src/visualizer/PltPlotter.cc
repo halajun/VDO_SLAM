@@ -226,8 +226,8 @@ void Plotter::PlotMetricError(Map* map, int max_id,  const std::string& path) {
                     continue;
                 }
 
-                cv::Mat RigMotBody = Converter::toInvMatrix(ObjPosePre[i][j])*RigMot_RF[i][j]*ObjPosePre[i][j];
-                cv::Mat rpe_obj = Converter::toInvMatrix(RigMotBody)*RigMot_gt[i][j];
+                // cv::Mat RigMotBody = Converter::toInvMatrix(ObjPosePre[i][j])*RigMot_RF[i][j]*ObjPosePre[i][j];
+                cv::Mat rpe_obj = Converter::toInvMatrix(RigMot_RF[i][j])*RigMot_gt[i][j];
                 // cv::Mat rpe_obj = Converter::toInvMatrix(RigMot_RF[i][j])*RigMot_gt[i][j];
 
                 // translation error
@@ -331,9 +331,15 @@ void Plotter::PlotMetricError(Map* map, int max_id,  const std::string& path) {
 }
 
 void Plotter::PlotMotionComparison(Map* map, const std::string& path) {
+    //backend
     const std::vector<std::vector<cv::Mat>>& RigMot_gt = map->vmRigidMotion_GT;
-    //estimates from the frontend
     const std::vector<std::vector<cv::Mat>>& RigMot = map->vmRigidMotion;
+
+
+    //estimates from the frontend
+    const std::vector<std::vector<cv::Mat>>& RigMotCamera_gt = map->vmRigidMotionCamera_GT;
+    const std::vector<std::vector<cv::Mat>>& RigMotCamera = map->vmRigidMotionCamera;
+
 
     const std::vector<std::vector<cv::Mat>>& RigMot_RF = map->vmRigidMotion_RF;
 
@@ -360,10 +366,10 @@ void Plotter::PlotMotionComparison(Map* map, const std::string& path) {
                 //     continue;
                 // }
 
-                cv::Mat RigMotBodyFrontEnd = Converter::toInvMatrix(ObjPosePre[i][j])*RigMot[i][j]*ObjPosePre[i][j];
-                cv::Mat RigMotBodyBackEnd = Converter::toInvMatrix(ObjPosePre[i][j])*RigMot_RF[i][j]*ObjPosePre[i][j];
-                cv::Mat rpe_obj_frontend = Converter::toInvMatrix(RigMotBodyFrontEnd)*RigMot_gt[i][j];
-                cv::Mat rpe_obj_backend = Converter::toInvMatrix(RigMotBodyBackEnd)*RigMot_gt[i][j];
+                // cv::Mat RigMotBodyFrontEnd = Converter::toInvMatrix(ObjPosePre[i][j])*RigMot[i][j]*ObjPosePre[i][j];
+                // cv::Mat RigMotBodyBackEnd = Converter::toInvMatrix(ObjPosePre[i][j])*RigMot_RF[i][j]*ObjPosePre[i][j];
+                cv::Mat rpe_obj_frontend = Converter::toInvMatrix(RigMotCamera[i][j])*RigMotCamera_gt[i][j];
+                cv::Mat rpe_obj_backend = Converter::toInvMatrix(RigMot[i][j])*RigMot_gt[i][j];
                 // cv::Mat rpe_obj_frontend = Converter::toInvMatrix(RigMot[i][j])*RigMot_gt[i][j];
                 // cv::Mat rpe_obj_backend = Converter::toInvMatrix(RigMot_RF[i][j])*RigMot_gt[i][j];
 

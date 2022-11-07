@@ -3355,7 +3355,7 @@ cv::Mat Optimizer::PoseOptimizationFlow2(Frame *pCurFrame, Frame *pLastFrame, co
 
     int nBad=0;
     cout << endl;
-    for(size_t it=0; it<1; it++)
+    for(size_t it=0; it<4; it++)
     {
 
         vSE3->setEstimate(Converter::toSE3Quat(Init));

@@ -72,6 +72,10 @@ Tracking::Tracking(System *pSys, Map *pMap, const string &strSettingPath, const 
     K.at<float>(1,2) = cy;
     K.copyTo(mK);
 
+
+    plot = cv::Mat(1000, 1000, CV_8UC3, cv::Scalar(255,255,255));
+
+
     cv::Mat DistCoef(4,1,CV_32F);
    // DistCoef.at<float>(0) = fSettings["Camera.k1"];
     // // DistCoef.at<float>(1) = fSettings["Camera.k2"];
@@ -1001,8 +1005,13 @@ void Tracking::Track()
             if (bJoint)
             {
                 cv::Mat Obj_X_tmp = Optimizer::PoseOptimizationFlow2(&mCurrentFrame,&mLastFrame,ObjIdTest_in,InlierID);
-                mCurrentFrame.vObjMod[i] = Converter::toInvMatrix(mCurrentFrame.mTcw)*Obj_X_tmp * mCurrentFrame.mTcw;
-                mCurrentFrame.vObjModCamera[i] = Obj_X_tmp;
+                //Im pretty sure Obj_x_tmp is ^0G_k as in equation (11)
+                //the object motion ^0H_k can be recovered as ^0X_k * ^0G_k
+                cv::Mat H_world = Converter::toInvMatrix(mCurrentFrame.mTcw)*Obj_X_tmp;
+                mCurrentFrame.vObjMod[i] = H_world;
+
+                cv::Mat H_camera = mCurrentFrame.mTcw * H_world * Converter::toInvMatrix(mCurrentFrame.mTcw);
+                mCurrentFrame.vObjModCamera[i] = H_camera;
             }
             else {
                 mCurrentFrame.vObjMod[i] = Optimizer::PoseOptimizationObjMot(&mCurrentFrame,&mLastFrame,ObjIdTest_in,InlierID);
@@ -1173,8 +1182,8 @@ void Tracking::Track()
             if (!mCurrentFrame.bObjStat[i])
                 continue;
             Obj_Stat_Tmp.push_back(mCurrentFrame.bObjStat[i]);
-            Mot_Tmp.push_back(mCurrentFrame.vObjMod[i]);
-            Mot_Tmp_Camera.push_back(mCurrentFrame.vObjModCamera[i]);
+            Mot_Tmp.push_back(mCurrentFrame.vObjMod[i].clone());
+            Mot_Tmp_Camera.push_back(mCurrentFrame.vObjModCamera[i].clone());
             ObjPose_Tmp.push_back(mCurrentFrame.vObjPosePre[i]);
             Mot_Lab_Tmp.push_back(mCurrentFrame.nModLabel[i]);
             Sem_Lab_Tmp.push_back(mCurrentFrame.nSemPosition[i]);
@@ -1272,11 +1281,53 @@ void Tracking::Track()
         //     //updating dynamic points
         //     mLastFrame.mvObj3DPoint[i] = mpMap->vp3DPointDyn[last_update_dynamic_points][i].clone();
         // }  
+        // LOG(INFO) << mLastFrame.mvStat3DPointTmp.size();
         for (int i = 0; i < mLastFrame.mvStat3DPointTmp.size(); ++i) {
             //updating static points
             mLastFrame.mvStat3DPointTmp[i] = mpMap->vp3DPointSta[last_update_static][i].clone();
         }  
+
+        LOG(INFO) << "Obj points" << mLastFrame.mvObj3DPoint.size() << " " << mLastFrame.vSemObjLabel.size() << " " << mLastFrame.vObjLabel.size();
+        for (int i = 0; i < mLastFrame.mvObj3DPoint.size(); ++i) {
+            //updating static points
+            mLastFrame.mvObj3DPoint[i] = mpMap->vp3DPointDyn[last_update_dynamic_points][i].clone();
+        }  
+
+
+        //draw plots
+        int sta_x = 300, sta_y = 100, radi = 1, thic = 2;  // (160/120/2/5)
+        float scale = 6; // 6
+        cv::Mat best_pose_inv = Converter::toInvMatrix(best_pose);
+        int x = int(best_pose_inv.at<float>(0,3)*scale) + sta_x;
+        int y = int(best_pose_inv.at<float>(2,3)*scale) + sta_y;
+
+        cv::rectangle(plot, cv::Point(x, y), cv::Point(x+5, y+5), cv::Scalar(0,0,255),1);
+
+        for (int i = 0; i < mLastFrame.mvStat3DPointTmp.size(); ++i) {
+            int x = int(mLastFrame.mvStat3DPointTmp[i].at<float>(0,0)*scale) + sta_x;
+            int y = int( mLastFrame.mvStat3DPointTmp[i].at<float>(0,2)*scale) + sta_y;
+            // LOG(INFO) << x << " " << y;
+            cv::circle(plot, cv::Point(x, y), radi, CV_RGB(0, 0, 0), 1);
+
+        }
+
+        for (int i = 0; i < mLastFrame.mvObj3DPoint.size(); ++i) {
+            //updating static points
+            int dynamic_label = mLastFrame.vObjLabel[i];
+            cv::Scalar colour = Display::getObjectColour(dynamic_label);
+            int x = int(mLastFrame.mvObj3DPoint[i].at<float>(0,0)*scale) + sta_x;
+            int y = int( mLastFrame.mvObj3DPoint[i].at<float>(0,2)*scale) + sta_y;
+            cv::circle(plot, cv::Point(x, y), radi, colour, 1);
+            
+        }  
+
+
+        cv::imshow("Plot after optt", plot);
+        cv::waitKey(1);
+
+
     }
+
 
     // if (f_id > 6) {
     //     throw std::invalid_argument("Stop");

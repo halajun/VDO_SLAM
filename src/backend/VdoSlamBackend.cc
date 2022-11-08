@@ -447,13 +447,12 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                                 LOG(INFO) << "Object motion at f: " << frame_id << " motion index " << object_motion_index << " seen first - " << count_unique_id;
 
                                 // gtsam::Pose3 object_motion = gtsam::Pose3::identity();
-                                gtsam::Pose3 object_motion_camera = utils::cvMatToGtsamPose3(map->vmRigidMotionCamera[previous_frame][object_motion_index]);
-                                gtsam::Key previous_pose_key = unique_vertices[previous_frame][0];
-                                gtsam::Pose3 previous_camera_pose = isam->calculateEstimate<gtsam::Pose3>(previous_pose_key);
-                                gtsam::Pose3 object_motion = camera_pose * object_motion_camera * camera_pose.inverse();
-                                // gtsam::Pose3 object_motion = utils::cvMatToGtsamPose3(map->vmRigidMotion[previous_frame][object_motion_index]);
-                                // object_motion = object_motion.inverse();
-
+                                // gtsam::Pose3 object_motion_camera = utils::cvMatToGtsamPose3(map->vmRigidMotionCamera[previous_frame][object_motion_index]);
+                                // gtsam::Key previous_pose_key = unique_vertices[previous_frame][0];
+                                // gtsam::Pose3 previous_camera_pose = isam->calculateEstimate<gtsam::Pose3>(previous_pose_key);
+                                // gtsam::Pose3 object_motion = camera_pose * object_motion_camera * camera_pose.inverse();
+                                gtsam::Pose3 object_motion = utils::cvMatToGtsamPose3(map->vmRigidMotion[previous_frame][object_motion_index]);
+                                object_motion = object_motion.inverse();
 
                                 if(previous_frame>1) {
 
@@ -482,7 +481,7 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                                         //if key is in the values
                                         if(state_.exists(previous_motion_key)) {
                                             // object_motion = isam->calculateEstimate<gtsam::Pose3>((previous_motion_key));
-                                            LOG(INFO) << "Using motion prior " << (previous_motion_key) << " " << object_motion;
+                                            // LOG(INFO) << "Using motion prior " << (previous_motion_key) << " " << object_motion;
 
                                             // //also add a smoothing factor here
                                             gtsam::Pose3 object_motion_smoother = gtsam::Pose3::identity() ;
@@ -520,7 +519,7 @@ void VdoSlamBackend::process(bool run_as_incremental) {
                             gtsam::Point3 initial_measurement(0, 0, 0);
                             // LOG(INFO) << dynamic_lmk_key << " " << previous_key << " " << obj_position_id;
                             addLandmarkMotionFactor(initial_measurement, (dynamic_lmk_key), (previous_key), (object_motion_key));
-                            LOG(INFO) << "motion factor - lmk " << dynamic_lmk_key << " prev " << previous_key << " motion key " << object_motion_key << " frame id" << frame_id << " previous frame id" << previous_frame;
+                            // LOG(INFO) << "motion factor - lmk " << dynamic_lmk_key << " prev " << previous_key << " motion key " << object_motion_key << " frame id" << frame_id << " previous frame id" << previous_frame;
                 
                             
                         }

@@ -49,7 +49,7 @@ Frame::Frame(const Frame &frame)
      mTcw_gt(frame.mTcw_gt), vObjPose_gt(frame.vObjPose_gt), nSemPosi_gt(frame.nSemPosi_gt),
      vObjLabel(frame.vObjLabel), nModLabel(frame.nModLabel), nSemPosition(frame.nSemPosition),
      bObjStat(frame.bObjStat), vObjMod(frame.vObjMod), vObjModCamera(frame.vObjModCamera), mvCorres(frame.mvCorres), mvObjCorres(frame.mvObjCorres),
-     mvFlowNext(frame.mvFlowNext), mvObjFlowNext(frame.mvObjFlowNext),
+     mvFlowNext(frame.mvFlowNext), mvObjFlowNext(frame.mvObjFlowNext), mvStat3DPointTmp(frame.mvStat3DPointTmp), mvObj3DPoint(frame.mvObj3DPoint),
      rgb(frame.rgb.clone()), 
      depth(frame.depth.clone()), 
      flow(frame.flow.clone()), 

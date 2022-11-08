@@ -143,6 +143,8 @@ public:
     // Input sensor
     int mSensor;
 
+    cv::Mat plot;
+
     // Current Frame
     Frame mCurrentFrame;
     cv::Mat mImGray;

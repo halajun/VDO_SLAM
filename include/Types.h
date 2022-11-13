@@ -42,6 +42,31 @@ struct InputPacket {
 
 };
 
+enum class DistortionModel
+{
+  NONE,
+  RADTAN,
+  EQUIDISTANT,
+  FISH_EYE
+};
+inline std::string distortionToString(const DistortionModel& model)
+{
+  switch (model)
+  {
+    case DistortionModel::EQUIDISTANT:
+      return "equidistant";
+    case DistortionModel::FISH_EYE:
+      return "fish_eye";
+    case DistortionModel::NONE:
+      return "none";
+    case DistortionModel::RADTAN:
+      return "radtan";
+    default:
+      break;
+  }
+}
+
+
 struct ObjectPoseGT {
     size_t frame_id;
     size_t object_id;

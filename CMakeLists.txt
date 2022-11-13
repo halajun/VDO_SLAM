@@ -71,6 +71,9 @@ src/System.cc
 src/Tracking.cc
 src/DataProvider.cc
 src/UtilsGtsam.cc
+src/utils/ParamParser.cc
+src/Camera.cc
+src/ORBextractor.cc
 
 )
 

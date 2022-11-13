@@ -178,7 +178,7 @@ bool KittiSequenceDataProvider::loadData(const std::string& path_to_sequence, In
 
     //now read image image and add grount truths
     for(size_t frame_id = 0; frame_id < nTimes; frame_id++) {
-        LOG(INFO) << "Loading data at - frame ID " << frame_id;
+        // LOG(INFO) << "Loading data at - frame ID " << frame_id;
         Timestamp timestamp = vTimestamps[frame_id];
         GroundTruthInputPacket gt_packet;
         gt_packet.timestamp = timestamp;
@@ -243,6 +243,8 @@ void KittiSequenceDataProvider::loadSemanticMask(const std::string& strFilenames
         }
 
     }
+
+    file_mask.close();
 }
 
 

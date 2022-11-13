@@ -68,41 +68,9 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
 
 add_library(${PROJECT_NAME} SHARED
 src/System.cc
-src/Converter.cc
-src/Map.cc
-src/Optimizer.cc
-src/FactorGraph.cc
-
-src/frontend/Frame.cc
-src/frontend/Tracking.cc
-src/frontend/ORBextractor.cc
-
-
-src/backend/VdoSlamBackend.cc
-src/backend/VdoSlamBackendParams.cc
-src/backend/VdoSlamBackend-types.cc
-src/backend/DynamicObjectManager.cc
-
-src/utils/ParamParser.cc
-src/utils/UtilsGTSAM.cc
-src/utils/UtilsOpenCv.cc
-src/utils/dataset.cc
-src/utils/camera.cc
-src/utils/timing.cc
-
-src/logger/logger.cc
-
-src/cvplot/color.cc
-src/cvplot/figure.cc
-src/cvplot/highgui.cc
-src/cvplot/window.cc
-src/cvplot/internal.h
-
-src/visualizer/OpenCvDisplay.cc
-src/visualizer/OpenCvVisualizer3D.cc
-src/visualizer/Display.cc
-src/visualizer/DisplayParams.cc
-src/visualizer/PltPlotter.cc
+src/Tracking.cc
+src/DataProvider.cc
+src/UtilsGtsam.cc
 
 )
 
@@ -131,60 +99,56 @@ add_executable(vdo_slam
 example/vdo_slam.cc)
 target_link_libraries(vdo_slam ${PROJECT_NAME})
 
-##### Add some tests #####
-# add_executable(gtsam_basic_test
-#    test/gtsam_basic_test.cc
-# )
+############################### TESTS ##########################################
+### Add testing
+option(VDO_SLAM_BUILD_TESTS "Build tests" ON)
+if(VDO_SLAM_BUILD_TESTS)
+  # Download and unpack googletest at configure time
+  # TODO Consider doing the same for glog, gflags, although it might
+  # make the command `cmake ..` a bit slow.
+  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/gtest.cmake
+    external/googletest-download/CMakeLists.txt)
+  execute_process(COMMAND "${CMAKE_COMMAND}" -G "${CMAKE_GENERATOR}" .
+      WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/external/googletest-download"
+      OUTPUT_QUIET)
+  execute_process(COMMAND "${CMAKE_COMMAND}" --build .
+      WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/external/googletest-download"
+      OUTPUT_QUIET)
 
-# target_link_libraries(gtsam_basic_test
-#    gtsam
-#    ${GFLAGS_LIBRARIES}
-#    ${GLOG_LIBRARIES} 
-# )
+  # Prevent GoogleTest from overriding our compiler/linker options
+  # when building with Visual Studio
+  set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
+  # Add googletest directly to our build. This adds
+  # the following targets: gtest, gtest_main, gmock
+  # and gmock_main
+  # Exclude these targets from installation with EXCLUDE_FROM_ALL
+  # Check issue: https://github.com/google/googletest/issues/868
+  add_subdirectory("${CMAKE_BINARY_DIR}/external/googletest-src"
+                   "${CMAKE_BINARY_DIR}/external/googletest-build"
+                   EXCLUDE_FROM_ALL)
 
-# add_executable(opencv_viz3d_test
-#    test/opencv_viz3d_test.cc
-# )
+  # The gtest/gmock targets carry header search path
+  # dependencies automatically when using CMake 2.8.11 or
+  # later. Otherwise we have to add them here ourselves.
+  if(CMAKE_VERSION VERSION_LESS 2.8.11)
+      include_directories("${gtest_SOURCE_DIR}/include"
+                          "${gmock_SOURCE_DIR}/include")
+  endif()
 
-# target_link_libraries(opencv_viz3d_test
-#    ${OpenCV_LIBS}
-# )
+  # Generate gtests.
+  include(CTest)
+  add_executable(testVdoSlam
+    test/testVdoSlam.cc
+    )
+  target_link_libraries(testVdoSlam gtest ${PROJECT_NAME})
 
-
-# ##### Add some tests #####
-# add_executable(tracklet_tests
-#     test/tracklet_tests.cc
-# )
-
-# target_link_libraries(tracklet_tests
-#     gtsam
-#     ${GFLAGS_LIBRARIES}
-#     ${GLOG_LIBRARIES} 
-#     ${PROJECT_NAME}
-#  )
-
-#  add_executable(plotting_test
-#     test/plotting_test.cc
-# )
-
-# target_link_libraries(plotting_test
-#     gtsam
-#     ${GFLAGS_LIBRARIES}
-#     ${GLOG_LIBRARIES} 
-#     ${PROJECT_NAME}
-#     python2.7
-#  )
-
-
-# ##### Add some tests #####
-#add_executable(landmark_motion_types_test
-#    test/landmark_motion_types_test.cc
-#)
-
-#target_link_libraries(landmark_motion_types_test
-#    gtsam
-#    ${GFLAGS_LIBRARIES}
-#    ${GLOG_LIBRARIES} 
-#    ${PROJECT_NAME}
-# )
+  if(CMAKE_VERSION VERSION_LESS 3.10)
+    enable_testing()
+    include(FindGTest)
+    gtest_add_tests(testVdoSlam "" AUTO)
+  else()
+    include(GoogleTest)
+    gtest_discover_tests(testVdoSlam)
+  endif()
+endif(VDO_SLAM_BUILD_TESTS)

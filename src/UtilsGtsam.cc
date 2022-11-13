@@ -1,4 +1,7 @@
-#include "UtilsGTSAM.h"
+#include "UtilsGtsam.h"
+
+#include <opencv2/core/eigen.hpp>
+
 
 namespace vdo {
 namespace utils {
@@ -41,6 +44,22 @@ gtsam::Rot3 cvMatToGtsamRot3(const cv::Mat& R) {
     gtsam::Matrix rot_mat = gtsam::Matrix::Identity(3, 3);
     cv::cv2eigen(R, rot_mat);
     return gtsam::Rot3(rot_mat);
+}
+
+gtsam::Point3 cvMatToGtsamPoint3(const cv::Mat& cv_t) {
+    CHECK_EQ(cv_t.rows, 3);
+    CHECK_EQ(cv_t.cols, 1);
+    gtsam::Point3 gtsam_t;
+    gtsam_t << cv_t.at<double>(0, 0), cv_t.at<double>(1, 0),
+        cv_t.at<double>(2, 0);
+    return gtsam_t;
+}
+
+cv::Mat gtsamPoint3ToCvMat(const gtsam::Point3& point) {
+    cv::Mat T(3, 1, CV_32F);
+    cv::eigen2cv(point, T);
+    T.convertTo(T, CV_32F);
+    return T.clone();
 }
 
 

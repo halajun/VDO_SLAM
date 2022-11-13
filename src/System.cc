@@ -77,7 +77,8 @@ System::System(const std::string& settings_file) {
 gtsam::Pose3 System::TrackRGBD(
         const InputPacket& input, 
         boost::optional<const GroundTruthInputPacket&> ground_truth) {
-
+	
+	tracker->process(input, ground_truth);
 	return gtsam::Pose3::identity();
         
 }

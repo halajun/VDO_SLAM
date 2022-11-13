@@ -18,8 +18,8 @@ int main(int argc, char **argv)
     vdo::InputPacket input;
     vdo::GroundTruthInputPacket gt;
     while(data_provider->next(input, gt)) {
-        // LOG(INFO) << "Spinning on FIS " << input.frame_id << " " << gt.frame_id;
-        // system.TrackRGBD(input, gt);
+        LOG(INFO) << "Spinning on FIS " << input.frame_id << " " << gt.frame_id;
+        system.TrackRGBD(input, gt);
     }
 
 }

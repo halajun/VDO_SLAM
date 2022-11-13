@@ -99,6 +99,9 @@ public:
 
   Camera(const CameraParams& params_);
 
+  inline double Baseline() const { return params.baseline; }
+  inline const CameraParams& Params() const { return params; }
+
 private:
   CameraParams params;
 

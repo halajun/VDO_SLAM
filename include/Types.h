@@ -10,6 +10,12 @@
 namespace vdo {
 
 using Timestamp = double;
+using Depth = double;
+using InstanceLabel = int;
+using Landmark = gtsam::Point3;
+
+using KeypointsCV = std::vector<cv::KeyPoint>;
+using Landmarks = std::vector<Landmark>;
 
 template<typename T>
 using VectorsXx = std::vector<std::vector<T>>;
@@ -19,20 +25,30 @@ using VectorsXd = VectorsXx<double>;
 //int specalisation
 using VectorsXi = VectorsXx<int>;
 
+
+struct ImagePacket {
+  cv::Mat rgb; //RGB (CV_8UC3) or grayscale (CV_8U)
+  cv::Mat depth; 
+  cv::Mat flow; //Float (CV_32F).
+  cv::Mat semantic_mask;
+
+  ImagePacket() {}
+  ImagePacket(const cv::Mat& rgb_, const cv::Mat& depth_, const cv::Mat& flow_, const cv::Mat& semantic_mask_)
+  : rgb(rgb_.clone()), depth(depth_.clone()), flow(flow_.clone()), semantic_mask(semantic_mask_.clone()) {}
+
+};
+
 struct InputPacket {
 
     Timestamp timestamp;
     size_t frame_id;
 
-    cv::Mat rgb; //RGB (CV_8UC3) or grayscale (CV_8U)
-    cv::Mat depth;
-    cv::Mat flow; //Float (CV_32F).
-    cv::Mat semantic_mask;
+    ImagePacket images;
 
     InputPacket() {}
 
     InputPacket(const Timestamp timestamp_, const size_t frame_id_, const cv::Mat& rgb_, const cv::Mat& depth_, const cv::Mat& flow_, const cv::Mat& semantic_mask_)
-    : timestamp(timestamp_), frame_id(frame_id_), rgb(rgb_.clone()), depth(depth_.clone()), flow(flow_.clone()), semantic_mask(semantic_mask_.clone()) {}
+    : timestamp(timestamp_), frame_id(frame_id_), images(rgb_, depth_, flow_, semantic_mask_) {}
 
     // InputPacket(const InputPacket &frame);
 

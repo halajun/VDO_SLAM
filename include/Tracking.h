@@ -3,6 +3,7 @@
 #include "Macros.h"
 #include "Camera.h"
 #include "ORBextractor.h"
+#include "Frame.h"
 
 namespace vdo {
 
@@ -55,13 +56,39 @@ private:
         GroundTruthInputPacket::ConstOptional ground_truth = boost::none);
 
 
+    void detectFeatures(Frame::Ptr frame);
+    void initaliseFrameTo3D(Frame::Ptr frame);
+
+    //calculates the input depth map from the disparity map
+    //sets state variables
+    void preprocessInput(const InputPacket& input);
+
+    //converts the input disparity mape into an stereo depth map using the 
+    //stereo baseline and depth map factor
+    //expects depth to be sized appropiately
+    void processInputDepth(const cv::Mat& disparity, cv::Mat& depth);
+
+
+    //for viz
+    void displayFeatures(const Frame& frame);
+
+
 private:
     TrackingParams params;
     Camera camera;
 
     ORBextractor::UniquePtr feature_detector;
 
+    //state data
     State state { State::kBoostrap };
+    //the frame ID of the current input
+    size_t current_frame_id; 
+    Timestamp current_timestamp;
+    //images
+    ImagePacket images; //the rgb image should be rgb
+
+    Frame::Ptr current_frame { nullptr };
+    Frame::Ptr previous_frame { nullptr };
 
 
 

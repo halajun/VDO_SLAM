@@ -6,8 +6,7 @@
 *
 **/
 
-#ifndef ORBEXTRACTOR_H
-#define ORBEXTRACTOR_H
+#pragma once
 
 #include "Macros.h"
 #include <vector>
@@ -99,7 +98,6 @@ protected:
     std::vector<float> mvInvLevelSigma2;
 };
 
-} //namespace VDO_SLAM
+} //namespace vdo
 
-#endif
 

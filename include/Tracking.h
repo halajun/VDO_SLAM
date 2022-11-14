@@ -5,6 +5,8 @@
 #include "ORBextractor.h"
 #include "Frame.h"
 
+#include "FrontendOutput.h"
+
 namespace vdo
 {
 struct TrackingParams
@@ -44,14 +46,15 @@ public:
 
   Tracking(const TrackingParams& params_, const Camera& camera_);
 
-  gtsam::Pose3 process(const InputPacket& input, GroundTruthInputPacket::ConstOptional ground_truth = boost::none);
+  FrontendOutput::Ptr process(const InputPacket& input,
+                              GroundTruthInputPacket::ConstOptional ground_truth = boost::none);
 
 private:
-  gtsam::Pose3 processBoostrap(const InputPacket& input,
-                               GroundTruthInputPacket::ConstOptional ground_truth = boost::none);
+  FrontendOutput::Ptr processBoostrap(const InputPacket& input,
+                                      GroundTruthInputPacket::ConstOptional ground_truth = boost::none);
 
-  gtsam::Pose3 processNominal(const InputPacket& input,
-                              GroundTruthInputPacket::ConstOptional ground_truth = boost::none);
+  FrontendOutput::Ptr processNominal(const InputPacket& input,
+                                     GroundTruthInputPacket::ConstOptional ground_truth = boost::none);
 
   void detectFeatures(Frame::Ptr frame);
   void initaliseFrameTo3D(Frame::Ptr frame);

@@ -12,8 +12,10 @@ using Depth = double;
 using InstanceLabel = int;
 using Landmark = gtsam::Point3;
 
-using KeypointsCV = std::vector<cv::KeyPoint>;
+using KeypointCV = cv::KeyPoint;
+using KeypointsCV = std::vector<KeypointCV>;
 using Landmarks = std::vector<Landmark>;
+using Depths = std::vector<Depth>;
 
 template <typename T>
 using VectorsXx = std::vector<std::vector<T>>;
@@ -97,8 +99,9 @@ struct ObjectPoseGT
   };
 
   BoundingBox bounding_box;
-  gtsam::Point3 translation;  // 3d object location in camera coordinates
-  double r1;                  // rotation around y-axis in camera coordinates
+  gtsam::Pose3 pose;
+  // gtsam::Point3 translation;  // 3d object location in camera coordinates
+  // double r1;                  // rotation around y-axis in camera coordinates
 };
 
 struct GroundTruthInputPacket

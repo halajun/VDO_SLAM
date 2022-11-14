@@ -2,6 +2,9 @@
 #include "Tracking.h"
 #include "Camera.h"  //for camera params
 #include "utils/ParamParser.h"
+#include "viz/DisplayParams.h"
+#include "viz/Display-Definitions.h"
+#include "FrontendOutput.h"
 
 namespace vdo
 {
@@ -74,11 +77,17 @@ System::System(const std::string& settings_file)
 
   Camera camera(camera_params);
   tracker = vdo::make_unique<Tracking>(tracking_params, camera);
+
+  DisplayParams::Ptr display_params = DisplayParams::loadFromParamParser(parser);
+  viz = vdo::make_unique<Visualizer>(display_params);
 }
 
 gtsam::Pose3 System::TrackRGBD(const InputPacket& input, boost::optional<const GroundTruthInputPacket&> ground_truth)
 {
-  tracker->process(input, ground_truth);
+  FrontendOutput::Ptr output = tracker->process(input, ground_truth);
+
+  VisualiserInput viz_input(output);
+  viz->process(viz_input);
   return gtsam::Pose3::identity();
 }
 

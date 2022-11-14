@@ -3,6 +3,7 @@
 #include "Macros.h"
 #include "Types.h"
 #include "Tracking.h"
+#include "viz/Visualizer.h"
 
 #include <gtsam/geometry/Pose3.h>
 #include <opencv2/opencv.hpp>
@@ -21,6 +22,7 @@ public:
 
 private:
   Tracking::UniquePtr tracker;
+  Visualizer::UniquePtr viz;
 };
 
 }  // namespace vdo

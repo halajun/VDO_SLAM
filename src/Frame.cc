@@ -29,6 +29,24 @@ void Frame::detectFeatures(ORBextractor::UniquePtr& detector)
 
 void Frame::projectKeypoints(const Camera& camera)
 {
+  for (const Feature& feature : static_features)
+  {
+    CHECK(feature.depth != -1);
+    Landmark lmk;
+    camera.backProject(feature.keypoint, feature.depth, &lmk);
+    static_landmarks.push_back(lmk);
+  }
+
+  for (const Feature& feature : dynamic_features)
+  {
+    CHECK(feature.depth != -1);
+    Landmark lmk;
+    camera.backProject(feature.keypoint, feature.depth, &lmk);
+    dynamic_landmarks.push_back(lmk);
+  }
+
+  CHECK_EQ(static_features.size(), static_landmarks.size());
+  CHECK_EQ(dynamic_features.size(), dynamic_landmarks.size());
 }
 
 void Frame::processStaticFeatures(double depth_background_thresh)
@@ -73,6 +91,7 @@ void Frame::processStaticFeatures(double depth_background_thresh)
         else
         {
           // log warning?
+          feature.depth = -1;
         }
 
         feature.optical_flow = cv::Point2d(flow_xe, flow_ye);

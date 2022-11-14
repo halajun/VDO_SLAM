@@ -31,6 +31,7 @@ public:
   }
 
   void detectFeatures(ORBextractor::UniquePtr& detector);
+  // static and dynamic?
   void projectKeypoints(const Camera& camera);
   // //at each detected keypoint, process the flow and construct a predicted position of the feature in the next
   // //frame using the flow
@@ -40,6 +41,10 @@ public:
 
   void drawStaticFeatures(cv::Mat& image) const;
   void drawDynamicFeatures(cv::Mat& image) const;
+
+  // public for now
+  gtsam::Pose3 pose;
+  GroundTruthInputPacket::ConstOptional ground_truth{ boost::none };
 
 private:
   // takes the input image and converts it to mono (if it is not already);
@@ -64,10 +69,10 @@ private:
   // //should have the same size as predicted_keypoints_static
   // std::vector<cv::Point2d> predicted_optical_flow;
   Features static_features;
-  Landmarks static_landmarks;
+  Landmarks static_landmarks;  // as projected in the camera frame
 
   Features dynamic_features;
-  Landmarks dynamic_landmarks;
+  Landmarks dynamic_landmarks;  // as projected in the camera frame
 };
 
 }  // namespace vdo

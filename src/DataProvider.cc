@@ -157,10 +157,11 @@ bool KittiSequenceDataProvider::loadData(const std::string& path_to_sequence, In
       object_pose.bounding_box.b2 = ObjPose_tmp[3];
       object_pose.bounding_box.b3 = ObjPose_tmp[4];
       object_pose.bounding_box.b4 = ObjPose_tmp[5];
-      object_pose.translation(0) = ObjPose_tmp[6];
-      object_pose.translation(1) = ObjPose_tmp[7];
-      object_pose.translation(2) = ObjPose_tmp[8];
-      object_pose.r1 = ObjPose_tmp[9];
+      object_pose.pose = ObjPoseParsingKT(ObjPose_tmp);
+      // object_pose.translation(0) = ObjPose_tmp[6];
+      // object_pose.translation(1) = ObjPose_tmp[7];
+      // object_pose.translation(2) = ObjPose_tmp[8];
+      // object_pose.r1 = ObjPose_tmp[9];
 
       // LOG(INFO) << "Object frame id  " << object_pose.frame_id << " object ID " << object_pose.object_id;
 
@@ -251,6 +252,83 @@ void KittiSequenceDataProvider::loadSemanticMask(const std::string& strFilenames
   }
 
   file_mask.close();
+}
+
+gtsam::Pose3 KittiSequenceDataProvider::ObjPoseParsingKT(const std::vector<double>& obj_pose_gt)
+{
+  CHECK(obj_pose_gt.size() == 10);
+
+  // assign t vector
+  gtsam::Vector6 xi;
+
+  xi(0) = 0.0;
+  // Y-axis in camera coordinates
+  xi(1) = obj_pose_gt[9] + (3.1415926 / 2);  // +(3.1415926/2)
+  xi(2) = 0;
+
+  xi(3) = obj_pose_gt[6];
+  xi(4) = obj_pose_gt[7];
+  xi(5) = obj_pose_gt[8];
+
+  return gtsam::Pose3::Expmap(xi);
+
+  // // assign r vector
+  // float y = vObjPose_gt[9] + (3.1415926 / 2);  // +(3.1415926/2)
+  // float x = 0.0;
+  // float z = 0.0;
+
+  // // the angles are in radians.
+  // float cy = cos(y);
+  // float sy = sin(y);
+  // float cx = cos(x);
+  // float sx = sin(x);
+  // float cz = cos(z);
+  // float sz = sin(z);
+
+  // float m00, m01, m02, m10, m11, m12, m20, m21, m22;
+
+  // // ====== R = Ry*Rx*Rz =======
+
+  // m00 = cy * cz + sy * sx * sz;
+  // m01 = -cy * sz + sy * sx * cz;
+  // m02 = sy * cx;
+  // m10 = cx * sz;
+  // m11 = cx * cz;
+  // m12 = -sx;
+  // m20 = -sy * cz + cy * sx * sz;
+  // m21 = sy * sz + cy * sx * cz;
+  // m22 = cy * cx;
+
+  // // **************************************************
+
+  // R.at<float>(0, 0) = m00;
+  // R.at<float>(0, 1) = m01;
+  // R.at<float>(0, 2) = m02;
+  // R.at<float>(1, 0) = m10;
+  // R.at<float>(1, 1) = m11;
+  // R.at<float>(1, 2) = m12;
+  // R.at<float>(2, 0) = m20;
+  // R.at<float>(2, 1) = m21;
+  // R.at<float>(2, 2) = m22;
+
+  // // construct 4x4 transformation matrix
+  // cv::Mat Pose = cv::Mat::eye(4, 4, CV_32F);
+  // Pose.at<float>(0, 0) = R.at<float>(0, 0);
+  // Pose.at<float>(0, 1) = R.at<float>(0, 1);
+  // Pose.at<float>(0, 2) = R.at<float>(0, 2);
+  // Pose.at<float>(0, 3) = t.at<float>(0);
+  // Pose.at<float>(1, 0) = R.at<float>(1, 0);
+  // Pose.at<float>(1, 1) = R.at<float>(1, 1);
+  // Pose.at<float>(1, 2) = R.at<float>(1, 2);
+  // Pose.at<float>(1, 3) = t.at<float>(1);
+  // Pose.at<float>(2, 0) = R.at<float>(2, 0);
+  // Pose.at<float>(2, 1) = R.at<float>(2, 1);
+  // Pose.at<float>(2, 2) = R.at<float>(2, 2);
+  // Pose.at<float>(2, 3) = t.at<float>(2);
+
+  // cout << "OBJ Pose: " << endl << Pose << endl;
+
+  // return Pose;
 }
 
 }  // namespace vdo

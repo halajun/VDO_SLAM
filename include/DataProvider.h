@@ -35,6 +35,8 @@ private:
   bool loadData(const std::string& path_to_sequence, InputsVector& inputs_vector);
   void loadSemanticMask(const std::string& strFilenamesMask, cv::Mat& mask);
 
+  gtsam::Pose3 ObjPoseParsingKT(const std::vector<double>& obj_pose_gt);
+
   InputsVector data;
   size_t index = 0;
 };

@@ -84,7 +84,7 @@ run_as_incremental: 1
 ## Viz params
 # use_2d must be on for the display Input and Frame params to do anything
 Viz.use_2d: 1
-Viz.displayInput: 0
+Viz.displayInput: 1
 Viz.displayFrame: 1
 
 Viz.use_3d: 0

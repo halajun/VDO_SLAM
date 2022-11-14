@@ -78,6 +78,13 @@ src/UtilsGtsam.cc
 src/utils/ParamParser.cc
 src/utils/UtilsOpenCV.cc
 
+src/viz/Display.cc
+src/viz/DisplayParams.cc
+src/viz/OpenCvDisplay.cc
+src/viz/OpenCvVisualizer3D.cc
+src/viz/Visualizer.cc
+
+
 src/Camera.cc
 src/ORBextractor.cc
 src/Frame.cc
@@ -149,6 +156,7 @@ if(VDO_SLAM_BUILD_TESTS)
   # Generate gtests.
   include(CTest)
   add_executable(testVdoSlam
+    test/testCameraParam.cc
     test/testVdoSlam.cc
     )
   target_link_libraries(testVdoSlam gtest ${PROJECT_NAME})

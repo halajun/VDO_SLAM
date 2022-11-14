@@ -3,6 +3,7 @@
 #include "Camera.h"
 
 #include <opencv2/opencv.hpp>
+#include <glog/logging.h>
 
 namespace vdo
 {
@@ -13,19 +14,23 @@ Tracking::Tracking(const TrackingParams& params_, const Camera& camera_) : param
                                      params.init_threshold_fast, params.min_threshold_fast);
 }
 
-gtsam::Pose3 Tracking::process(const InputPacket& input, GroundTruthInputPacket::ConstOptional ground_truth)
+FrontendOutput::Ptr Tracking::process(const InputPacket& input, GroundTruthInputPacket::ConstOptional ground_truth)
 {
+  FrontendOutput::Ptr output = nullptr;
   if (state == State::kBoostrap)
   {
-    return processBoostrap(input, ground_truth);
+    output = processBoostrap(input, ground_truth);
   }
   else if (state == State::kNominal)
   {
-    return processNominal(input, ground_truth);
+    output = processNominal(input, ground_truth);
   }
+
+  return output;
 }
 
-gtsam::Pose3 Tracking::processBoostrap(const InputPacket& input, GroundTruthInputPacket::ConstOptional ground_truth)
+FrontendOutput::Ptr Tracking::processBoostrap(const InputPacket& input,
+                                              GroundTruthInputPacket::ConstOptional ground_truth)
 {
   // preprocess depth image
   preprocessInput(input);
@@ -33,23 +38,37 @@ gtsam::Pose3 Tracking::processBoostrap(const InputPacket& input, GroundTruthInpu
   Frame::Ptr frame = std::make_shared<Frame>(images, current_timestamp, current_frame_id, camera.Params());
   detectFeatures(frame);
   displayFeatures(*frame);
+  frame->projectKeypoints(camera);
 
   // use ground truth to initalise pose
-  // set pose to ground truth
-  // TODO: check KITTI parsing in data provider
+  if (ground_truth)
+  {
+    frame->pose = ground_truth->X_wc;
+    frame->ground_truth = ground_truth;
+    LOG(INFO) << "Initalising pose using ground truth " << frame->pose;
+  }
+  else
+  {
+    frame->pose = gtsam::Pose3::identity();
+    LOG(INFO) << "Initalising pose identity matrix " << frame->pose;
+  }
+
   // set initalisatiobn
+  current_frame = frame;
   state = State::kNominal;
-  return gtsam::Pose3::identity();
+  return std::make_shared<FrontendOutput>(frame);
 }
 
-gtsam::Pose3 Tracking::processNominal(const InputPacket& input, GroundTruthInputPacket::ConstOptional ground_truth)
+FrontendOutput::Ptr Tracking::processNominal(const InputPacket& input,
+                                             GroundTruthInputPacket::ConstOptional ground_truth)
 {
   preprocessInput(input);
   // constrict frame
   Frame::Ptr frame = std::make_shared<Frame>(images, current_timestamp, current_frame_id, camera.Params());
   detectFeatures(frame);
   displayFeatures(*frame);
-  return gtsam::Pose3::identity();
+  frame->projectKeypoints(camera);
+  return std::make_shared<FrontendOutput>(frame);
 }
 
 void Tracking::preprocessInput(const InputPacket& input)
@@ -83,7 +102,9 @@ void Tracking::processInputDepth(const cv::Mat& disparity, cv::Mat& depth)
     for (int j = 0; j < disparity.cols; j++)
     {
       if (disparity.at<double>(i, j) < 0)
+      {
         depth.at<double>(i, j) = 0;
+      }
       else
       {
         // if (mTestData==OMD)

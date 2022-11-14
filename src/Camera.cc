@@ -96,4 +96,88 @@ Camera::Camera(const CameraParams& params_) : params(params_)
 {
 }
 
+void Camera::project(const Landmarks& lmks, KeypointsCV* kpts) const
+{
+  if (kpts == nullptr)
+  {
+    LOG(WARNING) << "Kpts vector is null";
+    return;
+  }
+  kpts->clear();
+  const auto& n_lmks = lmks.size();
+  kpts->resize(n_lmks);
+  // Can be greatly optimized with matrix mult or vectorization
+  for (size_t i = 0u; i < n_lmks; i++)
+  {
+    project(lmks[i], &(*kpts)[i]);
+  }
+}
+
+void Camera::project(const Landmark& lmk, KeypointCV* kpt) const
+{
+  const double x = lmk.x();
+  const double y = lmk.y();
+  const double z = lmk.z();
+
+  // lmks should be in camera frame P_c in R3
+  float u = static_cast<float>((x * params.fx()) / z + params.cu());
+  float v = static_cast<float>((y * params.fy()) / z + params.cv());
+
+  kpt->pt.x = u;
+  kpt->pt.y = v;
+}
+
+bool Camera::isKeypointContained(const KeypointCV& kpt, Depth depth) const
+{
+  return (kpt.pt.x > 0 && kpt.pt.x < params.ImageWidth() && kpt.pt.y > 0 && kpt.pt.y < params.ImageHeight() &&
+          depth > 0);
+}
+
+void Camera::backProject(const KeypointsCV& kps, const Depths& depths, Landmarks* lmks) const
+{
+  if (lmks == nullptr)
+  {
+    LOG(WARNING) << "landmark vector is null";
+    return;
+  }
+  lmks->reserve(kps.size());
+  for (size_t i = 0u; i < kps.size(); i++)
+  {
+    Landmark lmk;
+    backProject(kps[i], depths[i], &lmk);
+    lmks->push_back(lmk);
+  }
+}
+
+// lmk should be in camera frame
+void Camera::backProject(const KeypointCV& kp, const Depth& depth, Landmark* lmk) const
+{
+  const double u = static_cast<double>(kp.pt.x);
+  const double v = static_cast<double>(kp.pt.y);
+  const double z = depth;
+
+  // const double x = (u- cam_params.intrinsics.cu) * z
+  // * 1.0/cam_params.intrinsics.fx; const double y =
+  // (v-cam_params.intrinsics.cv) * z * 1.0/cam_params.intrinsics.fy;
+  const float x = static_cast<float>((u - params.cu()) * z * 1.0 / params.fx());
+  const float y = static_cast<float>((v - params.cv()) * z * 1.0 / params.fy());
+
+  (*lmk)(0) = x;
+  (*lmk)(1) = y;
+  (*lmk)(2) = z;
+}
+
+bool Camera::isLandmarkContained(const Landmark& lmk) const
+{
+  KeypointCV keyPoint;
+  project(lmk, &keyPoint);
+  return isKeypointContained(keyPoint, lmk(2));
+}
+
+bool Camera::isLandmarkContained(const Landmark& lmk, KeypointCV& keypoint) const
+{
+  project(lmk, &keypoint);
+  return isKeypointContained(keypoint, lmk(2));
+}
+
 }  // namespace vdo

@@ -1,14 +1,14 @@
 #include "utils/UtilsOpenCV.h"
 #include <opencv2/opencv.hpp>
 
-namespace vdo {
-namespace utils {
-
-
-void DrawCircleInPlace(cv::Mat& img, const cv::Point2d& point, const cv::Scalar& colour, const double msize) {
-    cv::circle(img, point, msize, colour, 2);
+namespace vdo
+{
+namespace utils
+{
+void DrawCircleInPlace(cv::Mat& img, const cv::Point2d& point, const cv::Scalar& colour, const double msize)
+{
+  cv::circle(img, point, msize, colour, 2);
 }
-
 
 // // add circles in the image at desired position/size/color
 // void DrawCirclesInPlace(cv::Mat& img,
@@ -89,6 +89,5 @@ void DrawCircleInPlace(cv::Mat& img, const cv::Point2d& point, const cv::Scalar&
 //   }
 // }
 
-
-}
-}
+}  // namespace utils
+}  // namespace vdo

@@ -27,93 +27,96 @@
 #include "types_sba.h"
 #include <iostream>
 
-namespace g2o {
+namespace g2o
+{
+using namespace std;
 
-  using namespace std;
+VertexSBAPointXYZ::VertexSBAPointXYZ() : BaseVertex<3, Vector3d>()
+{
+}
 
+bool VertexSBAPointXYZ::read(std::istream& is)
+{
+  Vector3d lv;
+  for (int i = 0; i < 3; i++)
+    is >> _estimate[i];
+  return true;
+}
 
-  VertexSBAPointXYZ::VertexSBAPointXYZ() : BaseVertex<3, Vector3d>()
+bool VertexSBAPointXYZ::write(std::ostream& os) const
+{
+  Vector3d lv = estimate();
+  for (int i = 0; i < 3; i++)
   {
+    os << lv[i] << " ";
   }
+  return os.good();
+}
 
-  bool VertexSBAPointXYZ::read(std::istream& is)
+VertexSBADepth::VertexSBADepth() : BaseVertex<1, Matrix<double, 1, 1> >()
+{
+}
+
+bool VertexSBADepth::read(std::istream& is)
+{
+  Matrix<double, 1, 1> lv;
+  for (int i = 0; i < 1; i++)
+    is >> _estimate[i];
+  return true;
+}
+
+bool VertexSBADepth::write(std::ostream& os) const
+{
+  Matrix<double, 1, 1> lv = estimate();
+  for (int i = 0; i < 1; i++)
   {
-    Vector3d lv;
-    for (int i=0; i<3; i++)
-      is >> _estimate[i];
-    return true;
+    os << lv[i] << " ";
   }
+  return os.good();
+}
 
-  bool VertexSBAPointXYZ::write(std::ostream& os) const
+VertexSBAFlow::VertexSBAFlow() : BaseVertex<2, Vector2d>()
+{
+}
+
+bool VertexSBAFlow::read(std::istream& is)
+{
+  Vector2d lv;
+  for (int i = 0; i < 2; i++)
+    is >> _estimate[i];
+  return true;
+}
+
+bool VertexSBAFlow::write(std::ostream& os) const
+{
+  Vector2d lv = estimate();
+  for (int i = 0; i < 2; i++)
   {
-    Vector3d lv=estimate();
-    for (int i=0; i<3; i++){
-      os << lv[i] << " ";
-    }
-    return os.good();
+    os << lv[i] << " ";
   }
+  return os.good();
+}
 
-  VertexSBADepth::VertexSBADepth() : BaseVertex<1, Matrix<double, 1, 1> >()
+VertexSBAFlowDepth::VertexSBAFlowDepth() : BaseVertex<3, Vector3d>()
+{
+}
+
+bool VertexSBAFlowDepth::read(std::istream& is)
+{
+  Vector3d lv;
+  for (int i = 0; i < 3; i++)
+    is >> _estimate[i];
+  return true;
+}
+
+bool VertexSBAFlowDepth::write(std::ostream& os) const
+{
+  Vector3d lv = estimate();
+  for (int i = 0; i < 3; i++)
   {
+    os << lv[i] << " ";
   }
+  return os.good();
+}
 
-  bool VertexSBADepth::read(std::istream& is)
-  {
-    Matrix<double, 1, 1> lv;
-    for (int i=0; i<1; i++)
-      is >> _estimate[i];
-    return true;
-  }
-
-  bool VertexSBADepth::write(std::ostream& os) const
-  {
-    Matrix<double, 1, 1> lv=estimate();
-    for (int i=0; i<1; i++){
-      os << lv[i] << " ";
-    }
-    return os.good();
-  }
-
-  VertexSBAFlow::VertexSBAFlow() : BaseVertex<2, Vector2d>()
-  {
-  }
-
-  bool VertexSBAFlow::read(std::istream& is)
-  {
-    Vector2d lv;
-    for (int i=0; i<2; i++)
-      is >> _estimate[i];
-    return true;
-  }
-
-  bool VertexSBAFlow::write(std::ostream& os) const
-  {
-    Vector2d lv=estimate();
-    for (int i=0; i<2; i++){
-      os << lv[i] << " ";
-    }
-    return os.good();
-  }
-
-  VertexSBAFlowDepth::VertexSBAFlowDepth() : BaseVertex<3, Vector3d>()
-  {
-  }
-
-  bool VertexSBAFlowDepth::read(std::istream& is)
-  {
-    Vector3d lv;
-    for (int i=0; i<3; i++)
-      is >> _estimate[i];
-    return true;
-  }
-
-  bool VertexSBAFlowDepth::write(std::ostream& os) const
-  {
-    Vector3d lv=estimate();
-    for (int i=0; i<3; i++){
-      os << lv[i] << " ";
-    }
-    return os.good();
-  }
-
-} // end namespace
+}  // namespace g2o

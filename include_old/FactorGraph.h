@@ -24,86 +24,80 @@
 
 #include "dependencies/g2o/g2o/incremental/graph_optimizer_sparse_incremental.h"
 
-
 #include <glog/logging.h>
 #include <memory>
 
-namespace VDO_SLAM {
+namespace VDO_SLAM
+{
+class FactorGraph
+{
+public:
+  typedef std::shared_ptr<FactorGraph> Ptr;
+  typedef std::unique_ptr<FactorGraph> UniquePtr;
+  typedef std::shared_ptr<const FactorGraph> ConstPtr;
 
-class FactorGraph {
+  FactorGraph(Map* map_, const cv::Mat& Calib_K_);
+  ~FactorGraph();
 
-    public:
-        typedef std::shared_ptr<FactorGraph> Ptr;
-        typedef std::unique_ptr<FactorGraph> UniquePtr;
-        typedef std::shared_ptr<const FactorGraph> ConstPtr;
+  void stepAndOptimize();
+  void step();
+  void optimize();
+  void printGraphState();
+  void printStats();
 
-        FactorGraph(Map* map_, const cv::Mat& Calib_K_);
-        ~FactorGraph();
+  Map* map;
+  const cv::Mat Calib_K;
 
-        void stepAndOptimize();
-        void step();
-        void optimize();
-        void printGraphState();
-        void printStats();
+  inline int getMapSize() const
+  {
+    return map->vpFeatSta.size();
+  }
 
-    
-        Map* map;
-        const cv::Mat Calib_K;
+  cv::Mat getLatestCameraPose() const;
 
-        inline int getMapSize() const { return map->vpFeatSta.size(); }
+private:
+  void updateMap();
 
-        cv::Mat getLatestCameraPose() const;
+  // the current frame Id we are incrementally adding
+  int start_frame;
+  // should always one less than the size of the map (ie. N - 1)
+  int steps;
 
-    private:
-        void updateMap();
+  // I think this is the id of the camera pose vertex saved at the previous and current frames
+  // the frame id solved for previously
+  int pre_camera_pose_vertex;
+  // the frame id to be solving for. I guess we only need one of them
+  // this starts at 0
+  int curr_camera_pose_vertex;
 
+  int batch_size;
+  int update_size;
 
-        //the current frame Id we are incrementally adding
-        int start_frame;
-        //should always one less than the size of the map (ie. N - 1)
-        int steps;
+  // g2o stuff
+  g2o::SparseOptimizer optimizer;
+  // g2o::SparseOptimizerIncremental optimizer;
+  g2o::BlockSolverX::LinearSolverType* linearSolver;
+  g2o::BlockSolverX* solver_ptr;
+  g2o::OptimizationAlgorithmLevenberg* solver;
+  g2o::SparseOptimizerTerminateAction* terminateAction;
+  g2o::ParameterSE3Offset* cameraOffset;
 
-        //I think this is the id of the camera pose vertex saved at the previous and current frames
-        //the frame id solved for previously
-        int pre_camera_pose_vertex;
-        //the frame id to be solving for. I guess we only need one of them 
-        //this starts at 0
-        int curr_camera_pose_vertex;
+  std::vector<std::vector<int>> unique_vertices;
+  int count_unique_id;
 
-        int batch_size;
-        int update_size;
+  // measurement information that we updated every step
+  // mark each feature if it is satisfied (valid) for usage
+  // here we use track length as threshold, for static >=3, dynamic >=3.
+  // label each feature of the position in TrackLets: -1(invalid) or >=0(TrackID);
+  // size: static: (N)xM_1, M_1 is the size of features in each frame
+  // size: dynamic: (N)xM_2, M_2 is the size of features in each frame
+  std::vector<std::vector<int>> vnFeaLabSta;
+  std::vector<std::vector<int>> vnFeaMakSta;
+  std::vector<std::vector<int>> vnFeaLabDyn;
+  std::vector<std::vector<int>> vnFeaMakDyn;
 
-
-        //g2o stuff
-        g2o::SparseOptimizer optimizer;
-        // g2o::SparseOptimizerIncremental optimizer;
-        g2o::BlockSolverX::LinearSolverType* linearSolver;
-        g2o::BlockSolverX* solver_ptr;
-        g2o::OptimizationAlgorithmLevenberg* solver;
-        g2o::SparseOptimizerTerminateAction* terminateAction;
-        g2o::ParameterSE3Offset* cameraOffset;
-
-        std::vector<std::vector<int>> unique_vertices;
-        int count_unique_id;
-
-
-        //measurement information that we updated every step
-        // mark each feature if it is satisfied (valid) for usage
-        // here we use track length as threshold, for static >=3, dynamic >=3.
-        // label each feature of the position in TrackLets: -1(invalid) or >=0(TrackID);
-        // size: static: (N)xM_1, M_1 is the size of features in each frame
-        // size: dynamic: (N)xM_2, M_2 is the size of features in each frame
-        std::vector<std::vector<int>> vnFeaLabSta;
-        std::vector<std::vector<int>> vnFeaMakSta;
-        std::vector<std::vector<int>> vnFeaLabDyn;
-        std::vector<std::vector<int>> vnFeaMakDyn;
-
-
-        g2o::HyperGraph::VertexSet verticesAdded;
-        g2o::HyperGraph::EdgeSet edgesAdded;
-
-
+  g2o::HyperGraph::VertexSet verticesAdded;
+  g2o::HyperGraph::EdgeSet edgesAdded;
 };
 
-
-} //VDO_SLAM
+}  // namespace VDO_SLAM

@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include "Macros.h"
 
@@ -8,64 +8,71 @@
 #include <iostream>
 #include <stdexcept>
 
+namespace vdo
+{
+namespace utils
+{
+class ParamParser
+{
+public:
+  VDO_POINTER_TYPEDEFS(ParamParser);
 
-namespace vdo {
-namespace utils {
-class ParamParser {
-    public:
-        VDO_POINTER_TYPEDEFS(ParamParser);
+  ParamParser(const std::string& file_path_);
+  ~ParamParser();
 
-        ParamParser(const std::string& file_path_);
-        ~ParamParser();
+  template <class T>
+  bool getParam(const std::string& id, T* value) const;
 
-        template<class T>
-        bool getParam(const std::string& id, T* value) const;
+private:
+  void openFile(const std::string& file_path_);
+  void closeFile();
 
+  template <class T>
+  inline T converter(const cv::FileNode& node) const;
 
-    private:
-        void openFile(const std::string& file_path_);
-        void closeFile();
-
-        template<class T>
-        inline T converter(const cv::FileNode& node) const;
-
-
-    private:
-        const std::string file_path;
-        cv::FileStorage fs;
-        bool is_valid; 
-
+private:
+  const std::string file_path;
+  cv::FileStorage fs;
+  bool is_valid;
 };
 
-template<class T>
-bool ParamParser::getParam(const std::string& id, T* value) const {
-    CHECK(!id.empty()) << "Id cannot be empty";
-    CHECK_NOTNULL(value);
+template <class T>
+bool ParamParser::getParam(const std::string& id, T* value) const
+{
+  CHECK(!id.empty()) << "Id cannot be empty";
+  CHECK_NOTNULL(value);
 
-    const cv::FileNode& handle = fs[id];
-    if(handle.type() == cv::FileNode::NONE) {
-        LOG(WARNING) << "Missing parameter: " << id
-                     << " in file: " << file_path;
-        
-        return false;
-    }
-    else {
-        *value = converter<T>(handle);
-        return true;
-    }
-    
+  const cv::FileNode& handle = fs[id];
+  if (handle.type() == cv::FileNode::NONE)
+  {
+    LOG(WARNING) << "Missing parameter: " << id << " in file: " << file_path;
+
+    return false;
+  }
+  else
+  {
+    *value = converter<T>(handle);
+    return true;
+  }
 }
 
-template<class T>
-inline T ParamParser::converter(const cv::FileNode& node) const { return node; }
+template <class T>
+inline T ParamParser::converter(const cv::FileNode& node) const
+{
+  return node;
+}
 
-template<>
-inline bool ParamParser::converter(const cv::FileNode& node) const { return static_cast<int>(node) != 0; }
+template <>
+inline bool ParamParser::converter(const cv::FileNode& node) const
+{
+  return static_cast<int>(node) != 0;
+}
 
-template<>
-inline size_t ParamParser::converter(const cv::FileNode& node) const { return static_cast<int>(node);}
+template <>
+inline size_t ParamParser::converter(const cv::FileNode& node) const
+{
+  return static_cast<int>(node);
+}
 
-
-
-} //utils
-} //VDO_SLAM
+}  // namespace utils
+}  // namespace vdo

@@ -2,11 +2,11 @@
 
 #include <opencv2/opencv.hpp>
 
-namespace vdo {
-namespace utils {
-
-
-void DrawCircleInPlace(cv::Mat& img, const cv::Point2d& point, const cv::Scalar& colour,  const double msize= 0.4);
+namespace vdo
+{
+namespace utils
+{
+void DrawCircleInPlace(cv::Mat& img, const cv::Point2d& point, const cv::Scalar& colour, const double msize = 0.4);
 
 // // add circles in the image at desired position/size/color
 // void DrawCirclesInPlace(cv::Mat& img,
@@ -36,6 +36,5 @@ void DrawCircleInPlace(cv::Mat& img, const cv::Point2d& point, const cv::Scalar&
 //     const std::vector<int>& pointIds,
 //     const int remId);
 
-
-}
-}
+}  // namespace utils
+}  // namespace vdo

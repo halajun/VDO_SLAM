@@ -2,17 +2,16 @@
 
 #include "logger/logger.h"
 
-namespace VDO_SLAM {
+namespace VDO_SLAM
+{
+class BackendLogger
+{
+public:
+  BackendLogger() = default;
+  ~BackendLogger() = default;
 
-class BackendLogger {
-    public:
-        BackendLogger() = default;
-        ~BackendLogger() = default;
-
-    private:
-        OfstreamWrapper
-
+private:
+  OfstreamWrapper
 };
 
-
-} //VDO_SLAM
+}  // namespace VDO_SLAM

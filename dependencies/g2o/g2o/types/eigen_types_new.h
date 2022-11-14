@@ -32,36 +32,36 @@
 
 #include "../../config.h"
 
-namespace g2o {
+namespace g2o
+{
+template <int N>
+using VectorN = Eigen::Matrix<number_t, N, 1, Eigen::ColMajor>;
+using Vector2 = VectorN<2>;
+using Vector3 = VectorN<3>;
+using Vector4 = VectorN<4>;
+using Vector6 = VectorN<6>;
+using Vector7 = VectorN<7>;
+using VectorX = VectorN<Eigen::Dynamic>;
 
-  template<int N>
-  using VectorN = Eigen::Matrix<number_t, N, 1, Eigen::ColMajor>;
-  using Vector2 = VectorN<2>;
-  using Vector3 = VectorN<3>;
-  using Vector4 = VectorN<4>;
-  using Vector6 = VectorN<6>;
-  using Vector7 = VectorN<7>;
-  using VectorX = VectorN<Eigen::Dynamic>;
+template <int N>
+using MatrixN = Eigen::Matrix<number_t, N, N, Eigen::ColMajor>;
+using Matrix2 = MatrixN<2>;
+using Matrix3 = MatrixN<3>;
+using Matrix4 = MatrixN<4>;
+using MatrixX = MatrixN<Eigen::Dynamic>;
 
-  template<int N>
-  using MatrixN = Eigen::Matrix<number_t, N, N, Eigen::ColMajor>;
-  using Matrix2 = MatrixN<2>;
-  using Matrix3 = MatrixN<3>;
-  using Matrix4 = MatrixN<4>;
-  using MatrixX = MatrixN<Eigen::Dynamic>;
+typedef Eigen::Transform<number_t, 2, Eigen::Isometry, Eigen::ColMajor> Isometry2;
+typedef Eigen::Transform<number_t, 3, Eigen::Isometry, Eigen::ColMajor> Isometry3;
 
-  typedef Eigen::Transform<number_t,2,Eigen::Isometry,Eigen::ColMajor>            Isometry2;
-  typedef Eigen::Transform<number_t,3,Eigen::Isometry,Eigen::ColMajor>            Isometry3;
+typedef Eigen::Transform<number_t, 2, Eigen::Affine, Eigen::ColMajor> Affine2;
+typedef Eigen::Transform<number_t, 3, Eigen::Affine, Eigen::ColMajor> Affine3;
 
-  typedef Eigen::Transform<number_t,2,Eigen::Affine,Eigen::ColMajor>              Affine2;
-  typedef Eigen::Transform<number_t,3,Eigen::Affine,Eigen::ColMajor>              Affine3;
+typedef Eigen::Rotation2D<number_t> Rotation2D;
 
-  typedef Eigen::Rotation2D<number_t>                                             Rotation2D;
+typedef Eigen::Quaternion<number_t> Quaternion;
 
-  typedef Eigen::Quaternion<number_t>                                             Quaternion;
+typedef Eigen::AngleAxis<number_t> AngleAxis;
 
-  typedef Eigen::AngleAxis<number_t>                                              AngleAxis;
-
-} // end namespace g2o
+}  // end namespace g2o
 
 #endif

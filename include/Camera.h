@@ -7,8 +7,8 @@
 
 namespace vdo
 {
-
-class CameraParams {
+class CameraParams
+{
 public:
   VDO_POINTER_TYPEDEFS(CameraParams);
 
@@ -18,7 +18,7 @@ public:
   using CameraModel = std::string;
 
   CameraParams(const Intrinsics& intrinsics_, const Distortion& distortion_, const cv::Size& image_size_,
-                       const std::string& distortion_model_, double baseline_);
+               const std::string& distortion_model_, double baseline_);
 
   inline double fx() const
   {
@@ -75,7 +75,7 @@ public:
   const Distortion distortion_coeff;
   const cv::Size image_size;
 
-  const double baseline; //assuming rgbd or stereo
+  const double baseline;  // assuming rgbd or stereo
 
   //! Distortion parameters
   DistortionModel distortion_model;
@@ -91,20 +91,24 @@ public:
   cv::Mat D;
 };
 
-
-class Camera {
-
+class Camera
+{
 public:
   VDO_POINTER_TYPEDEFS(Camera);
 
   Camera(const CameraParams& params_);
 
-  inline double Baseline() const { return params.baseline; }
-  inline const CameraParams& Params() const { return params; }
+  inline double Baseline() const
+  {
+    return params.baseline;
+  }
+  inline const CameraParams& Params() const
+  {
+    return params;
+  }
 
 private:
   CameraParams params;
-
 };
-    
-} // namespace vdo
+
+}  // namespace vdo

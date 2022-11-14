@@ -30,40 +30,40 @@
 #include "g2o_interactive_api.h"
 #include "../core/sparse_optimizer.h"
 
-namespace g2o {
+namespace g2o
+{
+class Solver;
 
-  class Solver;
+class G2O_INTERACTIVE_API SparseOptimizerOnline : public SparseOptimizer
+{
+public:
+  explicit SparseOptimizerOnline(bool pcg = false);
+  virtual ~SparseOptimizerOnline();
 
-  class G2O_INTERACTIVE_API SparseOptimizerOnline : public SparseOptimizer
-  {
-    public:
-      explicit SparseOptimizerOnline(bool pcg=false);
-      virtual ~SparseOptimizerOnline();
+  int optimize(int iterations, bool online = false);
 
-      int optimize(int iterations, bool online = false);
+  virtual bool updateInitialization(HyperGraph::VertexSet& vset, HyperGraph::EdgeSet& eset);
 
-      virtual bool updateInitialization(HyperGraph::VertexSet& vset, HyperGraph::EdgeSet& eset);
+  void update(double* update);
 
-      void update(double* update);
+  virtual bool initSolver(int dimension, int batchEveryN);
 
-      virtual bool initSolver(int dimension, int batchEveryN);
+public:
+  int slamDimension;
 
-    public:
-      int slamDimension;
+  HyperGraph::EdgeSet* newEdges;
 
-      HyperGraph::EdgeSet* newEdges;
+  bool batchStep;
+  bool vizWithGnuplot;
 
-      bool batchStep;
-      bool vizWithGnuplot;
+  virtual void gnuplotVisualization();
 
-      virtual void gnuplotVisualization();
-      
-    protected:
-      FILE* _gnuplot;
-      bool _usePcg;
-      Solver* _underlyingSolver;
-  };
+protected:
+  FILE* _gnuplot;
+  bool _usePcg;
+  Solver* _underlyingSolver;
+};
 
-} // end namespace
+}  // namespace g2o
 
 #endif

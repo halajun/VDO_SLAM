@@ -30,7 +30,8 @@ using namespace std;
 using namespace gtsam;
 
 /* ************************************************************************* */
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[])
+{
   // Define the camera calibration parameters
   Cal3_S2::shared_ptr K(new Cal3_S2(50.0, 50.0, 0.0, 50.0, 50.0));
 
@@ -53,15 +54,17 @@ int main(int argc, char* argv[]) {
   Values initialEstimate;
 
   // Loop over the different poses, adding the observations to iSAM incrementally
-  for (size_t i = 0; i < poses.size(); ++i) {
+  for (size_t i = 0; i < poses.size(); ++i)
+  {
     // Add factors for each landmark observation
-    for (size_t j = 0; j < points.size(); ++j) {
+    for (size_t j = 0; j < points.size(); ++j)
+    {
       // Create ground truth measurement
       PinholeCamera<Cal3_S2> camera(poses[i], *K);
       Point2 measurement = camera.project(points[j]);
       // Add measurement
-      graph.emplace_shared<GenericProjectionFactor<Pose3, Point3, Cal3_S2> >(measurement, noise,
-              Symbol('x', i), Symbol('l', j), K);
+      graph.emplace_shared<GenericProjectionFactor<Pose3, Point3, Cal3_S2> >(measurement, noise, Symbol('x', i),
+                                                                             Symbol('l', j), K);
     }
 
     // Intentionally initialize the variables off from the ground truth
@@ -75,26 +78,28 @@ int main(int argc, char* argv[]) {
     // and a prior on the first landmark to set the scale
     // Also, as iSAM solves incrementally, we must wait until each is observed at least twice before
     // adding it to iSAM.
-    if (i == 0) {
+    if (i == 0)
+    {
       // Add a prior on pose x0, with 30cm std on x,y,z 0.1 rad on roll,pitch,yaw
-      auto poseNoise = noiseModel::Diagonal::Sigmas(
-          (Vector(6) << Vector3::Constant(0.1), Vector3::Constant(0.3)).finished());
+      auto poseNoise =
+          noiseModel::Diagonal::Sigmas((Vector(6) << Vector3::Constant(0.1), Vector3::Constant(0.3)).finished());
       graph.addPrior(Symbol('x', 0), poses[0], poseNoise);
 
       // Add a prior on landmark l0
-      auto pointNoise =
-          noiseModel::Isotropic::Sigma(3, 0.1);
+      auto pointNoise = noiseModel::Isotropic::Sigma(3, 0.1);
       graph.addPrior(Symbol('l', 0), points[0], pointNoise);
 
       // Add initial guesses to all observed landmarks
       Point3 noise(-0.25, 0.20, 0.15);
-      for (size_t j = 0; j < points.size(); ++j) {
+      for (size_t j = 0; j < points.size(); ++j)
+      {
         // Intentionally initialize the variables off from the ground truth
         Point3 initial_lj = points[j] + noise;
         initialEstimate.insert(Symbol('l', j), initial_lj);
       }
-
-    } else {
+    }
+    else
+    {
       // Update iSAM with the new factors
       isam.update(graph, initialEstimate);
       Values currentEstimate = isam.estimate();

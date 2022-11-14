@@ -26,172 +26,177 @@
 
 #include "types_seven_dof_expmap.h"
 
-namespace g2o {
+namespace g2o
+{
+VertexSim3Expmap::VertexSim3Expmap() : BaseVertex<7, Sim3>()
+{
+  _marginalized = false;
+  _fix_scale = false;
+}
 
-  VertexSim3Expmap::VertexSim3Expmap() : BaseVertex<7, Sim3>()
+EdgeSim3::EdgeSim3() : BaseBinaryEdge<7, Sim3, VertexSim3Expmap, VertexSim3Expmap>()
+{
+}
+
+bool VertexSim3Expmap::read(std::istream& is)
+{
+  Vector7d cam2world;
+  for (int i = 0; i < 6; i++)
   {
-    _marginalized=false;
-    _fix_scale = false;
+    is >> cam2world[i];
+  }
+  is >> cam2world[6];
+  //    if (! is) {
+  //      // if the scale is not specified we set it to 1;
+  //      std::cerr << "!s";
+  //      cam2world[6]=0.;
+  //    }
+
+  for (int i = 0; i < 2; i++)
+  {
+    is >> _focal_length1[i];
+  }
+  for (int i = 0; i < 2; i++)
+  {
+    is >> _principle_point1[i];
   }
 
+  setEstimate(Sim3(cam2world).inverse());
+  return true;
+}
 
-  EdgeSim3::EdgeSim3() :
-      BaseBinaryEdge<7, Sim3, VertexSim3Expmap, VertexSim3Expmap>()
+bool VertexSim3Expmap::write(std::ostream& os) const
+{
+  Sim3 cam2world(estimate().inverse());
+  Vector7d lv = cam2world.log();
+  for (int i = 0; i < 7; i++)
   {
+    os << lv[i] << " ";
+  }
+  for (int i = 0; i < 2; i++)
+  {
+    os << _focal_length1[i] << " ";
+  }
+  for (int i = 0; i < 2; i++)
+  {
+    os << _principle_point1[i] << " ";
+  }
+  return os.good();
+}
+
+bool EdgeSim3::read(std::istream& is)
+{
+  Vector7d v7;
+  for (int i = 0; i < 7; i++)
+  {
+    is >> v7[i];
   }
 
+  Sim3 cam2world(v7);
+  setMeasurement(cam2world.inverse());
 
-  bool VertexSim3Expmap::read(std::istream& is)
-  {
-    Vector7d cam2world;
-    for (int i=0; i<6; i++){
-      is >> cam2world[i];
-    }
-    is >> cam2world[6];
-//    if (! is) {
-//      // if the scale is not specified we set it to 1;
-//      std::cerr << "!s";
-//      cam2world[6]=0.;
-//    }
-
-    for (int i=0; i<2; i++)
+  for (int i = 0; i < 7; i++)
+    for (int j = i; j < 7; j++)
     {
-      is >> _focal_length1[i];
+      is >> information()(i, j);
+      if (i != j)
+        information()(j, i) = information()(i, j);
     }
-    for (int i=0; i<2; i++)
+  return true;
+}
+
+bool EdgeSim3::write(std::ostream& os) const
+{
+  Sim3 cam2world(measurement().inverse());
+  Vector7d v7 = cam2world.log();
+  for (int i = 0; i < 7; i++)
+  {
+    os << v7[i] << " ";
+  }
+  for (int i = 0; i < 7; i++)
+    for (int j = i; j < 7; j++)
     {
-      is >> _principle_point1[i];
+      os << " " << information()(i, j);
     }
+  return os.good();
+}
 
-    setEstimate(Sim3(cam2world).inverse());
-    return true;
+/**Sim3ProjectXYZ*/
+
+EdgeSim3ProjectXYZ::EdgeSim3ProjectXYZ() : BaseBinaryEdge<2, Vector2d, VertexSBAPointXYZ, VertexSim3Expmap>()
+{
+}
+
+bool EdgeSim3ProjectXYZ::read(std::istream& is)
+{
+  for (int i = 0; i < 2; i++)
+  {
+    is >> _measurement[i];
   }
 
-  bool VertexSim3Expmap::write(std::ostream& os) const
-  {
-    Sim3 cam2world(estimate().inverse());
-    Vector7d lv=cam2world.log();
-    for (int i=0; i<7; i++){
-      os << lv[i] << " ";
-    }
-    for (int i=0; i<2; i++)
+  for (int i = 0; i < 2; i++)
+    for (int j = i; j < 2; j++)
     {
-      os << _focal_length1[i] << " ";
+      is >> information()(i, j);
+      if (i != j)
+        information()(j, i) = information()(i, j);
     }
-    for (int i=0; i<2; i++)
+  return true;
+}
+
+bool EdgeSim3ProjectXYZ::write(std::ostream& os) const
+{
+  for (int i = 0; i < 2; i++)
+  {
+    os << _measurement[i] << " ";
+  }
+
+  for (int i = 0; i < 2; i++)
+    for (int j = i; j < 2; j++)
     {
-      os << _principle_point1[i] << " ";
+      os << " " << information()(i, j);
     }
-    return os.good();
-  }
-
-  bool EdgeSim3::read(std::istream& is)
-  {
-    Vector7d v7;
-    for (int i=0; i<7; i++){
-      is >> v7[i];
-    }
-
-    Sim3 cam2world(v7);
-    setMeasurement(cam2world.inverse());
-
-    for (int i=0; i<7; i++)
-      for (int j=i; j<7; j++)
-      {
-        is >> information()(i,j);
-        if (i!=j)
-          information()(j,i)=information()(i,j);
-      }
-    return true;
-  }
-
-  bool EdgeSim3::write(std::ostream& os) const
-  {
-    Sim3 cam2world(measurement().inverse());
-    Vector7d v7 = cam2world.log();
-    for (int i=0; i<7; i++)
-    {
-      os  << v7[i] << " ";
-    }
-    for (int i=0; i<7; i++)
-      for (int j=i; j<7; j++){
-        os << " " <<  information()(i,j);
-    }
-    return os.good();
-  }
-
-  /**Sim3ProjectXYZ*/
-
-  EdgeSim3ProjectXYZ::EdgeSim3ProjectXYZ() :
-  BaseBinaryEdge<2, Vector2d, VertexSBAPointXYZ, VertexSim3Expmap>()
-  {
-  }
-
-  bool EdgeSim3ProjectXYZ::read(std::istream& is)
-  {
-    for (int i=0; i<2; i++)
-    {
-      is >> _measurement[i];
-    }
-
-    for (int i=0; i<2; i++)
-      for (int j=i; j<2; j++) {
-  is >> information()(i,j);
-      if (i!=j)
-        information()(j,i)=information()(i,j);
-    }
-    return true;
-  }
-
-  bool EdgeSim3ProjectXYZ::write(std::ostream& os) const
-  {
-    for (int i=0; i<2; i++){
-      os  << _measurement[i] << " ";
-    }
-
-    for (int i=0; i<2; i++)
-      for (int j=i; j<2; j++){
-  os << " " <<  information()(i,j);
-    }
-    return os.good();
-  }
+  return os.good();
+}
 
 /**InverseSim3ProjectXYZ*/
 
-  EdgeInverseSim3ProjectXYZ::EdgeInverseSim3ProjectXYZ() :
-  BaseBinaryEdge<2, Vector2d, VertexSBAPointXYZ, VertexSim3Expmap>()
+EdgeInverseSim3ProjectXYZ::EdgeInverseSim3ProjectXYZ()
+  : BaseBinaryEdge<2, Vector2d, VertexSBAPointXYZ, VertexSim3Expmap>()
+{
+}
+
+bool EdgeInverseSim3ProjectXYZ::read(std::istream& is)
+{
+  for (int i = 0; i < 2; i++)
   {
+    is >> _measurement[i];
   }
 
-  bool EdgeInverseSim3ProjectXYZ::read(std::istream& is)
-  {
-    for (int i=0; i<2; i++)
+  for (int i = 0; i < 2; i++)
+    for (int j = i; j < 2; j++)
     {
-      is >> _measurement[i];
+      is >> information()(i, j);
+      if (i != j)
+        information()(j, i) = information()(i, j);
     }
+  return true;
+}
 
-    for (int i=0; i<2; i++)
-      for (int j=i; j<2; j++) {
-  is >> information()(i,j);
-      if (i!=j)
-        information()(j,i)=information()(i,j);
-    }
-    return true;
-  }
-
-  bool EdgeInverseSim3ProjectXYZ::write(std::ostream& os) const
+bool EdgeInverseSim3ProjectXYZ::write(std::ostream& os) const
+{
+  for (int i = 0; i < 2; i++)
   {
-    for (int i=0; i<2; i++){
-      os  << _measurement[i] << " ";
-    }
-
-    for (int i=0; i<2; i++)
-      for (int j=i; j<2; j++){
-  os << " " <<  information()(i,j);
-    }
-    return os.good();
+    os << _measurement[i] << " ";
   }
 
+  for (int i = 0; i < 2; i++)
+    for (int j = i; j < 2; j++)
+    {
+      os << " " << information()(i, j);
+    }
+  return os.good();
+}
 
 //  void EdgeSim3ProjectXYZ::linearizeOplus()
 //  {
@@ -226,7 +231,6 @@ namespace g2o {
 //    _jacobianOplusXj(0,5) = x/z_2 *_focal_length(0);
 //    _jacobianOplusXj(0,6) = 0; // scale is ignored
 
-
 //    _jacobianOplusXj(1,0) = (1+y*y/z_2) *_focal_length(1);
 //    _jacobianOplusXj(1,1) = -x*y/z_2 *_focal_length(1);
 //    _jacobianOplusXj(1,2) = -x/z *_focal_length(1);
@@ -236,4 +240,4 @@ namespace g2o {
 //    _jacobianOplusXj(1,6) = 0; // scale is ignored
 //  }
 
-} // end namespace
+}  // namespace g2o

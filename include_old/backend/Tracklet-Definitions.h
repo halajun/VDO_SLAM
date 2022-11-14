@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include "backend/Observation.h"
 #include "utils/macros.h"
@@ -14,12 +14,11 @@
 #include <glog/logging.h>
 #include <vector>
 
-namespace VDO_SLAM {
-
-
+namespace VDO_SLAM
+{
 // template<size_t N>
 // inline gtsam:: Tracklet::convert(FrameId frame_id, FeatureId point_id, Map* map);
 using StaticTrackletManager = TrackletManager<gtsam::Point3, 3>;
 using DynamicTrackletManager = TrackletManager<gtsam::Point3, 3>;
 
-}
+}  // namespace VDO_SLAM

@@ -34,76 +34,85 @@
 
 #include <Eigen/Core>
 
-namespace g2o {
+namespace g2o
+{
+class G2O_TYPES_SLAM2D_API VertexPointXY : public BaseVertex<2, Vector2>
+{
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+  VertexPointXY();
 
-  class G2O_TYPES_SLAM2D_API VertexPointXY : public BaseVertex<2, Vector2>
+  virtual void setToOriginImpl()
   {
-    public:
-      EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
-      VertexPointXY();
+    _estimate.setZero();
+  }
 
-      virtual void setToOriginImpl() {
-        _estimate.setZero();
-      }
+  virtual bool setEstimateDataImpl(const number_t* est)
+  {
+    _estimate[0] = est[0];
+    _estimate[1] = est[1];
+    return true;
+  }
 
-      virtual bool setEstimateDataImpl(const number_t* est){
-        _estimate[0] = est[0];
-        _estimate[1] = est[1];
-        return true;
-      }
+  virtual bool getEstimateData(number_t* est) const
+  {
+    est[0] = _estimate[0];
+    est[1] = _estimate[1];
+    return true;
+  }
 
-      virtual bool getEstimateData(number_t* est) const{
-        est[0] = _estimate[0];
-        est[1] = _estimate[1];
-        return true;
-      }
+  virtual int estimateDimension() const
+  {
+    return 2;
+  }
 
-      virtual int estimateDimension() const { 
-        return 2;
-      }
+  virtual bool setMinimalEstimateDataImpl(const number_t* est)
+  {
+    return setEstimateData(est);
+  }
 
-      virtual bool setMinimalEstimateDataImpl(const number_t* est){
-        return setEstimateData(est);
-      }
+  virtual bool getMinimalEstimateData(number_t* est) const
+  {
+    return getEstimateData(est);
+  }
 
-      virtual bool getMinimalEstimateData(number_t* est) const{
-        return getEstimateData(est);
-      }
+  virtual int minimalEstimateDimension() const
+  {
+    return 2;
+  }
 
-      virtual int minimalEstimateDimension() const { 
-        return 2;
-      }
+  virtual void oplusImpl(const number_t* update)
+  {
+    _estimate[0] += update[0];
+    _estimate[1] += update[1];
+  }
 
-      virtual void oplusImpl(const number_t* update)
-      {
-        _estimate[0] += update[0];
-        _estimate[1] += update[1];
-      }
+  virtual bool read(std::istream& is);
+  virtual bool write(std::ostream& os) const;
+};
 
-      virtual bool read(std::istream& is);
-      virtual bool write(std::ostream& os) const;
-
-  };
-
-  class G2O_TYPES_SLAM2D_API VertexPointXYWriteGnuplotAction: public WriteGnuplotAction {
-  public:
-    VertexPointXYWriteGnuplotAction();
-    virtual HyperGraphElementAction* operator()(HyperGraph::HyperGraphElement* element, 
-            HyperGraphElementAction::Parameters* params_);
-  };
+class G2O_TYPES_SLAM2D_API VertexPointXYWriteGnuplotAction : public WriteGnuplotAction
+{
+public:
+  VertexPointXYWriteGnuplotAction();
+  virtual HyperGraphElementAction* operator()(HyperGraph::HyperGraphElement* element,
+                                              HyperGraphElementAction::Parameters* params_);
+};
 
 #ifdef G2O_HAVE_OPENGL
-  class G2O_TYPES_SLAM2D_API VertexPointXYDrawAction: public DrawAction{
-  public:
-    VertexPointXYDrawAction();
-    virtual HyperGraphElementAction* operator()(HyperGraph::HyperGraphElement* element, 
-            HyperGraphElementAction::Parameters* params_);
-  protected:
-    FloatProperty *_pointSize;
-    virtual bool refreshPropertyPtrs(HyperGraphElementAction::Parameters* params_);
-  };
+class G2O_TYPES_SLAM2D_API VertexPointXYDrawAction : public DrawAction
+{
+public:
+  VertexPointXYDrawAction();
+  virtual HyperGraphElementAction* operator()(HyperGraph::HyperGraphElement* element,
+                                              HyperGraphElementAction::Parameters* params_);
+
+protected:
+  FloatProperty* _pointSize;
+  virtual bool refreshPropertyPtrs(HyperGraphElementAction::Parameters* params_);
+};
 #endif
 
-}
+}  // namespace g2o
 
 #endif

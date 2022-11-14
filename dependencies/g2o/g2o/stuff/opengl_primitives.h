@@ -2,17 +2,17 @@
 // Copyright (C) 2011 R. Kuemmerle, G. Grisetti, W. Burgard
 //
 // This file is part of g2o.
-// 
+//
 // g2o is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // g2o is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // along with g2o.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -31,22 +31,23 @@
 #include "g2o/config.h"
 
 #ifdef _MSC_VER
-#  ifdef G2O_SHARED_LIBS
-#    ifdef opengl_helper_EXPORTS
-#      define G2O_OPENGL_API __declspec(dllexport)
-#    else
-#      define G2O_OPENGL_API __declspec(dllimport)
-#    endif
-#  else
-#    define G2O_OPENGL_API
-#  endif
+#ifdef G2O_SHARED_LIBS
+#ifdef opengl_helper_EXPORTS
+#define G2O_OPENGL_API __declspec(dllexport)
 #else
-#  define G2O_OPENGL_API
+#define G2O_OPENGL_API __declspec(dllimport)
+#endif
+#else
+#define G2O_OPENGL_API
+#endif
+#else
+#define G2O_OPENGL_API
 #endif
 
-namespace g2o {
-namespace opengl {
-
+namespace g2o
+{
+namespace opengl
+{
 /**
  * draw a box that is centered in the current coordinate frame
  * @param l length of the box (x dimension)
@@ -128,22 +129,20 @@ void G2O_OPENGL_API drawArrow2D(float len, float head_width, float head_len);
 /**
  * draw a point in the origin, having a size of pointSize
  */
-void G2O_OPENGL_API drawPoint(float  pointSize);
-
+void G2O_OPENGL_API drawPoint(float pointSize);
 
 // @}
 
-#define POSE_VERTEX_COLOR 0.5f,0.5f,0.8f
-#define POSE_PARAMETER_COLOR 0.5f,0.5f,0.8f
-#define POSE_EDGE_COLOR 0.4f,0.4f,0.7f
-#define POSE_EDGE_GHOST_COLOR 0.4f,0.4f,0.7f
+#define POSE_VERTEX_COLOR 0.5f, 0.5f, 0.8f
+#define POSE_PARAMETER_COLOR 0.5f, 0.5f, 0.8f
+#define POSE_EDGE_COLOR 0.4f, 0.4f, 0.7f
+#define POSE_EDGE_GHOST_COLOR 0.4f, 0.4f, 0.7f
 
-#define LANDMARK_VERTEX_COLOR 0.8f,0.5f,0.3f
-#define LANDMARK_EDGE_COLOR   0.7f,0.4f,0.2f
-#define LANDMARK_EDGE_GHOST_COLOR   0.7f,0.4f,0.2f
+#define LANDMARK_VERTEX_COLOR 0.8f, 0.5f, 0.3f
+#define LANDMARK_EDGE_COLOR 0.7f, 0.4f, 0.2f
+#define LANDMARK_EDGE_GHOST_COLOR 0.7f, 0.4f, 0.2f
 
-
-} // end namespace
-} // end namespace
+}  // namespace opengl
+}  // namespace g2o
 
 #endif

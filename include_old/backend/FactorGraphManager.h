@@ -12,7 +12,6 @@
 // #include "factors/Point3DFactor.h"
 // #include "backend/VdoSlamBackend-types.h"
 
-
 // namespace VDO_SLAM {
 
 // class FactorGraphManager {
@@ -21,12 +20,10 @@
 //         FactorGraphManager() = default;
 //         virtual ~FactorGraphManager() = default;
 
-
 //         void addCameraPoseToGraph(const gtsam::Pose3& pose, int key, FrameId current_frame);
 
 //         void addLandmarkToGraph(const gtsam::Point3& landmark, int key, FrameId current_frame, FeatureId feature_id);
 //         void addPoint3DFactor(const gtsam::Point3& measurement, int pose_key, int landmark_key);
-
 
 //     protected:
 //         //could totally make this templated and add the type itself to the values variable
@@ -50,7 +47,6 @@
 //         const unsigned char kSymbolCameraPose3Key = 'X';
 //         const unsigned char kSymbolPoint3Key = 'm';
 
-
 //     private:
 //         //make optimizer using gtsam
 //         gtsam::NonlinearFactorGraph graph;
@@ -59,9 +55,6 @@
 //         // gtsam::NonlinearFactorGraph point_3d_factors;
 //         gtsam::Values new_lmks;
 
-
 // };
-
-
 
 // } //VDO_SLAM

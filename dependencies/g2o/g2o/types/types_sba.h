@@ -32,87 +32,91 @@
 #include <Eigen/Geometry>
 #include <iostream>
 
-namespace g2o {
-
+namespace g2o
+{
 /**
  * \brief Point vertex, XYZ
  */
- class VertexSBAPointXYZ : public BaseVertex<3, Vector3d>
+class VertexSBAPointXYZ : public BaseVertex<3, Vector3d>
 {
-  public:
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    VertexSBAPointXYZ();
-    virtual bool read(std::istream& is);
-    virtual bool write(std::ostream& os) const;
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  VertexSBAPointXYZ();
+  virtual bool read(std::istream& is);
+  virtual bool write(std::ostream& os) const;
 
-    virtual void setToOriginImpl() {
-      _estimate.fill(0.);
-    }
+  virtual void setToOriginImpl()
+  {
+    _estimate.fill(0.);
+  }
 
-    virtual void oplusImpl(const double* update)
-    {
-      Eigen::Map<const Vector3d> v(update);
-      _estimate += v;
-    }
+  virtual void oplusImpl(const double* update)
+  {
+    Eigen::Map<const Vector3d> v(update);
+    _estimate += v;
+  }
 };
 
- class VertexSBADepth : public BaseVertex<1, Matrix<double, 1, 1> >
+class VertexSBADepth : public BaseVertex<1, Matrix<double, 1, 1> >
 {
-  public:
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    VertexSBADepth();
-    virtual bool read(std::istream& is);
-    virtual bool write(std::ostream& os) const;
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  VertexSBADepth();
+  virtual bool read(std::istream& is);
+  virtual bool write(std::ostream& os) const;
 
-    virtual void setToOriginImpl() {
-      _estimate.fill(0.);
-    }
+  virtual void setToOriginImpl()
+  {
+    _estimate.fill(0.);
+  }
 
-    virtual void oplusImpl(const double* update)
-    {
-      Eigen::Map<const Matrix<double, 1, 1> > v(update);
-      _estimate += v;
-    }
+  virtual void oplusImpl(const double* update)
+  {
+    Eigen::Map<const Matrix<double, 1, 1> > v(update);
+    _estimate += v;
+  }
 };
 
- class VertexSBAFlow : public BaseVertex<2, Vector2d>
+class VertexSBAFlow : public BaseVertex<2, Vector2d>
 {
-  public:
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    VertexSBAFlow();
-    virtual bool read(std::istream& is);
-    virtual bool write(std::ostream& os) const;
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  VertexSBAFlow();
+  virtual bool read(std::istream& is);
+  virtual bool write(std::ostream& os) const;
 
-    virtual void setToOriginImpl() {
-      _estimate.fill(0.);
-    }
+  virtual void setToOriginImpl()
+  {
+    _estimate.fill(0.);
+  }
 
-    virtual void oplusImpl(const double* update)
-    {
-      Eigen::Map<const Vector2d> v(update);
-      _estimate += v;
-    }
+  virtual void oplusImpl(const double* update)
+  {
+    Eigen::Map<const Vector2d> v(update);
+    _estimate += v;
+  }
 };
 
- class VertexSBAFlowDepth : public BaseVertex<3, Vector3d>
+class VertexSBAFlowDepth : public BaseVertex<3, Vector3d>
 {
-  public:
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    VertexSBAFlowDepth();
-    virtual bool read(std::istream& is);
-    virtual bool write(std::ostream& os) const;
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  VertexSBAFlowDepth();
+  virtual bool read(std::istream& is);
+  virtual bool write(std::ostream& os) const;
 
-    virtual void setToOriginImpl() {
-      _estimate.fill(0.);
-    }
+  virtual void setToOriginImpl()
+  {
+    _estimate.fill(0.);
+  }
 
-    virtual void oplusImpl(const double* update)
-    {
-      Eigen::Map<const Vector3d> v(update);
-      _estimate += v;
-    }
+  virtual void oplusImpl(const double* update)
+  {
+    Eigen::Map<const Vector3d> v(update);
+    _estimate += v;
+  }
 };
 
-} // end namespace
+}  // namespace g2o
 
-#endif // SBA_TYPES
+#endif  // SBA_TYPES

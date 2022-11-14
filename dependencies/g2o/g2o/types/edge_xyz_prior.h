@@ -31,50 +31,59 @@
 #include "g2o_types_slam3d_api.h"
 #include "vertex_pointxyz.h"
 
-namespace g2o {
-  /**
-   * \brief prior for an XYZ vertex (VertexPointXYZ)
-   *
-   * Provides a prior for a 3d point vertex. The measurement is represented by a
-   * Vector3 with a corresponding 3x3 upper triangle covariance matrix (upper triangle only).
-   */
-  class G2O_TYPES_SLAM3D_API EdgeXYZPrior : public BaseUnaryEdge<3, Vector3, VertexPointXYZ> {
-  public:
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    EdgeXYZPrior();
-    virtual bool read(std::istream& is);
-    virtual bool write(std::ostream& os) const;
+namespace g2o
+{
+/**
+ * \brief prior for an XYZ vertex (VertexPointXYZ)
+ *
+ * Provides a prior for a 3d point vertex. The measurement is represented by a
+ * Vector3 with a corresponding 3x3 upper triangle covariance matrix (upper triangle only).
+ */
+class G2O_TYPES_SLAM3D_API EdgeXYZPrior : public BaseUnaryEdge<3, Vector3, VertexPointXYZ>
+{
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  EdgeXYZPrior();
+  virtual bool read(std::istream& is);
+  virtual bool write(std::ostream& os) const;
 
-    void computeError();
-    
-    // jacobian
-    virtual void linearizeOplus();
+  void computeError();
 
-    virtual void setMeasurement(const Vector3& m){
-      _measurement = m;
-    }
+  // jacobian
+  virtual void linearizeOplus();
 
-    virtual bool setMeasurementData(const number_t* d){
-        Eigen::Map<const Vector3> v(d);
-        _measurement = v;
-        return true;
-    }
+  virtual void setMeasurement(const Vector3& m)
+  {
+    _measurement = m;
+  }
 
-    virtual bool getMeasurementData(number_t* d) const{
-        Eigen::Map<Vector3> v(d);
-        v = _measurement;
-        return true;
-    }
+  virtual bool setMeasurementData(const number_t* d)
+  {
+    Eigen::Map<const Vector3> v(d);
+    _measurement = v;
+    return true;
+  }
 
-    virtual int measurementDimension() const { return 3; }
+  virtual bool getMeasurementData(number_t* d) const
+  {
+    Eigen::Map<Vector3> v(d);
+    v = _measurement;
+    return true;
+  }
 
-    virtual bool setMeasurementFromState() ;
+  virtual int measurementDimension() const
+  {
+    return 3;
+  }
 
-    virtual number_t initialEstimatePossible(const OptimizableGraph::VertexSet& /*from*/, 
-             OptimizableGraph::Vertex* /*to*/) { 
-      return 0;
-    }
-  };
+  virtual bool setMeasurementFromState();
 
-}
+  virtual number_t initialEstimatePossible(const OptimizableGraph::VertexSet& /*from*/,
+                                           OptimizableGraph::Vertex* /*to*/)
+  {
+    return 0;
+  }
+};
+
+}  // namespace g2o
 #endif

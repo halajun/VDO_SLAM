@@ -29,11 +29,9 @@
 #include <cstring>
 #include <algorithm>
 
-namespace g2o {
-
-Solver::Solver() :
-  _optimizer(0), _x(0), _b(0), _xSize(0), _maxXSize(0),
-  _isLevenberg(false), _additionalVectorSpace(0)
+namespace g2o
+{
+Solver::Solver() : _optimizer(0), _x(0), _b(0), _xSize(0), _maxXSize(0), _isLevenberg(false), _additionalVectorSpace(0)
 {
 }
 
@@ -47,20 +45,24 @@ void Solver::resizeVector(size_t sx)
 {
   size_t oldSize = _xSize;
   _xSize = sx;
-  sx += _additionalVectorSpace; // allocate some additional space if requested
-  if (_maxXSize < sx) {
-    _maxXSize = 2*sx;
+  sx += _additionalVectorSpace;  // allocate some additional space if requested
+  if (_maxXSize < sx)
+  {
+    _maxXSize = 2 * sx;
     delete[] _x;
     _x = new double[_maxXSize];
 #ifndef NDEBUG
     memset(_x, 0, _maxXSize * sizeof(double));
 #endif
-    if (_b) { // backup the former b, might still be needed for online processing
+    if (_b)
+    {  // backup the former b, might still be needed for online processing
       memcpy(_x, _b, oldSize * sizeof(double));
       delete[] _b;
       _b = new double[_maxXSize];
       std::swap(_b, _x);
-    } else {
+    }
+    else
+    {
       _b = new double[_maxXSize];
 #ifndef NDEBUG
       memset(_b, 0, _maxXSize * sizeof(double));
@@ -84,4 +86,4 @@ void Solver::setAdditionalVectorSpace(size_t s)
   _additionalVectorSpace = s;
 }
 
-} // end namespace
+}  // namespace g2o

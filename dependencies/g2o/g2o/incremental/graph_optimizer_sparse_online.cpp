@@ -36,7 +36,6 @@
 #include "../solvers/linear_solver_pcg.h"
 #include "../solvers/linear_solver_cholmod.h"
 
-
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -44,34 +43,40 @@
 using namespace std;
 using namespace Eigen;
 
-namespace g2o {
+namespace g2o
+{
+namespace
+{
+template <int p, int l>
+std::unique_ptr<g2o::Solver> AllocatePCGSolver()
+{
+  std::cerr << "# Using PCG online poseDim " << p << " landMarkDim " << l << " blockordering 1" << std::endl;
 
-  namespace
-  {
-    template<int p, int l>
-    std::unique_ptr<g2o::Solver> AllocatePCGSolver()
-    {
-      std::cerr << "# Using PCG online poseDim " << p << " landMarkDim " << l << " blockordering 1" << std::endl;
+  auto linearSolver = g2o::make_unique<LinearSolverPCG<typename BlockSolverPL<p, l>::PoseMatrixType>>();
+  linearSolver->setMaxIterations(6);
+  return g2o::make_unique<BlockSolverPL<p, l>>(std::move(linearSolver));
+}
+}  // namespace
 
-      auto linearSolver = g2o::make_unique<LinearSolverPCG<typename BlockSolverPL<p, l>::PoseMatrixType>>();
-      linearSolver->setMaxIterations(6);
-      return g2o::make_unique<BlockSolverPL<p, l>>(std::move(linearSolver));
-    }
-  }
+// force linking to the cholmod solver
+G2O_USE_OPTIMIZATION_LIBRARY(cholmod);
 
-  // force linking to the cholmod solver
-  G2O_USE_OPTIMIZATION_LIBRARY(cholmod);
-
-SparseOptimizerOnline::SparseOptimizerOnline(bool pcg) :
-  SparseOptimizer(),
-  slamDimension(3), newEdges(0), batchStep(true), vizWithGnuplot(false),
-  _gnuplot(0), _usePcg(pcg), _underlyingSolver(0)
+SparseOptimizerOnline::SparseOptimizerOnline(bool pcg)
+  : SparseOptimizer()
+  , slamDimension(3)
+  , newEdges(0)
+  , batchStep(true)
+  , vizWithGnuplot(false)
+  , _gnuplot(0)
+  , _usePcg(pcg)
+  , _underlyingSolver(0)
 {
 }
 
 SparseOptimizerOnline::~SparseOptimizerOnline()
 {
-  if (_gnuplot) {
+  if (_gnuplot)
+  {
 #ifdef WINDOWS
     _pclose(_gnuplot);
 #else
@@ -82,17 +87,19 @@ SparseOptimizerOnline::~SparseOptimizerOnline()
 
 int SparseOptimizerOnline::optimize(int iterations, bool online)
 {
-  //return SparseOptimizer::optimize(iterations, online);
+  // return SparseOptimizer::optimize(iterations, online);
 
-  (void) iterations; // we only do one iteration anyhow
+  (void)iterations;  // we only do one iteration anyhow
   OptimizationAlgorithm* solver = _algorithm;
 
-  bool ok=true;
+  bool ok = true;
 
   solver->init(online);
-  if (!online) {
+  if (!online)
+  {
     ok = _underlyingSolver->buildStructure();
-    if (! ok) {
+    if (!ok)
+    {
       cerr << __PRETTY_FUNCTION__ << ": Failure while building CCS structure" << endl;
       return 0;
     }
@@ -101,46 +108,55 @@ int SparseOptimizerOnline::optimize(int iterations, bool online)
   if (_usePcg)
     batchStep = true;
 
-  if (! online || batchStep) {
-    //cerr << "BATCH" << endl;
+  if (!online || batchStep)
+  {
+    // cerr << "BATCH" << endl;
     //_underlyingSolver->buildStructure();
     // copy over the updated estimate as new linearization point
-    if (slamDimension == 3) {
+    if (slamDimension == 3)
+    {
       // for (size_t i = 0; i < indexMapping().size(); ++i) {
       //   OnlineVertexSE2* v = static_cast<OnlineVertexSE2*>(indexMapping()[i]);
       //   v->setEstimate(v->updatedEstimate);
       // }
       assert(false && "Sparse Online optimization Not implemented for SE2 Vertices");
     }
-    else if (slamDimension == 6) {
-      for (size_t i=0; i < indexMapping().size(); ++i) {
+    else if (slamDimension == 6)
+    {
+      for (size_t i = 0; i < indexMapping().size(); ++i)
+      {
         OnlineVertexSE3* v = static_cast<OnlineVertexSE3*>(indexMapping()[i]);
         v->setEstimate(v->updatedEstimate);
       }
     }
-    else {
+    else
+    {
       assert(false && "slamDimension must be 6 for sparse online optimizer to optimize");
     }
 
     SparseOptimizer::computeActiveErrors();
-    //SparseOptimizer::linearizeSystem();
+    // SparseOptimizer::linearizeSystem();
     _underlyingSolver->buildSystem();
   }
-  else {
-    //cerr << "UPDATE" << endl;
+  else
+  {
+    // cerr << "UPDATE" << endl;
     // compute the active errors for the required edges
-    for (HyperGraph::EdgeSet::iterator it = newEdges->begin(); it != newEdges->end(); ++it) {
-      OptimizableGraph::Edge * e = static_cast<OptimizableGraph::Edge*>(*it);
+    for (HyperGraph::EdgeSet::iterator it = newEdges->begin(); it != newEdges->end(); ++it)
+    {
+      OptimizableGraph::Edge* e = static_cast<OptimizableGraph::Edge*>(*it);
       e->computeError();
     }
     // linearize the constraints and update the Hessian
-    for (HyperGraph::EdgeSet::iterator it = newEdges->begin(); it != newEdges->end(); ++it) {
+    for (HyperGraph::EdgeSet::iterator it = newEdges->begin(); it != newEdges->end(); ++it)
+    {
       OptimizableGraph::Edge* e = static_cast<OptimizableGraph::Edge*>(*it);
       e->linearizeOplus(jacobianWorkspace());
       e->constructQuadraticForm();
     }
     // update the b vector
-    for (int i = 0; i < static_cast<int>(indexMapping().size()); ++i) {
+    for (int i = 0; i < static_cast<int>(indexMapping().size()); ++i)
+    {
       OptimizableGraph::Vertex* v = indexMapping()[i];
       int iBase = v->colInHessian();
       v->copyB(_underlyingSolver->b() + iBase);
@@ -149,26 +165,25 @@ int SparseOptimizerOnline::optimize(int iterations, bool online)
   ok = _underlyingSolver->solve();
   update(_underlyingSolver->x());
 
-  if (verbose()){
+  if (verbose())
+  {
     computeActiveErrors();
-    cerr
-      << "nodes = " << vertices().size()
-      << "\t edges= " << _activeEdges.size()
-      << "\t chi2= " << FIXED(activeChi2())
-      << endl;
+    cerr << "nodes = " << vertices().size() << "\t edges= " << _activeEdges.size() << "\t chi2= " << FIXED(activeChi2())
+         << endl;
   }
 
   if (vizWithGnuplot)
     gnuplotVisualization();
 
-  if (! ok)
+  if (!ok)
     return 0;
   return 1;
 }
 
 void SparseOptimizerOnline::update(double* update)
 {
-  if (slamDimension == 3) {
+  if (slamDimension == 3)
+  {
     // for (size_t i=0; i < _ivMap.size(); ++i) {
     //   OnlineVertexSE2* v= static_cast<OnlineVertexSE2*>(_ivMap[i]);
     //   v->oplusUpdatedEstimate(update);
@@ -176,15 +191,18 @@ void SparseOptimizerOnline::update(double* update)
     // }
     assert(false && "Sparse Online Not implemented for SE2 Vertices");
   }
-  else if (slamDimension == 6) {
-    for (size_t i=0; i < _ivMap.size(); ++i) {
-      OnlineVertexSE3* v= static_cast<OnlineVertexSE3*>(_ivMap[i]);
+  else if (slamDimension == 6)
+  {
+    for (size_t i = 0; i < _ivMap.size(); ++i)
+    {
+      OnlineVertexSE3* v = static_cast<OnlineVertexSE3*>(_ivMap[i]);
       v->oplusUpdatedEstimate(update);
       update += 6;
     }
   }
 
-  else {
+  else
+  {
     assert(false && "slamDimension must be 6 for sparse online optimizer");
   }
 }
@@ -193,9 +211,10 @@ bool SparseOptimizerOnline::updateInitialization(HyperGraph::VertexSet& vset, Hy
 {
   newEdges = &eset;
   bool result = SparseOptimizer::updateInitialization(vset, eset);
-  for (HyperGraph::VertexSet::iterator it = vset.begin(); it != vset.end(); ++it) {
+  for (HyperGraph::VertexSet::iterator it = vset.begin(); it != vset.end(); ++it)
+  {
     OptimizableGraph::Vertex* v = static_cast<OptimizableGraph::Vertex*>(*it);
-    v->clearQuadraticForm(); // be sure that b is zero for this vertex
+    v->clearQuadraticForm();  // be sure that b is zero for this vertex
   }
   return result;
 }
@@ -205,8 +224,8 @@ bool SparseOptimizerOnline::initSolver(int dimension, int /*batchEveryN*/)
   slamDimension = dimension;
   OptimizationAlgorithmFactory* solverFactory = OptimizationAlgorithmFactory::instance();
   OptimizationAlgorithmProperty solverProperty;
-  if (_usePcg) {
-
+  if (_usePcg)
+  {
     std::unique_ptr<Solver> s;
     if (dimension == 3)
     {
@@ -221,10 +240,14 @@ bool SparseOptimizerOnline::initSolver(int dimension, int /*batchEveryN*/)
     // OptimizationAlgorithmGaussNewton* gaussNewton = new OptimizationAlgorithmGaussNewton(std::move(s));
     setAlgorithm(gaussNewton);
   }
-  else {
-    if (dimension == 3) {
+  else
+  {
+    if (dimension == 3)
+    {
       setAlgorithm(solverFactory->construct("gn_fix3_2_cholmod", solverProperty));
-    } else {
+    }
+    else
+    {
       setAlgorithm(solverFactory->construct("gn_fix6_3_cholmod", solverProperty));
     }
   }
@@ -232,7 +255,8 @@ bool SparseOptimizerOnline::initSolver(int dimension, int /*batchEveryN*/)
   OptimizationAlgorithmGaussNewton* gaussNewton = dynamic_cast<OptimizationAlgorithmGaussNewton*>(solver());
   _underlyingSolver = gaussNewton->solver();
 
-  if (! solver()) {
+  if (!solver())
+  {
     cerr << "Error allocating solver. Allocating CHOLMOD solver failed!" << endl;
     return false;
   }
@@ -241,49 +265,51 @@ bool SparseOptimizerOnline::initSolver(int dimension, int /*batchEveryN*/)
 
 void SparseOptimizerOnline::gnuplotVisualization()
 {
-//   if (slamDimension == 3) {
-//     if (! _gnuplot) {
-// #ifdef WINDOWS
-//       _gnuplot = _popen("gnuplot -persistent", "w");
-// #else
-//       _gnuplot = popen("gnuplot -persistent", "w");
-// #endif
-//       if (_gnuplot == 0)
-//         return;
-//       fprintf(_gnuplot, "set terminal X11 noraise\n");
-//       fprintf(_gnuplot, "set size ratio -1\n");
-//     }
-//     fprintf(_gnuplot, "plot \"-\" w l\n");
-//     for (EdgeSet::iterator it = edges().begin(); it != edges().end(); ++it) {
-//       OnlineEdgeSE2* e = static_cast<OnlineEdgeSE2*>(*it);
-//       OnlineVertexSE2* v1 = static_cast<OnlineVertexSE2*>(e->vertices()[0]);
-//       OnlineVertexSE2* v2 = static_cast<OnlineVertexSE2*>(e->vertices()[1]);
-//       fprintf(_gnuplot, "%f %f\n", v1->updatedEstimate.translation().x(), v1->updatedEstimate.translation().y());
-//       fprintf(_gnuplot, "%f %f\n\n", v2->updatedEstimate.translation().x(), v2->updatedEstimate.translation().y());
-//     }
-//     fprintf(_gnuplot, "e\n");
-//   }
-//   if (slamDimension == 6) {
-//     if (! _gnuplot) {
-// #ifdef WINDOWS
-//       _gnuplot = _popen("gnuplot -persistent", "w");
-// #else
-//       _gnuplot = popen("gnuplot -persistent", "w");
-// #endif
-//       if (_gnuplot == 0)
-//         return;
-//       fprintf(_gnuplot, "set terminal X11 noraise\n");
-//     }
-//     fprintf(_gnuplot, "splot \"-\" w l\n");
-//     for (EdgeSet::iterator it = edges().begin(); it != edges().end(); ++it) {
-//       OnlineEdgeSE3* e = (OnlineEdgeSE3*) *it;
-//       OnlineVertexSE3* v1 = static_cast<OnlineVertexSE3*>(e->vertices()[0]);
-//       OnlineVertexSE3* v2 = static_cast<OnlineVertexSE3*>(e->vertices()[1]);
-//       fprintf(_gnuplot, "%f %f %f\n", v1->updatedEstimate.translation().x(), v1->updatedEstimate.translation().y(), v1->updatedEstimate.translation().z());
-//       fprintf(_gnuplot, "%f %f %f \n\n\n", v2->updatedEstimate.translation().x(), v2->updatedEstimate.translation().y(), v2->updatedEstimate.translation().z());
-//     }
-//     fprintf(_gnuplot, "e\n");
-//   }
+  //   if (slamDimension == 3) {
+  //     if (! _gnuplot) {
+  // #ifdef WINDOWS
+  //       _gnuplot = _popen("gnuplot -persistent", "w");
+  // #else
+  //       _gnuplot = popen("gnuplot -persistent", "w");
+  // #endif
+  //       if (_gnuplot == 0)
+  //         return;
+  //       fprintf(_gnuplot, "set terminal X11 noraise\n");
+  //       fprintf(_gnuplot, "set size ratio -1\n");
+  //     }
+  //     fprintf(_gnuplot, "plot \"-\" w l\n");
+  //     for (EdgeSet::iterator it = edges().begin(); it != edges().end(); ++it) {
+  //       OnlineEdgeSE2* e = static_cast<OnlineEdgeSE2*>(*it);
+  //       OnlineVertexSE2* v1 = static_cast<OnlineVertexSE2*>(e->vertices()[0]);
+  //       OnlineVertexSE2* v2 = static_cast<OnlineVertexSE2*>(e->vertices()[1]);
+  //       fprintf(_gnuplot, "%f %f\n", v1->updatedEstimate.translation().x(), v1->updatedEstimate.translation().y());
+  //       fprintf(_gnuplot, "%f %f\n\n", v2->updatedEstimate.translation().x(), v2->updatedEstimate.translation().y());
+  //     }
+  //     fprintf(_gnuplot, "e\n");
+  //   }
+  //   if (slamDimension == 6) {
+  //     if (! _gnuplot) {
+  // #ifdef WINDOWS
+  //       _gnuplot = _popen("gnuplot -persistent", "w");
+  // #else
+  //       _gnuplot = popen("gnuplot -persistent", "w");
+  // #endif
+  //       if (_gnuplot == 0)
+  //         return;
+  //       fprintf(_gnuplot, "set terminal X11 noraise\n");
+  //     }
+  //     fprintf(_gnuplot, "splot \"-\" w l\n");
+  //     for (EdgeSet::iterator it = edges().begin(); it != edges().end(); ++it) {
+  //       OnlineEdgeSE3* e = (OnlineEdgeSE3*) *it;
+  //       OnlineVertexSE3* v1 = static_cast<OnlineVertexSE3*>(e->vertices()[0]);
+  //       OnlineVertexSE3* v2 = static_cast<OnlineVertexSE3*>(e->vertices()[1]);
+  //       fprintf(_gnuplot, "%f %f %f\n", v1->updatedEstimate.translation().x(), v1->updatedEstimate.translation().y(),
+  //       v1->updatedEstimate.translation().z()); fprintf(_gnuplot, "%f %f %f \n\n\n",
+  //       v2->updatedEstimate.translation().x(), v2->updatedEstimate.translation().y(),
+  //       v2->updatedEstimate.translation().z());
+  //     }
+  //     fprintf(_gnuplot, "e\n");
+  //   }
 }
 
-} // end namespace
+}  // namespace g2o

@@ -1,15 +1,15 @@
 /**
-* This file is part of VDO-SLAM.
-*
-* Copyright (C) 2019-2020 Jun Zhang <jun doc zhang2 at anu dot edu doc au> (The Australian National University)
-* For more information see <https://github.com/halajun/VDO_SLAM>
-*
-**/
+ * This file is part of VDO-SLAM.
+ *
+ * Copyright (C) 2019-2020 Jun Zhang <jun doc zhang2 at anu dot edu doc au> (The Australian National University)
+ * For more information see <https://github.com/halajun/VDO_SLAM>
+ *
+ **/
 
 #ifndef FRAME_H
 #define FRAME_H
 
-#include<vector>
+#include <vector>
 
 #include "ORBextractor.h"
 
@@ -17,7 +17,6 @@
 
 namespace VDO_SLAM
 {
-
 using namespace std;
 
 #define FRAME_GRID_ROWS 48
@@ -26,252 +25,248 @@ using namespace std;
 class Frame
 {
 public:
-    Frame();
+  Frame();
 
-    // Copy constructor.
-    Frame(const Frame &frame);
+  // Copy constructor.
+  Frame(const Frame& frame);
 
-    // assignment operator
-    // Frame& operator=(const Frame &frame);
+  // assignment operator
+  // Frame& operator=(const Frame &frame);
 
+  // Constructor for RGB-D cameras.
+  Frame(const cv::Mat& imGray, const cv::Mat& imDepth, const cv::Mat& imFlow, const cv::Mat& maskSEM,
+        const double& timeStamp, ORBextractor* extractor, cv::Mat& K, cv::Mat& distCoef, const float& bf,
+        const float& thDepth, const float& thDepthObj, const int& UseSampleFea);
 
-    // Constructor for RGB-D cameras.
-    Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const cv::Mat &imFlow, const cv::Mat &maskSEM, const double &timeStamp, ORBextractor* extractor,
-          cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, const float &thDepthObj, const int &UseSampleFea);
+  // Extract ORB on the image. 0 for left image and 1 for right image.
+  void ExtractORB(int flag, const cv::Mat& im);
 
-    // Extract ORB on the image. 0 for left image and 1 for right image.
-    void ExtractORB(int flag, const cv::Mat &im);
+  // Set the camera pose.
+  void SetPose(cv::Mat Tcw);
 
-    // Set the camera pose.
-    void SetPose(cv::Mat Tcw);
+  // Computes rotation, translation and camera center matrices from the camera pose.
+  void UpdatePoseMatrices();
 
-    // Computes rotation, translation and camera center matrices from the camera pose.
-    void UpdatePoseMatrices();
+  // Returns the camera center.
+  inline cv::Mat GetCameraCenter()
+  {
+    return mOw.clone();
+  }
 
-    // Returns the camera center.
-    inline cv::Mat GetCameraCenter(){
-        return mOw.clone();
-    }
+  // Returns inverse of rotation
+  inline cv::Mat GetRotationInverse()
+  {
+    return mRwc.clone();
+  }
 
-    // Returns inverse of rotation
-    inline cv::Mat GetRotationInverse(){
-        return mRwc.clone();
-    }
+  // Compute the cell of a keypoint (return false if outside the grid)
+  bool PosInGrid(const cv::KeyPoint& kp, int& posX, int& posY);
 
-    // Compute the cell of a keypoint (return false if outside the grid)
-    bool PosInGrid(const cv::KeyPoint &kp, int &posX, int &posY);
+  vector<size_t> GetFeaturesInArea(const float& x, const float& y, const float& r, const int minLevel = -1,
+                                   const int maxLevel = -1) const;
 
-    vector<size_t> GetFeaturesInArea(const float &x, const float  &y, const float  &r, const int minLevel=-1, const int maxLevel=-1) const;
+  // Associate a "right" coordinate to a keypoint if there is valid depth in the depthmap.
+  void ComputeStereoFromRGBD(const cv::Mat& imDepth);
 
-    // Associate a "right" coordinate to a keypoint if there is valid depth in the depthmap.
-    void ComputeStereoFromRGBD(const cv::Mat &imDepth);
+  // Backprojects a keypoint (if stereo/depth info available) into 3D world coordinates.
+  cv::Mat UnprojectStereo(const int& i);
+  cv::Mat UnprojectStereoStat(const int& i, const bool& addnoise);
+  cv::Mat UnprojectStereoObject(const int& i, const bool& addnoise);
+  cv::Mat UnprojectStereoObjectCamera(const int& i, const bool& addnoise);
+  cv::Mat UnprojectStereoObjectNoise(const int& i, const cv::Point2f of_error);
+  cv::Mat ObtainFlowDepthObject(const int& i, const bool& addnoise);
+  cv::Mat ObtainFlowDepthCamera(const int& i, const bool& addnoise);
 
-    // Backprojects a keypoint (if stereo/depth info available) into 3D world coordinates.
-    cv::Mat UnprojectStereo(const int &i);
-    cv::Mat UnprojectStereoStat(const int &i, const bool &addnoise);
-    cv::Mat UnprojectStereoObject(const int &i, const bool &addnoise);
-    cv::Mat UnprojectStereoObjectCamera(const int &i, const bool &addnoise);
-    cv::Mat UnprojectStereoObjectNoise(const int &i, const cv::Point2f of_error);
-    cv::Mat ObtainFlowDepthObject(const int &i, const bool &addnoise);
-    cv::Mat ObtainFlowDepthCamera(const int &i, const bool &addnoise);
-
-    std::vector<cv::KeyPoint> SampleKeyPoints(const int &rows, const int &cols);
+  std::vector<cv::KeyPoint> SampleKeyPoints(const int& rows, const int& cols);
 
 public:
+  // original input images
+  cv::Mat rgb;
+  cv::Mat depth;
+  cv::Mat flow;
+  cv::Mat mask;
 
-    //original input images
-    cv::Mat rgb;
-    cv::Mat depth;
-    cv::Mat flow;
-    cv::Mat mask;
+  // converted rgb image. If input is grayscale this will be the same as the input
+  cv::Mat gray;
 
-    //converted rgb image. If input is grayscale this will be the same as the input
-    cv::Mat gray;
+  // Feature extractor. The right is used only in the stereo case.
+  ORBextractor *mpORBextractorLeft, *mpORBextractorRight;
 
-    // Feature extractor. The right is used only in the stereo case.
-    ORBextractor* mpORBextractorLeft, *mpORBextractorRight;
+  // Frame timestamp.
+  double mTimeStamp;
 
-    // Frame timestamp.
-    double mTimeStamp;
+  // Calibration matrix and OpenCV distortion parameters.
+  cv::Mat mK;
+  static float fx;
+  static float fy;
+  static float cx;
+  static float cy;
+  static float invfx;
+  static float invfy;
+  cv::Mat mDistCoef;
 
-    // Calibration matrix and OpenCV distortion parameters.
-    cv::Mat mK;
-    static float fx;
-    static float fy;
-    static float cx;
-    static float cy;
-    static float invfx;
-    static float invfy;
-    cv::Mat mDistCoef;
+  // Stereo baseline multiplied by fx.
+  float mbf;
 
-    // Stereo baseline multiplied by fx.
-    float mbf;
+  // Stereo baseline in meters.
+  float mb;
 
-    // Stereo baseline in meters.
-    float mb;
+  // Threshold close/far points.
+  float mThDepth;
+  float mThDepthObj;
 
-    // Threshold close/far points.
-    float mThDepth;
-    float mThDepthObj;
+  // Number of KeyPoints.
+  int N;
 
-    // Number of KeyPoints.
-    int N;
+  // Vector of keypoints (original for visualization) and undistorted (actually used by the system).
+  // In the stereo case, mvKeysUn is redundant as images must be rectified.
+  // In the RGB-D case, RGB images can be distorted.
+  std::vector<cv::KeyPoint> mvKeys, mvKeysRight;
+  std::vector<cv::KeyPoint> mvKeysUn;
 
-    // Vector of keypoints (original for visualization) and undistorted (actually used by the system).
-    // In the stereo case, mvKeysUn is redundant as images must be rectified.
-    // In the RGB-D case, RGB images can be distorted.
-    std::vector<cv::KeyPoint> mvKeys, mvKeysRight;
-    std::vector<cv::KeyPoint> mvKeysUn;
+  // Corresponding stereo coordinate and depth for each keypoint.
+  // "Monocular" keypoints have a negative value.
+  std::vector<float> mvuRight;
+  std::vector<float> mvDepth;
 
-    // Corresponding stereo coordinate and depth for each keypoint.
-    // "Monocular" keypoints have a negative value.
-    std::vector<float> mvuRight;
-    std::vector<float> mvDepth;
+  // ORB descriptor, each row associated to a keypoint.
+  cv::Mat mDescriptors, mDescriptorsRight;
 
-    // ORB descriptor, each row associated to a keypoint.
-    cv::Mat mDescriptors, mDescriptorsRight;
+  // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  // Number of KeyPoints.
+  int N_s;
 
-    // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  // Store keypoints and descriptors
+  std::vector<cv::KeyPoint> mvStatKeys, mvStatKeysRight;
 
-    // Number of KeyPoints.
-    int N_s;
+  // Store dense key points and depths on objects
+  std::vector<cv::KeyPoint> mvObjKeys;
+  std::vector<float> mvObjDepth;
+  std::vector<cv::Mat> mvObj3DPoint;
+  // Correspondence for the objects
+  //(jesse) seems to be the detect KP + the detected optical flow
+  std::vector<cv::KeyPoint> mvObjCorres;
+  // Optical flow for the objects
+  // the actual optical flow at some u,v coordinate
+  std::vector<cv::Point2f> mvObjFlowGT, mvObjFlowNext;
+  // semantic object label of all the foreground features
+  std::vector<int> vSemObjLabel;
 
-    // Store keypoints and descriptors
-    std::vector<cv::KeyPoint> mvStatKeys, mvStatKeysRight;
+  // save the object status (false for outlier, true for inlier)  # added 10 Jan 2020 #
+  std::vector<bool> bObjStat;
 
-    // Store dense key points and depths on objects
-    std::vector<cv::KeyPoint> mvObjKeys;
-    std::vector<float> mvObjDepth;
-    std::vector<cv::Mat> mvObj3DPoint;
-    // Correspondence for the objects
-    //(jesse) seems to be the detect KP + the detected optical flow
-    std::vector<cv::KeyPoint> mvObjCorres;
-    // Optical flow for the objects
-    //the actual optical flow at some u,v coordinate
-    std::vector<cv::Point2f> mvObjFlowGT, mvObjFlowNext;
-    // semantic object label of all the foreground features
-    std::vector<int> vSemObjLabel;
+  // depth for each keypoint
+  std::vector<float> mvStatDepth;
 
-    // save the object status (false for outlier, true for inlier)  # added 10 Jan 2020 #
-    std::vector<bool> bObjStat;
+  // Store the Label Index for each features: -1(outlier/unknown), 0(static), 1...n(object label).
+  std::vector<int> vObjLabel;
 
+  // Store the 3D flow vector and the 2D re-projection error vector
+  std::vector<cv::Point3f> vFlow_3d;
+  std::vector<cv::Point2f> vFlow_2d;
 
+  // Store the motion of objects
+  std::vector<cv::Mat> vObjMod;
+  std::vector<cv::Mat> vObjModCamera;  // motion of objects in the camera frame
+  std::vector<cv::Mat> vObjPosePre;
+  std::vector<cv::Point2f> vSpeed;
+  std::vector<int> nModLabel;  // unique tracking label across frames
+  std::vector<int> nSemPosition;
+  std::vector<int> vObjBoxID;                    // bounding box for each object
+  std::vector<std::vector<int> > vnObjID;        // object id in current frame
+  std::vector<std::vector<int> > vnObjInlierID;  // object id in current frame
+  std::vector<cv::Mat> vObjCentre3D;             // 3D in the world coordinate frame
+  std::vector<cv::Mat> vObjCentre2D;             // 2D in the image plane
 
-    // depth for each keypoint
-    std::vector<float> mvStatDepth;
+  // for initializing motion
+  cv::Mat mInitModel;
 
-    // Store the Label Index for each features: -1(outlier/unknown), 0(static), 1...n(object label).
-    std::vector<int> vObjLabel;
+  //(jesse) for dynamic and static features?
+  std::vector<cv::KeyPoint> mvCorres;           // correspondence
+  std::vector<cv::Point2f> mvFlow, mvFlowNext;  // optical flow
+  // std::vector<int> vCorSta; // the status of correspondence, -1 (outliers) 1 (has correspondence)
 
-    // Store the 3D flow vector and the 2D re-projection error vector
-    std::vector<cv::Point3f> vFlow_3d;
-    std::vector<cv::Point2f> vFlow_2d;
+  // temporal saved
+  std::vector<cv::KeyPoint> mvStatKeysTmp;
+  std::vector<float> mvStatDepthTmp;
+  std::vector<cv::Mat> mvStat3DPointTmp;
+  std::vector<int> vSemLabelTmp;
+  std::vector<int> vObjLabel_gtTmp;
+  int N_s_tmp;
 
-    // Store the motion of objects
-    std::vector<cv::Mat> vObjMod;
-    std::vector<cv::Mat> vObjModCamera; //motion of objects in the camera frame
-    std::vector<cv::Mat> vObjPosePre;
-    std::vector<cv::Point2f> vSpeed;
-    std::vector<int> nModLabel; //unique tracking label across frames
-    std::vector<int> nSemPosition;
-    std::vector<int> vObjBoxID; // bounding box for each object
-    std::vector<std::vector<int> > vnObjID; // object id in current frame
-    std::vector<std::vector<int> > vnObjInlierID; // object id in current frame
-    std::vector<cv::Mat> vObjCentre3D; // 3D in the world coordinate frame
-    std::vector<cv::Mat> vObjCentre2D; // 2D in the image plane
+  // inlier ID generated in this frame  (new added Nov 14 2019)
+  std::vector<int> nStaInlierID;
+  std::vector<int> nDynInlierID;
 
-    // for initializing motion
-    cv::Mat mInitModel;
+  // **************** Ground Truth *********************
 
-    //(jesse) for dynamic and static features?
-    std::vector<cv::KeyPoint> mvCorres; // correspondence
-    std::vector<cv::Point2f> mvFlow,mvFlowNext; // optical flow
-    // std::vector<int> vCorSta; // the status of correspondence, -1 (outliers) 1 (has correspondence)
+  std::vector<cv::Mat> vObjPose_gt;
+  std::vector<int> nSemPosi_gt;
+  std::vector<cv::Mat> vObjMod_gt;
+  std::vector<cv::Mat> vObjModCamera_gt;
+  std::vector<float> vObjSpeed_gt;
 
-    // temporal saved
-    std::vector<cv::KeyPoint> mvStatKeysTmp;
-    std::vector<float> mvStatDepthTmp;
-    std::vector<cv::Mat> mvStat3DPointTmp;
-    std::vector<int> vSemLabelTmp;
-    std::vector<int> vObjLabel_gtTmp;
-    int N_s_tmp;
+  cv::Mat mTcw_gt;
+  std::vector<int> vObjLabel_gt;  // 0(background), 1...n(instance label)
 
-    // inlier ID generated in this frame  (new added Nov 14 2019)
-    std::vector<int> nStaInlierID;
-    std::vector<int> nDynInlierID;
+  // ***************************************************
 
+  // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    // **************** Ground Truth *********************
+  // Flag to identify outlier associations.
+  std::vector<bool> mvbOutlier;
 
-    std::vector<cv::Mat> vObjPose_gt;
-    std::vector<int> nSemPosi_gt;
-    std::vector<cv::Mat> vObjMod_gt;
-    std::vector<cv::Mat> vObjModCamera_gt;
-    std::vector<float> vObjSpeed_gt;
+  // Keypoints are assigned to cells in a grid to reduce matching complexity when projecting MapPoints.
+  static float mfGridElementWidthInv;
+  static float mfGridElementHeightInv;
+  std::vector<std::size_t> mGrid[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
-    cv::Mat mTcw_gt;
-    std::vector<int> vObjLabel_gt; // 0(background), 1...n(instance label)
+  // Camera pose.
+  cv::Mat mTcw;
 
-    // ***************************************************
+  // Current and Next Frame id.
+  static long unsigned int nNextId;
+  long unsigned int mnId;
 
-    // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  // Scale pyramid info.
+  int mnScaleLevels;
+  float mfScaleFactor;
+  float mfLogScaleFactor;
+  vector<float> mvScaleFactors;
+  vector<float> mvInvScaleFactors;
+  vector<float> mvLevelSigma2;
+  vector<float> mvInvLevelSigma2;
 
-    // Flag to identify outlier associations.
-    std::vector<bool> mvbOutlier;
+  // Undistorted Image Bounds (computed once).
+  static float mnMinX;
+  static float mnMaxX;
+  static float mnMinY;
+  static float mnMaxY;
 
-    // Keypoints are assigned to cells in a grid to reduce matching complexity when projecting MapPoints.
-    static float mfGridElementWidthInv;
-    static float mfGridElementHeightInv;
-    std::vector<std::size_t> mGrid[FRAME_GRID_COLS][FRAME_GRID_ROWS];
-
-    // Camera pose.
-    cv::Mat mTcw;
-
-    // Current and Next Frame id.
-    static long unsigned int nNextId;
-    long unsigned int mnId;
-
-    // Scale pyramid info.
-    int mnScaleLevels;
-    float mfScaleFactor;
-    float mfLogScaleFactor;
-    vector<float> mvScaleFactors;
-    vector<float> mvInvScaleFactors;
-    vector<float> mvLevelSigma2;
-    vector<float> mvInvLevelSigma2;
-
-    // Undistorted Image Bounds (computed once).
-    static float mnMinX;
-    static float mnMaxX;
-    static float mnMinY;
-    static float mnMaxY;
-
-    static bool mbInitialComputations;
-
+  static bool mbInitialComputations;
 
 private:
+  void convertRGBToGreyScale();
 
-    void convertRGBToGreyScale();
+  // Undistort keypoints given OpenCV distortion parameters.
+  // Only for the RGB-D case. Stereo must be already rectified!
+  // (called in the constructor).
+  void UndistortKeyPoints();
 
-    // Undistort keypoints given OpenCV distortion parameters.
-    // Only for the RGB-D case. Stereo must be already rectified!
-    // (called in the constructor).
-    void UndistortKeyPoints();
+  // Computes image bounds for the undistorted image (called in the constructor).
+  void ComputeImageBounds(const cv::Mat& imLeft);
 
-    // Computes image bounds for the undistorted image (called in the constructor).
-    void ComputeImageBounds(const cv::Mat &imLeft);
+  // Assign keypoints to the grid for speed up feature matching (called in the constructor).
+  void AssignFeaturesToGrid();
 
-    // Assign keypoints to the grid for speed up feature matching (called in the constructor).
-    void AssignFeaturesToGrid();
-
-    // Rotation, translation and camera center
-    cv::Mat mRcw;
-    cv::Mat mtcw;
-    cv::Mat mRwc;
-    cv::Mat mOw; // mtwc
+  // Rotation, translation and camera center
+  cv::Mat mRcw;
+  cv::Mat mtcw;
+  cv::Mat mRwc;
+  cv::Mat mOw;  // mtwc
 };
 
-}// namespace VDO_SLAM
+}  // namespace VDO_SLAM
 
-#endif // FRAME_H
+#endif  // FRAME_H

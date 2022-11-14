@@ -30,54 +30,58 @@
 #include <iostream>
 #include <vector>
 
+namespace g2o
+{
+/**
+ * \brief statistics about the optimization
+ */
+struct G2OBatchStatistics
+{
+  G2OBatchStatistics();
+  int iteration;    ///< which iteration
+  int numVertices;  ///< how many vertices are involved
+  int numEdges;     ///< how many edges
+  double chi2;      ///< total chi2
 
-namespace g2o {
+  /** timings **/
+  // nonlinear part
+  double timeResiduals;      ///< residuals
+  double timeLinearize;      ///< jacobians
+  double timeQuadraticForm;  ///< construct the quadratic form in the graph
+  int levenbergIterations;   ///< number of iterations performed by LM
+  // block_solver (constructs Ax=b, plus maybe schur)
+  double timeSchurComplement;  ///< compute schur complement (0 if not done)
 
-  /**
-   * \brief statistics about the optimization
-   */
-  struct  G2OBatchStatistics {
-    G2OBatchStatistics();
-    int iteration;                    ///< which iteration
-    int numVertices;                  ///< how many vertices are involved
-    int numEdges;                     ///< how many edges
-    double chi2;                      ///< total chi2
+  // linear solver (computes Ax=b);
+  double timeSymbolicDecomposition;  ///< symbolic decomposition (0 if not done)
+  double timeNumericDecomposition;   ///< numeric decomposition  (0 if not done)
+  double timeLinearSolution;         ///< total time for solving Ax=b (including detup for schur)
+  double timeLinearSolver;           ///< time for solving, excluding Schur setup
+  int iterationsLinearSolver;        ///< iterations of PCG, (0 if not used, i.e., Cholesky)
+  double timeUpdate;                 ///< time to apply the update
+  double timeIteration;              ///< total time;
 
-    /** timings **/
-    // nonlinear part
-    double timeResiduals;             ///< residuals
-    double timeLinearize;             ///< jacobians
-    double timeQuadraticForm;         ///< construct the quadratic form in the graph
-    int levenbergIterations;          ///< number of iterations performed by LM
-    // block_solver (constructs Ax=b, plus maybe schur)
-    double timeSchurComplement;      ///< compute schur complement (0 if not done)
+  double timeMarginals;  ///< computing the inverse elements (solve blocks) and thus the marginal covariances
 
-    // linear solver (computes Ax=b);
-    double timeSymbolicDecomposition; ///< symbolic decomposition (0 if not done)
-    double timeNumericDecomposition;  ///< numeric decomposition  (0 if not done)
-    double timeLinearSolution;        ///< total time for solving Ax=b (including detup for schur)
-    double timeLinearSolver;          ///< time for solving, excluding Schur setup
-    int    iterationsLinearSolver;    ///< iterations of PCG, (0 if not used, i.e., Cholesky)
-    double timeUpdate;                ///< time to apply the update
-    double timeIteration;             ///< total time;
+  // information about the Hessian matrix
+  size_t hessianDimension;          ///< rows / cols of the Hessian
+  size_t hessianPoseDimension;      ///< dimension of the pose matrix in Schur
+  size_t hessianLandmarkDimension;  ///< dimension of the landmark matrix in Schur
+  size_t choleskyNNZ;               ///< number of non-zeros in the cholesky factor
 
-    double timeMarginals;             ///< computing the inverse elements (solve blocks) and thus the marginal covariances
+  static G2OBatchStatistics* globalStats()
+  {
+    return _globalStats;
+  }
+  static void setGlobalStats(G2OBatchStatistics* b);
 
-    // information about the Hessian matrix
-    size_t hessianDimension;          ///< rows / cols of the Hessian
-    size_t hessianPoseDimension;      ///< dimension of the pose matrix in Schur
-    size_t hessianLandmarkDimension;  ///< dimension of the landmark matrix in Schur
-    size_t choleskyNNZ;               ///< number of non-zeros in the cholesky factor
+protected:
+  static G2OBatchStatistics* _globalStats;
+};
 
-    static G2OBatchStatistics* globalStats() {return _globalStats;}
-    static void setGlobalStats(G2OBatchStatistics* b);
-    protected:
-    static G2OBatchStatistics* _globalStats;
-  };
+std::ostream& operator<<(std::ostream&, const G2OBatchStatistics&);
 
-   std::ostream& operator<<(std::ostream&, const G2OBatchStatistics&);
-
-  typedef std::vector<G2OBatchStatistics> BatchStatisticsContainer;
-}
+typedef std::vector<G2OBatchStatistics> BatchStatisticsContainer;
+}  // namespace g2o
 
 #endif

@@ -13,70 +13,98 @@
 
 #include <Eigen/Core>
 
-
-namespace VDO_SLAM {
-namespace timing {
-
+namespace VDO_SLAM
+{
+namespace timing
+{
 template <typename T, typename Total, int N>
-class Accumulator {
- public:
+class Accumulator
+{
+public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   Accumulator()
-      : window_samples_(0),
-        totalsamples_(0),
-        window_sum_(0),
-        sum_(0),
-        min_(std::numeric_limits<T>::max()),
-        max_(std::numeric_limits<T>::min()) {}
+    : window_samples_(0)
+    , totalsamples_(0)
+    , window_sum_(0)
+    , sum_(0)
+    , min_(std::numeric_limits<T>::max())
+    , max_(std::numeric_limits<T>::min())
+  {
+  }
 
-  void Add(T sample) {
-    if (window_samples_ < N) {
+  void Add(T sample)
+  {
+    if (window_samples_ < N)
+    {
       samples_[window_samples_++] = sample;
       window_sum_ += sample;
-    } else {
+    }
+    else
+    {
       T& oldest = samples_[window_samples_++ % N];
       window_sum_ += sample - oldest;
       oldest = sample;
     }
     sum_ += sample;
     ++totalsamples_;
-    if (sample > max_) {
+    if (sample > max_)
+    {
       max_ = sample;
     }
-    if (sample < min_) {
+    if (sample < min_)
+    {
       min_ = sample;
     }
   }
 
-  int TotalSamples() const { return totalsamples_; }
+  int TotalSamples() const
+  {
+    return totalsamples_;
+  }
 
-  double Sum() const { return sum_; }
+  double Sum() const
+  {
+    return sum_;
+  }
 
-  double Mean() const { return sum_ / totalsamples_; }
+  double Mean() const
+  {
+    return sum_ / totalsamples_;
+  }
 
-  double RollingMean() const {
+  double RollingMean() const
+  {
     return window_sum_ / std::min(window_samples_, N);
   }
 
-  double Max() const { return max_; }
+  double Max() const
+  {
+    return max_;
+  }
 
-  double Min() const { return min_; }
+  double Min() const
+  {
+    return min_;
+  }
 
-  double LazyVariance() const {
-    if (window_samples_ == 0) {
+  double LazyVariance() const
+  {
+    if (window_samples_ == 0)
+    {
       return 0.0;
     }
     double var = 0;
     double mean = RollingMean();
-    for (int i = 0; i < std::min(window_samples_, N); ++i) {
+    for (int i = 0; i < std::min(window_samples_, N); ++i)
+    {
       var += (samples_[i] - mean) * (samples_[i] - mean);
     }
     var /= std::min(window_samples_, N);
     return var;
   }
 
- private:
+private:
   int window_samples_;
   int totalsamples_;
   Total window_sum_;
@@ -86,8 +114,11 @@ class Accumulator {
   T samples_[N];
 };
 
-struct TimerMapValue {
-  TimerMapValue() {}
+struct TimerMapValue
+{
+  TimerMapValue()
+  {
+  }
 
   /// Create an accumulator with specified window size.
   Accumulator<double, double, 50> acc_;
@@ -98,22 +129,36 @@ struct TimerMapValue {
  * place of the Timer class (say with a typedef) should allow one to disable
  * timing. Because all of the functions are inline, they should just disappear.
  */
-class DummyTimer {
- public:
+class DummyTimer
+{
+public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-  explicit DummyTimer(size_t /*handle*/, bool /*constructStopped*/ = false) {}
-  explicit DummyTimer(std::string const& /*tag*/,
-                      bool /*constructStopped*/ = false) {}
-  ~DummyTimer() {}
+  explicit DummyTimer(size_t /*handle*/, bool /*constructStopped*/ = false)
+  {
+  }
+  explicit DummyTimer(std::string const& /*tag*/, bool /*constructStopped*/ = false)
+  {
+  }
+  ~DummyTimer()
+  {
+  }
 
-  void Start() {}
-  void Stop() {}
-  bool IsTiming() { return false; }
+  void Start()
+  {
+  }
+  void Stop()
+  {
+  }
+  bool IsTiming()
+  {
+    return false;
+  }
 };
 
-class Timer {
- public:
+class Timer
+{
+public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   explicit Timer(size_t handle, bool constructStopped = false);
@@ -124,15 +169,16 @@ class Timer {
   void Stop();
   bool IsTiming() const;
 
- private:
+private:
   std::chrono::time_point<std::chrono::system_clock> time_;
 
   bool timing_;
   size_t handle_;
 };
 
-class Timing {
- public:
+class Timing
+{
+public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   typedef std::map<std::string, size_t> map_t;
@@ -158,9 +204,12 @@ class Timing {
   static std::string Print();
   static std::string SecondsToTimeString(double seconds);
   static void Reset();
-  static const map_t& GetTimers() { return Instance().tagMap_; }
+  static const map_t& GetTimers()
+  {
+    return Instance().tagMap_;
+  }
 
- private:
+private:
   void AddTime(size_t handle, double seconds);
 
   static Timing& Instance();
@@ -183,4 +232,4 @@ typedef DummyTimer DebugTimer;
 #endif
 
 }  // namespace timing
-} //VDO_SLAM
+}  // namespace VDO_SLAM

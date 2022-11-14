@@ -46,21 +46,21 @@
  *  This file specifies some general case utility functions
  **/
 
-namespace g2o {
-
+namespace g2o
+{
 /**
  * helper function for creating an object in a unique_ptr.
  */
-template<typename T, typename ...ArgTs>
-std::unique_ptr<T> make_unique(ArgTs&& ...args)
+template <typename T, typename... ArgTs>
+std::unique_ptr<T> make_unique(ArgTs&&... args)
 {
   return std::unique_ptr<T>(new T(std::forward<ArgTs>(args)...));
 };
 
 /**
-* converts a number constant to a number_t constant at compile time
-* to avoid having to cast everything to avoid warnings.
-**/
+ * converts a number constant to a number_t constant at compile time
+ * to avoid having to cast everything to avoid warnings.
+ **/
 inline number_t cst(long double v)
 {
   return (number_t)v;
@@ -72,7 +72,7 @@ inline number_t cst(long double v)
 template <typename T>
 inline T square(T x)
 {
-  return x*x;
+  return x * x;
 }
 
 /**
@@ -81,7 +81,7 @@ inline T square(T x)
 template <typename T>
 inline T hypot(T x, T y)
 {
-  return (T) (sqrt(x*x + y*y));
+  return (T)(sqrt(x * x + y * y));
 }
 
 /**
@@ -90,7 +90,7 @@ inline T hypot(T x, T y)
 template <typename T>
 inline T hypot_sqr(T x, T y)
 {
-  return x*x + y*y;
+  return x * x + y * y;
 }
 
 /**
@@ -116,13 +116,13 @@ inline double normalize_theta(double theta)
 {
   if (theta >= -M_PI && theta < M_PI)
     return theta;
-  
-  double multiplier = floor(theta / (2*M_PI));
-  theta = theta - multiplier*2*M_PI;
+
+  double multiplier = floor(theta / (2 * M_PI));
+  theta = theta - multiplier * 2 * M_PI;
   if (theta >= M_PI)
-    theta -= 2*M_PI;
+    theta -= 2 * M_PI;
   if (theta < -M_PI)
-    theta += 2*M_PI;
+    theta += 2 * M_PI;
 
   return theta;
 }
@@ -144,7 +144,7 @@ inline double average_angle(double theta1, double theta2)
 
   x = cos(theta1) + cos(theta2);
   y = sin(theta1) + sin(theta2);
-  if(x == 0 && y == 0)
+  if (x == 0 && y == 0)
     return 0;
   else
     return std::atan2(y, x);
@@ -169,7 +169,7 @@ inline int sign(T x)
  * clamp x to the interval [l, u]
  */
 template <typename T>
-inline T clamp(T l, T x, T u) 
+inline T clamp(T l, T x, T u)
 {
   if (x < l)
     return l;
@@ -182,7 +182,7 @@ inline T clamp(T l, T x, T u)
  * wrap x to be in the interval [l, u]
  */
 template <typename T>
-inline T wrap(T l, T x, T u) 
+inline T wrap(T l, T x, T u)
 {
   T intervalWidth = u - l;
   while (x < l)
@@ -198,7 +198,8 @@ inline T wrap(T l, T x, T u)
 inline bool arrayHasNaN(const double* array, int size, int* nanIndex = 0)
 {
   for (int i = 0; i < size; ++i)
-    if (g2o_isnan(array[i])) {
+    if (g2o_isnan(array[i]))
+    {
       if (nanIndex)
         *nanIndex = i;
       return true;
@@ -209,18 +210,19 @@ inline bool arrayHasNaN(const double* array, int size, int* nanIndex = 0)
 /**
  * The following two functions are used to force linkage with static libraries.
  */
-extern "C"
-{
-    typedef void (* ForceLinkFunction) (void);
+extern "C" {
+typedef void (*ForceLinkFunction)(void);
 }
 
 struct ForceLinker
 {
-    ForceLinker(ForceLinkFunction function) { (function)(); }
+  ForceLinker(ForceLinkFunction function)
+  {
+    (function)();
+  }
 };
 
-
-} // end namespace
+}  // namespace g2o
 
 // @}
 

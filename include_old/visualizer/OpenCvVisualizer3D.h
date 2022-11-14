@@ -12,72 +12,60 @@
 #include <map>
 #include <deque>
 
-namespace VDO_SLAM { 
+namespace VDO_SLAM
+{
+class OpenCvVisualizer3D : public Display
+{
+public:
+  VDO_SLAM_POINTER_TYPEDEFS(OpenCvVisualizer3D);
 
-class OpenCvVisualizer3D : public Display {
+  OpenCvVisualizer3D(DisplayParams::Ptr params_, Map* map_);
+  ~OpenCvVisualizer3D() = default;
 
-    public:
-        VDO_SLAM_POINTER_TYPEDEFS(OpenCvVisualizer3D);
+  void process() override;
 
-        OpenCvVisualizer3D(DisplayParams::Ptr params_, Map* map_);
-        ~OpenCvVisualizer3D() = default;
+private:
+  // should only draw once
+  void drawWorldCoordinateSystem();
+  void setupModelViewMatrix();
 
-        void process() override;
+  void drawCurrentCameraPose(WidgetsMap* widgets_map);
+  void followCurrentView();
 
-    private:
-        //should only draw once
-        void drawWorldCoordinateSystem();
-        void setupModelViewMatrix();
+  void addToTrajectory();
+  void drawTrajectory(WidgetsMap* widgets_map);
 
-        void drawCurrentCameraPose(WidgetsMap* widgets_map);
-        void followCurrentView();
+  void drawStaticPointCloud(WidgetsMap* widgets_map);
+  void drawDynamicPointClouds(WidgetsMap* widgets_map);
 
-        void addToTrajectory();
-        void drawTrajectory(WidgetsMap* widgets_map);
+  void markWidgetForRemoval(const std::string& widget_id);
+  void removeWidgets();
 
-        void drawStaticPointCloud(WidgetsMap* widgets_map);
-        void drawDynamicPointClouds(WidgetsMap* widgets_map);
+  // helpder functions
+  cv::Mat getLatestPose();
 
-        void markWidgetForRemoval(const std::string& widget_id);
-        void removeWidgets();
+  static cv::Mat ModelViewLookAt(double ex, double ey, double ez, double lx, double ly, double lz, double ux, double uy,
+                                 double uz);
 
-        //helpder functions
-        cv::Mat getLatestPose();
+private:
+  cv::viz::Viz3d window;
+  Map* map;
 
-        static cv::Mat ModelViewLookAt(
-                double ex, 
-                double ey, 
-                double ez, 
-                double lx, 
-                double ly, 
-                double lz, 
-                double ux, 
-                double uy, 
-                double uz);
+  //! Intrinsics of the camera frustum used for visualization.
+  const cv::Matx33d K_ = { 458.0, 0.0, 360.0, 0.0, 458.0, 240.0, 0.0, 0.0, 1.0 };
 
-    private:
+  // todo widgets to remove?
+  WidgetIds widgets_to_remove;
 
-        cv::viz::Viz3d window;
-        Map* map;
+  std::deque<cv::Affine3f> trajectory;
 
-        //! Intrinsics of the camera frustum used for visualization.
-        const cv::Matx33d K_ = {458.0, 0.0, 360.0, 0.0, 458.0, 240.0, 0.0, 0.0, 1.0};
+  // viewer params -> eventually put in params
+  const double viewpointX = 0.0;
+  const double viewpointY = 0.7;
+  const double viewpointZ = -3.5;
+  const double viewpointF = 500.0;
 
-        //todo widgets to remove?
-        WidgetIds widgets_to_remove;
-
-        std::deque<cv::Affine3f> trajectory;
-
-        //viewer params -> eventually put in params
-        const double viewpointX = 0.0;
-        const double viewpointY = 0.7;
-        const double viewpointZ = -3.5;
-        const double viewpointF = 500.0;
-
-        cv::Mat model_view_matrix;
-
+  cv::Mat model_view_matrix;
 };
 
-
-
-}
+}  // namespace VDO_SLAM

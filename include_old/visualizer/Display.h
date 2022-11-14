@@ -4,25 +4,22 @@
 #include "visualizer/DisplayParams.h"
 #include <opencv2/opencv.hpp>
 
+namespace VDO_SLAM
+{
+class Display
+{
+public:
+  VDO_SLAM_POINTER_TYPEDEFS(Display);
 
-namespace VDO_SLAM {
+  Display(DisplayParams::Ptr params_);
+  virtual ~Display() = default;
 
-class Display {
+  virtual void process() = 0;
 
-    public:
-        VDO_SLAM_POINTER_TYPEDEFS(Display);
+  static cv::Scalar getObjectColour(int label);
 
-        Display(DisplayParams::Ptr params_);
-        virtual ~Display() = default;
-
-        virtual void process() = 0;
-
-        static cv::Scalar getObjectColour(int label);
-
-    protected:
-        DisplayParams::Ptr params;
-
-
+protected:
+  DisplayParams::Ptr params;
 };
 
-} //VDO_SLAM
+}  // namespace VDO_SLAM

@@ -1,5 +1,4 @@
-#pragma once 
-
+#pragma once
 
 #include "utils/macros.h"
 #include "utils/types.h"
@@ -12,9 +11,8 @@
 
 #include <sstream>
 
-
-namespace VDO_SLAM {
-
+namespace VDO_SLAM
+{
 // //forward
 // class Map;
 
@@ -33,7 +31,6 @@ namespace VDO_SLAM {
 //     virtual T update(FrameId frame_id, FeatureId feature_id) = 0;
 // };
 
-
 // class StaticPointUpdater : public AbstracUpdater<gtsam::Point3> {
 
 // public:
@@ -41,5 +38,4 @@ namespace VDO_SLAM {
 
 // };
 
-
-}
+}  // namespace VDO_SLAM

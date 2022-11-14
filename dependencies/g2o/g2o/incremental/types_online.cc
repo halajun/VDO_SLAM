@@ -27,8 +27,8 @@
 #include "../core/factory.h"
 #include "types_slam3d_online.h"
 
-namespace g2o {
-
+namespace g2o
+{
 G2O_REGISTER_TYPE_GROUP(online);
 
 // G2O_REGISTER_TYPE(ONLINE_EDGE_SE2, OnlineEdgeSE2);

@@ -56,12 +56,15 @@ private:
   FrontendOutput::Ptr processNominal(const InputPacket& input,
                                      GroundTruthInputPacket::ConstOptional ground_truth = boost::none);
 
+  Frame::Ptr constructFrame(const ImagePacket& images, Timestamp timestamp, size_t frame_id);
+
+  
   void detectFeatures(Frame::Ptr frame);
   void initaliseFrameTo3D(Frame::Ptr frame);
 
   // calculates the input depth map from the disparity map
   // sets state variables
-  void preprocessInput(const InputPacket& input);
+  void preprocessInput(const InputPacket& input, ImagePacket& images);
 
   // converts the input disparity mape into an stereo depth map using the
   // stereo baseline and depth map factor
@@ -79,11 +82,11 @@ private:
 
   // state data
   State state{ State::kBoostrap };
-  // the frame ID of the current input
-  size_t current_frame_id;
-  Timestamp current_timestamp;
-  // images
-  ImagePacket images;  // the rgb image should be rgb
+  // // the frame ID of the current input
+  // size_t current_frame_id;
+  // Timestamp current_timestamp;
+  // // images
+  // ImagePacket images;  // the rgb image should be rgb
 
   Frame::Ptr current_frame{ nullptr };
   Frame::Ptr previous_frame{ nullptr };

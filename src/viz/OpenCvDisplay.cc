@@ -37,23 +37,6 @@ void OpenCvDisplay::process(const VisualiserInput& viz_input)
   display_images.clear();
 }
 
-// void OpenCvDisplay::addInput(const Display2DInput& input)
-// {
-//   if (!params->use_2d_viz)
-//   {
-//     return;
-//   }
-
-//   if (params->display_input)
-//   {
-//     drawInputImages(input.frame);
-//   }
-
-//   if (params->display_frame)
-//   {
-//     drawFrame(input);
-//   }
-// }
 
 void OpenCvDisplay::drawInputImages(const Frame& frame)
 {

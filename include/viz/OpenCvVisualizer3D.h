@@ -28,14 +28,19 @@ private:
   void drawWorldCoordinateSystem();
   void setupModelViewMatrix();
 
-  void drawCurrentCameraPose(WidgetsMap* widgets_map);
-  void followCurrentView();
+  void drawFrontend(WidgetsMap* widgets_map, const FrontendOutput::Ptr& frontend);
 
-  void addToTrajectory();
-  void drawTrajectory(WidgetsMap* widgets_map);
+  //pose in the world frame
+  std::unique_ptr<cv::viz::WCameraPosition>  createPoseWidget(const gtsam::Pose3& pose_w, const cv::viz::Color& colour);
+  std::unique_ptr<cv::viz::WCloud> createCloudWidget(const Landmarks& landmarks,  const cv::viz::Color& colour);
+  // void drawCurrentCameraPose(WidgetsMap* widgets_map);
+  // void followCurrentView();
 
-  void drawStaticPointCloud(WidgetsMap* widgets_map);
-  void drawDynamicPointClouds(WidgetsMap* widgets_map);
+  // void addToTrajectory();
+  // void drawTrajectory(WidgetsMap* widgets_map);
+
+  // void drawStaticPointCloud(WidgetsMap* widgets_map);
+  // void drawDynamicPointClouds(WidgetsMap* widgets_map);
 
   void markWidgetForRemoval(const std::string& widget_id);
   void removeWidgets();

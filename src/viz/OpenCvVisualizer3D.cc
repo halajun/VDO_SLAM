@@ -1,5 +1,6 @@
 #include "viz/OpenCvVisualizer3D.h"
 #include "utils/UtilsOpenCV.h"
+#include "UtilsGtsam.h"
 // #include "utils/UtilsGTSAM.h"
 
 #include <memory>
@@ -28,18 +29,19 @@ void OpenCvVisualizer3D::process(const VisualiserInput& viz_input)
   }
 
   WidgetsMap widgets;
-  drawCurrentCameraPose(&widgets);
+  drawFrontend(&widgets, viz_input.frontend_output);
+  // addToTrajectory();
+  // drawTrajectory(&widgets);
 
-  addToTrajectory();
-  drawTrajectory(&widgets);
-
-  // followCurrentView();
-  drawStaticPointCloud(&widgets);
-  drawDynamicPointClouds(&widgets);
+  // // followCurrentView();
+  // drawStaticPointCloud(&widgets);
+  // drawDynamicPointClouds(&widgets);
 
   for (auto it = widgets.begin(); it != widgets.end(); ++it)
   {
-    CHECK(it->second);
+    // if(it->second == nullptr) {
+    //   continue;
+    // }
     // / This is to go around opencv issue #10829, new opencv should have this
     // fixed. cv::viz::Widget3D::getPose segfaults.
     it->second->updatePose(cv::Affine3d());
@@ -64,18 +66,124 @@ void OpenCvVisualizer3D::drawWorldCoordinateSystem()
 void OpenCvVisualizer3D::setupModelViewMatrix()
 {
   // attempting to replicate the follow mode of ORB-SLAM3 viewwer.cc
-  model_view_matrix = ModelViewLookAt(viewpointX, viewpointY, viewpointZ, 0, 0, 0, 0.0, -1.0, 0.0);
+  // model_view_matrix = ModelViewLookAt(viewpointX, viewpointY, viewpointZ, 0, 0, 0, 0.0, -1.0, 0.0);
 }
 
-void OpenCvVisualizer3D::followCurrentView()
-{
-  // cv::Mat view = model_view_matrix * getLatestPose();
-  // cv::Affine3d affine_view = utils::matPoseToCvAffine3d(view);
-  // window.setViewerPose(affine_view);
+void OpenCvVisualizer3D::drawFrontend(WidgetsMap* widgets_map, const FrontendOutput::Ptr& frontend) {
+  //draw camera pose
+  const gtsam::Pose3 X_wc = frontend->frame->pose;
+  std::unique_ptr<cv::viz::WCameraPosition> cam_pose = std::move(createPoseWidget(X_wc, cv::viz::Color::red()));
+
+  if(cam_pose) {
+    (*widgets_map)["camera_pose"] = std::move(cam_pose);
+    markWidgetForRemoval("camera_pose");
+  }
+  
+
+  //if gt pose, add
+  if(frontend->frame->ground_truth) {
+    const GroundTruthInputPacket& gt = *frontend->frame->ground_truth;
+
+    const gtsam::Pose3 X_wc_gt = gt.X_wc;
+      std::unique_ptr<cv::viz::WCameraPosition> cam_pose_gt = std::move(createPoseWidget(X_wc_gt, cv::viz::Color::green()));
+
+      if(cam_pose_gt) {
+          (*widgets_map)["camera_pose_gt"] = std::move(cam_pose_gt);
+          markWidgetForRemoval("camera_pose_gt");
+      }
+
+      //draw pose for each object
+      for(const ObjectPoseGT& object_pose_gt : gt.obj_poses) {
+        gtsam::Pose3 object_pose_w = X_wc_gt * object_pose_gt.pose;
+        std::unique_ptr<cv::viz::WCameraPosition> object_pose_widget = std::move(createPoseWidget(object_pose_w, cv::viz::Color::bluberry()));
+
+         if(object_pose_widget) {
+          std::string name = "camera_pose_gt" + std::to_string(object_pose_gt.object_id);
+          (*widgets_map)[name] = std::move(object_pose_widget);
+          markWidgetForRemoval(name);
+        }
+
+      }
+
+
+  }
+
+  //add points as projected in the camera frame. convert to world frame
+  std::vector<gtsam::Point3> static_points_w;
+  std::vector<gtsam::Point3> dynamic_points_w;
+
+  const Landmarks& static_landmarks = frontend->frame->StaticLandmarks();
+  const Landmarks& dynamic_landmarks = frontend->frame->DynamicLandmarks();
+
+  for(const Landmark& lmk_c : static_landmarks) {
+    static_points_w.push_back(X_wc.transformFrom(lmk_c));
+  }
+
+  for(const Landmark& lmk_c : dynamic_landmarks) {
+    dynamic_points_w.push_back(X_wc.transformFrom(lmk_c));
+  }
+
+  std::unique_ptr<cv::viz::WCloud> static_cloud = std::move(createCloudWidget(static_points_w, cv::viz::Color::red()));
+  std::unique_ptr<cv::viz::WCloud> dynamic_cloud = std::move(createCloudWidget(dynamic_points_w, cv::viz::Color::blue()));
+
+  if(static_cloud) {
+    (*widgets_map)["staitc_cloud"] = std::move(static_cloud);
+    markWidgetForRemoval("staitc_cloud");
+  }
+
+  if(dynamic_cloud) {
+    (*widgets_map)["dynamic_cloud"] = std::move(dynamic_cloud);
+    markWidgetForRemoval("dynamic_cloud");
+  }
+
+  //draw pose for object
+
+
+
 }
 
-void OpenCvVisualizer3D::drawCurrentCameraPose(WidgetsMap* widgets_map)
-{
+std::unique_ptr<cv::viz::WCameraPosition>  OpenCvVisualizer3D::createPoseWidget(const gtsam::Pose3& pose_w, const cv::viz::Color& colour) {
+  std::unique_ptr<cv::viz::WCameraPosition> cam_widget_ptr =  vdo::make_unique<cv::viz::WCameraPosition>(K_, 1.0, colour);
+  cv::Mat cv_pose = utils::gtsamPose3ToCvMat(pose_w);
+  cv::Affine3d cv_affine_pose = utils::matPoseToCvAffine3d(cv_pose);
+  cam_widget_ptr->setPose(cv_affine_pose);
+  return cam_widget_ptr;
+}
+
+std::unique_ptr<cv::viz::WCloud> OpenCvVisualizer3D::createCloudWidget(const Landmarks& landmarks,  const cv::viz::Color& colour) {
+  if(landmarks.empty()) { return nullptr; }
+  cv::Mat point_cloud(1, landmarks.size(), CV_32FC3);
+  // cv::Mat point_cloud_color(
+  //     1, point_cloud_color.size(), CV_8UC3, cloud_color_);
+
+  cv::Point3f* data = point_cloud.ptr<cv::Point3f>();
+  size_t i = 0;
+  for (const gtsam::Point3& point : landmarks)
+  {
+    data[i].x = static_cast<float>(point.x());
+    data[i].y = static_cast<float>(point.y());
+    data[i].z = static_cast<float>(point.z());
+    i++;
+  }
+
+  // Create a cloud widget.
+  std::unique_ptr<cv::viz::WCloud> cloud_widget =
+      vdo::make_unique<cv::viz::WCloud>(point_cloud, colour);
+  cloud_widget->setRenderingProperty(cv::viz::POINT_SIZE, 2);
+  return cloud_widget;
+}
+
+
+
+// void OpenCvVisualizer3D::followCurrentView()
+// {
+//   // cv::Mat view = model_view_matrix * getLatestPose();
+//   // cv::Affine3d affine_view = utils::matPoseToCvAffine3d(view);
+//   // window.setViewerPose(affine_view);
+// }
+
+// void OpenCvVisualizer3D::drawCurrentCameraPose(WidgetsMap* widgets_map)
+// {
   // todo add posr to trajectory?
   // const int N = map->vpFeatSta.size() - 1;
   // cv::Mat camera_pose_mat = map->vmCameraPose[N];
@@ -90,42 +198,42 @@ void OpenCvVisualizer3D::drawCurrentCameraPose(WidgetsMap* widgets_map)
   // (*widgets_map)["Camera_pose"] = std::move(cam_widget_ptr);
 
   // markWidgetForRemoval("Camera_pose");
-}
+// }
 
-void OpenCvVisualizer3D::addToTrajectory()
-{
-  // assume we call every step so we just take the last one
-  // const int N = map->vpFeatSta.size() - 1;
-  // cv::Mat camera_pose_mat = map->vmCameraPose[N];
-  // cv::Affine3d camera_pose = utils::matPoseToCvAffine3d(camera_pose_mat);
-  // trajectory.push_back(camera_pose);
-  // // hardcoded size for now
-  // while (trajectory.size() > 100)
-  // {
-  //   trajectory.pop_front();
-  // }
-}
+// void OpenCvVisualizer3D::addToTrajectory()
+// {
+//   // assume we call every step so we just take the last one
+//   // const int N = map->vpFeatSta.size() - 1;
+//   // cv::Mat camera_pose_mat = map->vmCameraPose[N];
+//   // cv::Affine3d camera_pose = utils::matPoseToCvAffine3d(camera_pose_mat);
+//   // trajectory.push_back(camera_pose);
+//   // // hardcoded size for now
+//   // while (trajectory.size() > 100)
+//   // {
+//   //   trajectory.pop_front();
+//   // }
+// }
 
-void OpenCvVisualizer3D::drawTrajectory(WidgetsMap* widgets_map)
-{
-  CHECK_NOTNULL(widgets_map);
+// void OpenCvVisualizer3D::drawTrajectory(WidgetsMap* widgets_map)
+// {
+//   CHECK_NOTNULL(widgets_map);
 
-  if (trajectory.size() == 0)
-  {
-    LOG(WARNING) << "Trajectory is empty";
-    return;
-  }
+//   if (trajectory.size() == 0)
+//   {
+//     LOG(WARNING) << "Trajectory is empty";
+//     return;
+//   }
 
-  // // Create a Trajectory widget. (argument can be PATH, FRAMES, BOTH).
-  std::vector<cv::Affine3f> trajectory_viz;
-  trajectory_viz.reserve(trajectory.size());
-  for (const auto& pose : trajectory)
-  {
-    trajectory_viz.push_back(pose);
-  }
-  (*widgets_map)["Trajectory"] =
-      vdo::make_unique<cv::viz::WTrajectory>(trajectory_viz, cv::viz::WTrajectory::PATH, 1.0, cv::viz::Color::red());
-}
+//   // // Create a Trajectory widget. (argument can be PATH, FRAMES, BOTH).
+//   std::vector<cv::Affine3f> trajectory_viz;
+//   trajectory_viz.reserve(trajectory.size());
+//   for (const auto& pose : trajectory)
+//   {
+//     trajectory_viz.push_back(pose);
+//   }
+//   (*widgets_map)["Trajectory"] =
+//       vdo::make_unique<cv::viz::WTrajectory>(trajectory_viz, cv::viz::WTrajectory::PATH, 1.0, cv::viz::Color::red());
+// }
 
 void OpenCvVisualizer3D::markWidgetForRemoval(const std::string& widget_id)
 {
@@ -133,8 +241,8 @@ void OpenCvVisualizer3D::markWidgetForRemoval(const std::string& widget_id)
   widgets_to_remove.push_back(widget_id);
 }
 
-void OpenCvVisualizer3D::drawStaticPointCloud(WidgetsMap* widgets_map)
-{
+// void OpenCvVisualizer3D::drawStaticPointCloud(WidgetsMap* widgets_map)
+// {
   // const int N = map->vpFeatSta.size();
   // const std::vector<std::vector<std::pair<int, int>>>& StaTracks = map->TrackletSta;
   // std::vector<gtsam::Point3> points;
@@ -229,10 +337,10 @@ void OpenCvVisualizer3D::drawStaticPointCloud(WidgetsMap* widgets_map)
   // (*widgets_map)["Point cloud"] = std::move(cloud_widget);
 
   // markWidgetForRemoval("Point cloud");
-}
+// }
 
-void OpenCvVisualizer3D::drawDynamicPointClouds(WidgetsMap* widgets_map)
-{
+// void OpenCvVisualizer3D::drawDynamicPointClouds(WidgetsMap* widgets_map)
+// {
   // const int N = map->vpFeatSta.size();
   // const std::vector<std::vector<std::pair<int, int>>>& DynTracks = map->TrackletDyn;
   // std::vector<gtsam::Point3> points;
@@ -309,7 +417,7 @@ void OpenCvVisualizer3D::drawDynamicPointClouds(WidgetsMap* widgets_map)
   // (*widgets_map)["Dynamic Point cloud"] = std::move(cloud_widget);
 
   // markWidgetForRemoval("Dynamic Point cloud");
-}
+// }
 
 void OpenCvVisualizer3D::removeWidgets()
 {

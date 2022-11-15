@@ -32,14 +32,12 @@ FrontendOutput::Ptr Tracking::process(const InputPacket& input, GroundTruthInput
 FrontendOutput::Ptr Tracking::processBoostrap(const InputPacket& input,
                                               GroundTruthInputPacket::ConstOptional ground_truth)
 {
-  // preprocess depth image
-  preprocessInput(input);
+  const Timestamp& timestamp = input.timestamp;
+  const size_t& frame_id = input.frame_id;
+  ImagePacket images;
+  preprocessInput(input, images);
   // constrict frame
-  Frame::Ptr frame = std::make_shared<Frame>(images, current_timestamp, current_frame_id, camera.Params());
-  detectFeatures(frame);
-  displayFeatures(*frame);
-  frame->projectKeypoints(camera);
-
+  Frame::Ptr frame = constructFrame(images, timestamp, frame_id);
   // use ground truth to initalise pose
   if (ground_truth)
   {
@@ -54,7 +52,7 @@ FrontendOutput::Ptr Tracking::processBoostrap(const InputPacket& input,
   }
 
   // set initalisatiobn
-  current_frame = frame;
+  previous_frame = frame;
   state = State::kNominal;
   return std::make_shared<FrontendOutput>(frame);
 }
@@ -62,20 +60,36 @@ FrontendOutput::Ptr Tracking::processBoostrap(const InputPacket& input,
 FrontendOutput::Ptr Tracking::processNominal(const InputPacket& input,
                                              GroundTruthInputPacket::ConstOptional ground_truth)
 {
-  preprocessInput(input);
+  const Timestamp& timestamp = input.timestamp;
+  const size_t& frame_id = input.frame_id;
+  ImagePacket images;
+  preprocessInput(input, images);
   // constrict frame
-  Frame::Ptr frame = std::make_shared<Frame>(images, current_timestamp, current_frame_id, camera.Params());
-  detectFeatures(frame);
-  displayFeatures(*frame);
-  frame->projectKeypoints(camera);
+  Frame::Ptr frame = constructFrame(images, timestamp, frame_id);
+
+  if (ground_truth)
+  {
+    frame->ground_truth = ground_truth;
+    LOG(INFO) << "Initalising pose using ground truth " << frame->pose;
+  }
+
+  previous_frame = frame;
   return std::make_shared<FrontendOutput>(frame);
 }
 
-void Tracking::preprocessInput(const InputPacket& input)
-{
-  current_frame_id = input.frame_id;
-  current_timestamp = input.timestamp;
 
+
+Frame::Ptr Tracking::constructFrame(const ImagePacket& images, Timestamp timestamp, size_t frame_id)
+{
+    Frame::Ptr frame = std::make_shared<Frame>(images, timestamp, frame_id, camera.Params());
+    detectFeatures(frame);
+    displayFeatures(*frame);
+    frame->projectKeypoints(camera);
+    return frame;
+}
+
+void Tracking::preprocessInput(const InputPacket& input, ImagePacket& images)
+{
   input.images.rgb.copyTo(images.rgb);
   input.images.flow.copyTo(images.flow);
   input.images.semantic_mask.copyTo(images.semantic_mask);

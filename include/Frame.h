@@ -30,6 +30,15 @@ public:
     return dynamic_features;
   }
 
+  inline const Landmarks& StaticLandmarks() const
+  {
+    return static_landmarks;
+  }
+  inline const Landmarks& DynamicLandmarks() const
+  {
+    return dynamic_landmarks;
+  }
+
   void detectFeatures(ORBextractor::UniquePtr& detector);
   // static and dynamic?
   void projectKeypoints(const Camera& camera);

@@ -39,6 +39,10 @@ public:
     return dynamic_landmarks;
   }
 
+  //we can either detect features or add new ones (from optical flow)
+  //HACK: for now
+  void addFeatures(const Features& features_);
+  void addKeypoints(const KeypointsCV& keypoints_);
   void detectFeatures(ORBextractor::UniquePtr& detector);
   // static and dynamic?
   void projectKeypoints(const Camera& camera);
@@ -61,7 +65,8 @@ private:
 
   void undistortKeypoints(const KeypointsCV& distorted, KeypointsCV& undistorted);
 
-private:
+//HACK: for now
+public:
   const ImagePacket images;  // must be const to ensure unchangable references to images
   const Timestamp timestamp;
   const size_t frame_id;

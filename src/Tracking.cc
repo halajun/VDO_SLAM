@@ -37,7 +37,12 @@ FrontendOutput::Ptr Tracking::processBoostrap(const InputPacket& input,
   ImagePacket images;
   preprocessInput(input, images);
   // constrict frame
-  Frame::Ptr frame = constructFrame(images, timestamp, frame_id);
+  Frame::Ptr frame = std::make_shared<Frame>(images, timestamp, frame_id, camera.Params());
+  frame->detectFeatures(feature_detector);
+  frame->processStaticFeatures(params.depth_background_thresh);
+  frame->processDynamicFeatures(params.depth_obj_thresh);
+  displayFeatures(*frame);
+  frame->projectKeypoints(camera);
   // use ground truth to initalise pose
   if (ground_truth)
   {
@@ -65,7 +70,12 @@ FrontendOutput::Ptr Tracking::processNominal(const InputPacket& input,
   ImagePacket images;
   preprocessInput(input, images);
   // constrict frame
-  Frame::Ptr frame = constructFrame(images, timestamp, frame_id);
+  Frame::Ptr frame = std::make_shared<Frame>(images, timestamp, frame_id, camera.Params());
+  staticTrackOpticalFlow(previous_frame, frame);
+  frame->processStaticFeatures(params.depth_background_thresh);
+  frame->processDynamicFeatures(params.depth_obj_thresh);
+  frame->projectKeypoints(camera);
+  displayFeatures(*frame);
 
   if (ground_truth)
   {
@@ -78,15 +88,52 @@ FrontendOutput::Ptr Tracking::processNominal(const InputPacket& input,
 }
 
 
+void Tracking::staticTrackOpticalFlow(const Frame::Ptr& previous_frame_, Frame::Ptr current_frame_) {
+  //TODO: mark feature as inlier/outlier
+  static int tracklet_id = 0;
+  const Features& previous_features = previous_frame_->StaticFeatures();
+  KeypointsCV tracked_features;
+  
 
-Frame::Ptr Tracking::constructFrame(const ImagePacket& images, Timestamp timestamp, size_t frame_id)
-{
-    Frame::Ptr frame = std::make_shared<Frame>(images, timestamp, frame_id, camera.Params());
-    detectFeatures(frame);
-    displayFeatures(*frame);
-    frame->projectKeypoints(camera);
-    return frame;
+  std::vector<int> tracklet_ids;
+  for(Feature& previous_feature : previous_features) {
+    KeypointCV kp = previous_feature.predicted_keypoint;
+    // LOG(INFO) << kp.pt.x  << " " << kp.pt.y;
+    // LOG(INFO) << previous_feature.depth;
+
+    if(camera.isKeypointContained(kp, previous_feature.depth)) {
+      previous_feature.tracklet_id = tracklet_id;
+      tracklet_ids.push_back(tracklet_id);
+      tracklet_id++;
+      tracked_features.push_back(previous_feature.predicted_keypoint);
+
+    }
+  }
+
+  if(tracked_features.size() < 10) {
+    current_frame_->detectFeatures(feature_detector);
+  }
+  else {
+      current_frame_->addKeypoints(tracked_features);
+
+      CHECK_EQ(current_frame_->static_features.size(), tracklet_ids.size());
+      for(size_t i = 0; i < tracklet_ids.size(); i++) {
+        current_frame_->static_features[i].tracklet_id = tracklet_ids[i];
+      }
+
+  }
+
 }
+
+
+// Frame::Ptr Tracking::constructFrame(const ImagePacket& images, Timestamp timestamp, size_t frame_id)
+// {
+//     Frame::Ptr frame = std::make_shared<Frame>(images, timestamp, frame_id, camera.Params());
+//     detectFeatures(frame);
+//     displayFeatures(*frame);
+//     frame->projectKeypoints(camera);
+//     return frame;
+// }
 
 void Tracking::preprocessInput(const InputPacket& input, ImagePacket& images)
 {

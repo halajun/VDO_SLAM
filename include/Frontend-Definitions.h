@@ -28,7 +28,11 @@ struct Feature
   cv::Point2d optical_flow;  // the optical flow calculated at this keypoint
   // //the predicted position of this feature in the next frame -> initially this will be calculated
   // with optical flow
+
+  //as we're moving forward this is actually the previous point as the flow is backwards.
+  //the matching actually happens with the previous point
   cv::KeyPoint predicted_keypoint;
+
 
   InstanceLabel instance_label{ background };
 };

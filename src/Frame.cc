@@ -11,6 +11,12 @@ Frame::Frame(const ImagePacket& images_, Timestamp timestamp_, size_t frame_id_,
 {
 }
 
+void Frame::addKeypoints(const KeypointsCV& keypoints_) {
+  keypoints = keypoints_;
+  LOG(INFO) << "Added features - " << keypoints.size();
+  undistortKeypoints(keypoints, keypoints);
+}
+
 void Frame::detectFeatures(ORBextractor::UniquePtr& detector)
 {
   cv::Mat mono;
@@ -63,6 +69,8 @@ void Frame::processStaticFeatures(double depth_background_thresh)
     int x = keypoints[i].pt.x;
     int y = keypoints[i].pt.y;
 
+    // LOG(INFO) << "Procesing " << x << " " << y;
+
     if (images.semantic_mask.at<int>(y, x) != 0)  // new added in Jun 13 2019
       continue;
 
@@ -70,8 +78,10 @@ void Frame::processStaticFeatures(double depth_background_thresh)
         images.depth.at<double>(y, x) <= 0)  // new added in Aug 21 2019
       continue;
 
-    double flow_xe = images.flow.at<cv::Vec2d>(y, x)[0];
-    double flow_ye = images.flow.at<cv::Vec2d>(y, x)[1];
+    float flow_xe = images.flow.at<cv::Vec2f>(y, x)[0];
+    float flow_ye = images.flow.at<cv::Vec2f>(y, x)[1];
+    double flow_xe_d = static_cast<double>(flow_xe);
+    double flow_ye_d = static_cast<double>(flow_ye);
 
     if (flow_xe != 0 && flow_ye != 0)
     {
@@ -94,7 +104,7 @@ void Frame::processStaticFeatures(double depth_background_thresh)
           feature.depth = -1;
         }
 
-        feature.optical_flow = cv::Point2d(flow_xe, flow_ye);
+        feature.optical_flow = cv::Point2d(flow_xe_d, flow_ye_d);
         feature.predicted_keypoint =
             cv::KeyPoint(keypoints[i].pt.x + flow_xe, keypoints[i].pt.y + flow_ye, 0, 0, 0, keypoints[i].octave, -1);
         feature.instance_label = Feature::background;
@@ -122,8 +132,12 @@ void Frame::processDynamicFeatures(double depth_object_thresh)
       // check ground truth motion mask
       if (instance_label != 0 && depth < depth_object_thresh && depth > 0)
       {
-        double flow_x = images.flow.at<cv::Vec2d>(i, j)[0];
-        double flow_y = images.flow.at<cv::Vec2d>(i, j)[1];
+        float flow_x = images.flow.at<cv::Vec2f>(i, j)[0];
+        float flow_y = images.flow.at<cv::Vec2f>(i, j)[1];
+        
+
+        double flow_x_d = static_cast<double>(flow_x);
+        double flow_y_d = static_cast<double>(flow_y);
 
         // we are within the image bounds?
         if (j + flow_x < ref_image.cols && j + flow_x > 0 && i + flow_y < ref_image.rows && i + flow_y > 0)
@@ -135,7 +149,7 @@ void Frame::processDynamicFeatures(double depth_object_thresh)
           feature.type = Feature::Type::DYNAMIC;
           feature.depth = depth;
 
-          feature.optical_flow = cv::Point2d(flow_x, flow_y);
+          feature.optical_flow = cv::Point2d(flow_x_d, flow_y_d);
           feature.predicted_keypoint = cv::KeyPoint(j + flow_x, i + flow_y, 0, 0, 0, -1);
           feature.instance_label = instance_label;
           // // save correspondences
@@ -196,7 +210,10 @@ void Frame::drawStaticFeatures(cv::Mat& image) const
   {
     cv::Point2d point(feature.keypoint.pt.x, feature.keypoint.pt.y);
     utils::DrawCircleInPlace(image, point, cv::Scalar(0, 255, 0));
+
+    cv::arrowedLine(image, feature.keypoint.pt, feature.predicted_keypoint.pt, cv::Scalar(255, 0, 0));
   }
+  
 }
 
 void Frame::drawDynamicFeatures(cv::Mat& image) const
@@ -205,7 +222,13 @@ void Frame::drawDynamicFeatures(cv::Mat& image) const
   {
     cv::Point2d point(feature.keypoint.pt.x, feature.keypoint.pt.y);
     utils::DrawCircleInPlace(image, point, cv::Scalar(0, 0, 255));
+
+    
+    cv::arrowedLine(image, feature.keypoint.pt, feature.predicted_keypoint.pt, cv::Scalar(0, 0, 255));
   }
+
+  //TODO: refactor all this - for now just draw this point to predicted
+
 }
 
 void Frame::prepareRgbForDetection(const cv::Mat& rgb, cv::Mat& mono)

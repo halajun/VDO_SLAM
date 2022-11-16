@@ -58,6 +58,8 @@ private:
 
   Frame::Ptr constructFrame(const ImagePacket& images, Timestamp timestamp, size_t frame_id);
 
+  void staticTrackOpticalFlow(const Frame::Ptr& previous_frame_, Frame::Ptr current_frame_);
+
   
   void detectFeatures(Frame::Ptr frame);
   void initaliseFrameTo3D(Frame::Ptr frame);

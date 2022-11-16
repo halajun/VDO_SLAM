@@ -32,5 +32,6 @@ cv::Affine3d gtsamPose3ToCvAffine3d(const gtsam::Pose3& pose);
 // // to get it to align with the standard axis
 cv::Mat alignCameraPoseToWorld(const cv::Mat& pose);
 
+
 }  // namespace utils
 }  // namespace vdo

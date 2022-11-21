@@ -1,9 +1,12 @@
 #include "Tracking.h"
 #include "ORBextractor.h"
 #include "Camera.h"
+#include "Frontend-Definitions.h"
+#include "UtilsGtsam.h"
 
 #include <opencv2/opencv.hpp>
 #include <glog/logging.h>
+#include <algorithm>
 
 namespace vdo
 {
@@ -71,16 +74,24 @@ FrontendOutput::Ptr Tracking::processNominal(const InputPacket& input,
   preprocessInput(input, images);
   // constrict frame
   Frame::Ptr frame = std::make_shared<Frame>(images, timestamp, frame_id, camera.Params());
-  staticTrackOpticalFlow(previous_frame, frame);
+  //optical flow tracking failed so we need to redetect all features
+  if(!staticTrackOpticalFlow(previous_frame, frame)) {
+    frame->detectFeatures(feature_detector);
+  }
+  
   frame->processStaticFeatures(params.depth_background_thresh);
+
   frame->processDynamicFeatures(params.depth_obj_thresh);
   frame->projectKeypoints(camera);
   displayFeatures(*frame);
 
+  //estimate initialPos
+  solveInitalCamModel(previous_frame, frame);
+
   if (ground_truth)
   {
     frame->ground_truth = ground_truth;
-    LOG(INFO) << "Initalising pose using ground truth " << frame->pose;
+    LOG(INFO) << "Initalising pose using ground truth " << frame->ground_truth->X_wc;
   }
 
   previous_frame = frame;
@@ -88,42 +99,130 @@ FrontendOutput::Ptr Tracking::processNominal(const InputPacket& input,
 }
 
 
-void Tracking::staticTrackOpticalFlow(const Frame::Ptr& previous_frame_, Frame::Ptr current_frame_) {
+bool Tracking::staticTrackOpticalFlow(const Frame::Ptr& previous_frame_, Frame::Ptr current_frame_) {
   //TODO: mark feature as inlier/outlier
-  static int tracklet_id = 0;
-  const Features& previous_features = previous_frame_->StaticFeatures();
-  KeypointsCV tracked_features;
+  const TrackletIdFeatureMap& previous_features = previous_frame_->static_features;
+  Observations tracked_observation;
   
-
-  std::vector<int> tracklet_ids;
-  for(Feature& previous_feature : previous_features) {
+  for(const auto& feature_pair : previous_features) {
+    const std::size_t& tracklet_id = feature_pair.first;
+    const Feature& previous_feature = *feature_pair.second;
     KeypointCV kp = previous_feature.predicted_keypoint;
-    // LOG(INFO) << kp.pt.x  << " " << kp.pt.y;
-    // LOG(INFO) << previous_feature.depth;
 
-    if(camera.isKeypointContained(kp, previous_feature.depth)) {
-      previous_feature.tracklet_id = tracklet_id;
-      tracklet_ids.push_back(tracklet_id);
-      tracklet_id++;
-      tracked_features.push_back(previous_feature.predicted_keypoint);
+    //AND is an inlier
+
+    if(camera.isKeypointContained(kp, previous_feature.depth) && previous_feature.inlier) {
+      Observation obs;
+      obs.keypoint = kp;
+      obs.type = Observation::Type::OPTICAL_FLOW;
+      obs.tracklet_id = previous_feature.tracklet_id;
+      tracked_observation.push_back(obs);
 
     }
   }
 
-  if(tracked_features.size() < 10) {
-    current_frame_->detectFeatures(feature_detector);
+  //TODO: a much more sophisticaed retracking method
+  if(tracked_observation.size() < 30) {
+    current_frame_->addStaticFeatures(tracked_observation);
+    return false;
   }
   else {
-      current_frame_->addKeypoints(tracked_features);
-
-      CHECK_EQ(current_frame_->static_features.size(), tracklet_ids.size());
-      for(size_t i = 0; i < tracklet_ids.size(); i++) {
-        current_frame_->static_features[i].tracklet_id = tracklet_ids[i];
-      }
+      current_frame_->addStaticFeatures(tracked_observation);
+      return true;
 
   }
 
+
 }
+
+bool Tracking::solveInitalCamModel(Frame::Ptr previous_frame_, Frame::Ptr current_frame_) {
+  std::vector<cv::Point2f> current_2d;
+  std::vector<cv::Point3f> previous_3d;
+  std::vector<size_t> tracklet_ids; //feature tracklets from the current frame so we can assign values as inliers or outliers
+  for(const auto& feature_pair : current_frame_->static_features) {
+    const std::size_t& tracklet_id = feature_pair.first;
+
+    Feature::Ptr previous_feature = previous_frame_->getStaticFeature(tracklet_id);
+    if(!previous_feature) {continue;}
+
+    Feature::Ptr current_feature = feature_pair.second;
+
+    //sanity check
+    CHECK_EQ(previous_feature->tracklet_id, current_feature->tracklet_id);
+    CHECK_EQ(previous_feature->tracklet_id, tracklet_id);
+
+    // //dont think this shoudl happen as we only track (old) points if it is an inlier! see staticTrackOpticalFlow
+    if(!previous_feature->inlier) {continue;}
+
+    current_2d.push_back(current_feature->keypoint.pt);
+
+    Landmark lmk;
+    camera.backProject(previous_feature->keypoint, previous_feature->depth, &lmk);
+    //lmk is in camera frame. Put into world frame
+    Landmark lmk_world = previous_frame->pose.transformFrom(lmk);
+    cv::Point3f lmk_f(static_cast<float>(lmk_world.x()), static_cast<float>(lmk_world.y()), static_cast<float>(lmk_world.z()));
+    previous_3d.push_back(lmk_f);
+    tracklet_ids.push_back(tracklet_id);
+  }
+
+  //TODO: if we have zero tracket features -> this means need to fix the way the frontend takes feature points so we never 
+  //completely clear our tracks
+  if(previous_3d.size() < 5) {
+    LOG(WARNING) << "Cannot run PnP with < 5 points";
+    current_frame_->pose = previous_frame->pose;
+    return false;
+  }
+
+  LOG(INFO) << "Solving initial camera model with  " << previous_3d.size() << " features";
+
+  const cv::Mat& K = camera.Params().K;
+  const cv::Mat& D = camera.Params().D;
+
+  // output
+  cv::Mat Rvec(3, 1, CV_64FC1);
+  cv::Mat Tvec(3, 1, CV_64FC1);
+  cv::Mat Rot(3, 3, CV_64FC1);
+  cv::Mat pnp_inliers; //a [1 x N] vector
+
+  // solve
+  int iter_num = 500;
+  double reprojectionError = 0.4, confidence = 0.98;  // 0.5 0.3
+  cv::solvePnPRansac(previous_3d, current_2d, K, D, Rvec, Tvec, false, iter_num, reprojectionError, confidence,
+                     pnp_inliers, cv::SOLVEPNP_AP3P);  // AP3P EPNP P3P ITERATIVE DLS
+  // LOG(INFO) << "inliers " << pnp_inliers;
+
+  cv::Rodrigues(Rvec, Rot);
+  //vector of tracklet id's that PnP ransac marked as inliers
+  std::vector<size_t>  pnp_tracklet_inliers;
+  for(size_t i = 0; i < pnp_inliers.rows; i++) {
+    int inlier_index = pnp_inliers.at<int>(i);
+    size_t inlier_tracklet = tracklet_ids[inlier_index];
+    pnp_tracklet_inliers.push_back(inlier_tracklet);
+  }
+
+  LOG(INFO) << "Inliers/total = " << pnp_tracklet_inliers.size() << "/" << previous_3d.size();
+
+  //sanity check
+  CHECK_EQ(pnp_tracklet_inliers.size(), pnp_inliers.rows);
+  //mark all features in current frame as either inlier or outlier
+  for(const auto& feature_pair : current_frame_->static_features) {
+    //TODO: can massively optimize
+    if (std::find(pnp_tracklet_inliers.begin(), pnp_tracklet_inliers.end(), feature_pair.first) != pnp_tracklet_inliers.end()) {
+      //it is an inlier
+      feature_pair.second->inlier = true;
+    }
+    else {
+      feature_pair.second->inlier = false;
+    }
+  }
+
+
+  current_frame_->pose = utils::cvMatsToGtsamPose3(Rot, Tvec).inverse();
+  LOG(INFO) << current_frame_->pose;
+  return true;
+
+}
+
 
 
 // Frame::Ptr Tracking::constructFrame(const ImagePacket& images, Timestamp timestamp, size_t frame_id)

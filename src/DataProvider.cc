@@ -181,7 +181,7 @@ bool KittiSequenceDataProvider::loadData(const std::string& path_to_sequence, In
   LOG(INFO) << vObjPoseID.size();
 
   // now read image image and add grount truths
-  for (size_t frame_id = 0; frame_id < nTimes; frame_id++)
+  for (size_t frame_id = 0; frame_id < nTimes-1; frame_id++)
   {
     // LOG(INFO) << "Loading data at - frame ID " << frame_id;
     Timestamp timestamp = vTimestamps[frame_id];
@@ -210,6 +210,11 @@ bool KittiSequenceDataProvider::loadData(const std::string& path_to_sequence, In
 
     cv::Mat sem(rgb.rows, rgb.cols, CV_32SC1);
     loadSemanticMask(vstrFilenamesSEM[frame_id], sem);
+
+    CHECK(!rgb.empty());
+    CHECK(!depth.empty());
+    CHECK(!flow.empty());
+    CHECK(!sem.empty());
 
     InputPacket input(timestamp, frame_id, rgb, depth, flow, sem);
 

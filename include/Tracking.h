@@ -58,7 +58,10 @@ private:
 
   Frame::Ptr constructFrame(const ImagePacket& images, Timestamp timestamp, size_t frame_id);
 
-  void staticTrackOpticalFlow(const Frame::Ptr& previous_frame_, Frame::Ptr current_frame_);
+  //false if failed and so neeeds to detect new fatures
+  bool staticTrackOpticalFlow(const Frame::Ptr& previous_frame_, Frame::Ptr current_frame_);
+
+  bool solveInitalCamModel(Frame::Ptr previous_frame_, Frame::Ptr current_frame_);
 
   
   void detectFeatures(Frame::Ptr frame);

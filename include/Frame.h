@@ -6,6 +6,8 @@
 #include "ORBextractor.h"
 #include "Camera.h"
 
+
+#include <map>
 #include <gtsam/geometry/Pose3.h>
 
 namespace vdo
@@ -21,14 +23,16 @@ public:
   {
     return images;
   }
-  inline const Features& StaticFeatures() const
-  {
-    return static_features;
-  }
-  inline const Features& DynamicFeatures() const
-  {
-    return dynamic_features;
-  }
+
+  Feature::Ptr getStaticFeature(std::size_t tracklet_id) const;
+  // inline const Features& StaticFeatures() const
+  // {
+  //   return static_features;
+  // }
+  // inline const Features& DynamicFeatures() const
+  // {
+  //   return dynamic_features;
+  // }
 
   inline const Landmarks& StaticLandmarks() const
   {
@@ -41,8 +45,9 @@ public:
 
   //we can either detect features or add new ones (from optical flow)
   //HACK: for now
-  void addFeatures(const Features& features_);
-  void addKeypoints(const KeypointsCV& keypoints_);
+  void addStaticFeatures(const Observations& observations_);
+  // void addFeatures(const Features& features_);
+  // void addKeypoints(const KeypointsCV& keypoints_);
   void detectFeatures(ORBextractor::UniquePtr& detector);
   // static and dynamic?
   void projectKeypoints(const Camera& camera);
@@ -57,6 +62,8 @@ public:
 
   // public for now
   gtsam::Pose3 pose;
+  //not sure if best repreented by pose3
+  gtsam::Pose3 motion_model;
   GroundTruthInputPacket::ConstOptional ground_truth{ boost::none };
 
 private:
@@ -73,20 +80,18 @@ public:
   const CameraParams cam_params;
 
   // all keypoints as detected by orb -> they will then be undistorted
-  KeypointsCV keypoints;
+  Observations observations;
   // depths of each keypoint (as taken from the depth map)
   cv::Mat descriptors;
 
-  // //the predicted position of the static keypoints using the optical flow vector
-  // std::vector<cv::KeyPoint> predicted_keypoints_static;
-  // //the predicted optical flow value at each of the predicted KP's. Initalised with the current optical flow
-  // //should have the same size as predicted_keypoints_static
-  // std::vector<cv::Point2d> predicted_optical_flow;
-  Features static_features;
+  //TODO: probably make pointers
+  TrackletIdFeatureMap static_features;
   Landmarks static_landmarks;  // as projected in the camera frame
 
   Features dynamic_features;
   Landmarks dynamic_landmarks;  // as projected in the camera frame
+
+  static std::size_t tracklet_id_count; //for static and dynamic
 };
 
 }  // namespace vdo

@@ -1,42 +1,67 @@
 #include "Frame.h"
 #include "Types.h"
+#include "Frontend-Definitions.h"
 #include "utils/UtilsOpenCV.h"
 
 #include <glog/logging.h>
 
 namespace vdo
 {
+std::size_t Frame::tracklet_id_count{0};
+
 Frame::Frame(const ImagePacket& images_, Timestamp timestamp_, size_t frame_id_, const CameraParams& cam_params_)
   : images(images_), timestamp(timestamp_), frame_id(frame_id_), cam_params(cam_params_)
 {
 }
 
-void Frame::addKeypoints(const KeypointsCV& keypoints_) {
-  keypoints = keypoints_;
-  LOG(INFO) << "Added features - " << keypoints.size();
-  undistortKeypoints(keypoints, keypoints);
+void Frame::addStaticFeatures(const Observations& observations_) {
+  observations = observations_;
+  LOG(INFO) << "Added observations - " << observations.size();
+  // undistortKeypoints(keypoints, keypoints);
 }
+
+Feature::Ptr Frame::getStaticFeature(std::size_t tracklet_id) const {
+  if(static_features.find(tracklet_id) == static_features.end()) {
+    return nullptr;
+  }
+  else {
+    return static_features.at(tracklet_id);
+  }
+}
+
 
 void Frame::detectFeatures(ORBextractor::UniquePtr& detector)
 {
   cv::Mat mono;
   prepareRgbForDetection(images.rgb, mono);
-
+  KeypointsCV keypoints;
   (*detector)(mono, cv::Mat(), keypoints, descriptors);
   LOG(INFO) << "Detected " << keypoints.size() << " kp";
-
   if (keypoints.size() == 0)
   {
     LOG(ERROR) << "zero features detected - frame " << frame_id;
+    //what if we have zero features but some left over observations
   }
 
-  undistortKeypoints(keypoints, keypoints);
+  //TODO: make param
+  //TODO: this will  add onto the exsiting obs -> we should try and spread the kp's around using something like NMS
+  for(const KeypointCV& kp : keypoints) {
+    Observation obs;
+    obs.keypoint = kp;
+    obs.tracklet_id = Frame::tracklet_id_count;
+    Frame::tracklet_id_count++;
+    obs.type = Observation::Type::DETECTION;
+    observations.push_back(obs);
+  }
+
+  // undistortKeypoints(keypoints, keypoints);
 }
 
 void Frame::projectKeypoints(const Camera& camera)
 {
-  for (const Feature& feature : static_features)
+  for (const auto& feature_pair : static_features)
   {
+    const Feature& feature = *feature_pair.second;
     CHECK(feature.depth != -1);
     Landmark lmk;
     camera.backProject(feature.keypoint, feature.depth, &lmk);
@@ -57,20 +82,31 @@ void Frame::projectKeypoints(const Camera& camera)
 
 void Frame::processStaticFeatures(double depth_background_thresh)
 {
-  if (keypoints.size() == 0)
+  CHECK_EQ(static_features.size(), 0u);
+  if (observations.size() == 0)
   {
     LOG(ERROR) << "Cannot process flow correspondences with zero keypoints - frame " << frame_id;
+    return;
   }
 
   const cv::Mat& ref_image = images.rgb;
 
-  for (int i = 0; i < keypoints.size(); ++i)
+  for (int i = 0; i < observations.size(); ++i)
   {
-    int x = keypoints[i].pt.x;
-    int y = keypoints[i].pt.y;
+    const Observation& obs = observations[i];
+    
+    int x = obs.keypoint.pt.x;
+    int y = obs.keypoint.pt.y;
 
-    // LOG(INFO) << "Procesing " << x << " " << y;
+    //check is in image bounds
+    if(x < 0 || y < 0 || x >= ref_image.cols || y >= ref_image.rows) {
+      LOG(WARNING) << "Obs is outside image bounds";
+      continue;
+    }
 
+    CHECK_EQ(images.semantic_mask.size(), ref_image.size());
+    CHECK_EQ(images.depth.size(), ref_image.size());
+    CHECK_EQ(images.flow.size(), ref_image.size());
     if (images.semantic_mask.at<int>(y, x) != 0)  // new added in Jun 13 2019
       continue;
 
@@ -83,36 +119,38 @@ void Frame::processStaticFeatures(double depth_background_thresh)
     double flow_xe_d = static_cast<double>(flow_xe);
     double flow_ye_d = static_cast<double>(flow_ye);
 
+    //WHY ONLY WHEN WE HAVE FLOW?
     if (flow_xe != 0 && flow_ye != 0)
     {
       if (x + flow_xe < ref_image.cols && y + flow_ye < ref_image.rows && x < ref_image.cols && y < ref_image.rows)
       {
-        Feature feature;
-        feature.keypoint = keypoints[i];
-        feature.index = i;
-        feature.frame_id = frame_id;
-        feature.type = Feature::Type::STATIC;
-
+        Feature::Ptr feature = std::make_shared<Feature>();
+        feature->keypoint = obs.keypoint;
+        feature->index = i;
+        feature->frame_id = frame_id;
+        feature->type = Feature::Type::STATIC;
         Depth d = images.depth.at<double>(y, x);  // be careful with the order  !!!
         if (d > 0)
         {
-          feature.depth = d;
+          feature->depth = d;
         }
         else
         {
           // log warning?
-          feature.depth = -1;
+          feature->depth = -1;
         }
 
-        feature.optical_flow = cv::Point2d(flow_xe_d, flow_ye_d);
-        feature.predicted_keypoint =
-            cv::KeyPoint(keypoints[i].pt.x + flow_xe, keypoints[i].pt.y + flow_ye, 0, 0, 0, keypoints[i].octave, -1);
-        feature.instance_label = Feature::background;
+        feature->optical_flow = cv::Point2d(flow_xe_d, flow_ye_d);
+        feature->predicted_keypoint =
+            cv::KeyPoint(obs.keypoint.pt.x + flow_xe, obs.keypoint.pt.y + flow_ye, 0, 0, 0, obs.keypoint.octave, -1);
+        feature->instance_label = Feature::background;
+        feature->tracklet_id = obs.tracklet_id;
+        CHECK(feature->tracklet_id != -1);
         // // mvStatKeysTmp.push_back(mvKeys[i]);
         // predicted_keypoints_static.push_back(cv::KeyPoint(keypoints[i].pt.x+flow_xe,keypoints[i].pt.y+flow_ye,0,0,0,keypoints[i].octave,-1));
         // predicted_optical_flow.push_back(cv::Point2d(flow_xe,flow_ye));
 
-        static_features.push_back(feature);
+        static_features.insert({obs.tracklet_id, feature});
       }
     }
   }
@@ -206,12 +244,14 @@ void Frame::undistortKeypoints(const KeypointsCV& distorted, KeypointsCV& undist
 void Frame::drawStaticFeatures(cv::Mat& image) const
 {
   // assumes image is sized appropiately
-  for (const Feature& feature : static_features)
+  for (const auto& feature_pair : static_features)
   {
+    const Feature& feature = *feature_pair.second;
     cv::Point2d point(feature.keypoint.pt.x, feature.keypoint.pt.y);
     utils::DrawCircleInPlace(image, point, cv::Scalar(0, 255, 0));
-
     cv::arrowedLine(image, feature.keypoint.pt, feature.predicted_keypoint.pt, cv::Scalar(255, 0, 0));
+    cv::putText(image, std::to_string(feature.tracklet_id), cv::Point2i(feature.keypoint.pt.x - 10, feature.keypoint.pt.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.3,
+                      cv::Scalar(255, 0, 0));
   }
   
 }

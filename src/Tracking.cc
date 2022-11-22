@@ -75,9 +75,25 @@ FrontendOutput::Ptr Tracking::processNominal(const InputPacket& input,
   // constrict frame
   Frame::Ptr frame = std::make_shared<Frame>(images, timestamp, frame_id, camera.Params());
   //optical flow tracking failed so we need to redetect all features
-  if(!staticTrackOpticalFlow(previous_frame, frame)) {
-    frame->detectFeatures(feature_detector);
+
+  Observations of_tracked_observations;
+  calculateOpticalFlowTracks(previous_frame, of_tracked_observations);
+  //if we have enough tracks from optical flow then we only use these ones
+  Observations tracked_observations(of_tracked_observations);
+ 
+  LOG(INFO) << "Tracks with OF - " << of_tracked_observations.size();
+  if(of_tracked_observations.size() < 100) {
+    //redect on the previous frame
+    previous_frame->refreshFeatures(feature_detector, params.depth_background_thresh);
+    Observations newly_tracked_observations;
+    calculateOpticalFlowTracks(previous_frame, newly_tracked_observations);
+    LOG(INFO) << "Newly tracked obs " << newly_tracked_observations.size();
+    //merge the two sets of tracked feautes, some old and some new
+    std::copy(newly_tracked_observations.begin(), newly_tracked_observations.end(), std::back_inserter(tracked_observations));
   }
+
+  LOG(INFO) << "Total obs " << tracked_observations.size();
+  frame->addStaticFeatures(tracked_observations);
   
   frame->processStaticFeatures(params.depth_background_thresh);
 
@@ -98,7 +114,7 @@ FrontendOutput::Ptr Tracking::processNominal(const InputPacket& input,
   return std::make_shared<FrontendOutput>(frame);
 }
 
-
+//TODO: depricate
 bool Tracking::staticTrackOpticalFlow(const Frame::Ptr& previous_frame_, Frame::Ptr current_frame_) {
   //TODO: mark feature as inlier/outlier
   const TrackletIdFeatureMap& previous_features = previous_frame_->static_features;
@@ -122,8 +138,9 @@ bool Tracking::staticTrackOpticalFlow(const Frame::Ptr& previous_frame_, Frame::
   }
 
   //TODO: a much more sophisticaed retracking method
-  if(tracked_observation.size() < 30) {
-    current_frame_->addStaticFeatures(tracked_observation);
+  LOG(INFO) << tracked_observation.size() << " were tracked using OF";
+  current_frame_->addStaticFeatures(tracked_observation);
+  if(tracked_observation.size() < 400) {
     return false;
   }
   else {
@@ -131,11 +148,37 @@ bool Tracking::staticTrackOpticalFlow(const Frame::Ptr& previous_frame_, Frame::
       return true;
 
   }
+  current_frame_->addStaticFeatures(tracked_observation);
 
 
 }
 
+void Tracking::calculateOpticalFlowTracks(const Frame::Ptr& previous_frame_, Observations& observations) {
+  observations.clear();
+  const TrackletIdFeatureMap& previous_features = previous_frame_->static_features;
+  
+  for(const auto& feature_pair : previous_features) {
+    const std::size_t& tracklet_id = feature_pair.first;
+    const Feature& previous_feature = *feature_pair.second;
+    KeypointCV kp = previous_feature.predicted_keypoint;
+
+    //AND is an inlier
+
+    if(camera.isKeypointContained(kp, previous_feature.depth) && previous_feature.inlier) {
+      Observation obs;
+      obs.keypoint = kp;
+      obs.type = Observation::Type::OPTICAL_FLOW;
+      obs.tracklet_id = previous_feature.tracklet_id;
+      observations.push_back(obs);
+
+    }
+  }
+}
+
+
 bool Tracking::solveInitalCamModel(Frame::Ptr previous_frame_, Frame::Ptr current_frame_) {
+  bool solve_in_camera_frame = true;
+
   std::vector<cv::Point2f> current_2d;
   std::vector<cv::Point3f> previous_3d;
   std::vector<size_t> tracklet_ids; //feature tracklets from the current frame so we can assign values as inliers or outliers
@@ -152,17 +195,30 @@ bool Tracking::solveInitalCamModel(Frame::Ptr previous_frame_, Frame::Ptr curren
     CHECK_EQ(previous_feature->tracklet_id, tracklet_id);
 
     // //dont think this shoudl happen as we only track (old) points if it is an inlier! see staticTrackOpticalFlow
-    if(!previous_feature->inlier) {continue;}
+    if(!previous_feature->inlier) {
+      current_feature->inlier = false;
+      continue;
+    }
 
     current_2d.push_back(current_feature->keypoint.pt);
 
     Landmark lmk;
     camera.backProject(previous_feature->keypoint, previous_feature->depth, &lmk);
-    //lmk is in camera frame. Put into world frame
-    Landmark lmk_world = previous_frame->pose.transformFrom(lmk);
-    cv::Point3f lmk_f(static_cast<float>(lmk_world.x()), static_cast<float>(lmk_world.y()), static_cast<float>(lmk_world.z()));
-    previous_3d.push_back(lmk_f);
-    tracklet_ids.push_back(tracklet_id);
+
+    if(solve_in_camera_frame) {
+      cv::Point3f lmk_f(static_cast<float>(lmk.x()), static_cast<float>(lmk.y()), static_cast<float>(lmk.z()));
+      previous_3d.push_back(lmk_f);
+      tracklet_ids.push_back(tracklet_id);
+    }
+    else {
+      //solve as standard PnP formaulation and solve in world frame
+      //lmk is in camera frame. Put into world frame
+      Landmark lmk_world = previous_frame->pose.transformFrom(lmk);
+      cv::Point3f lmk_f(static_cast<float>(lmk_world.x()), static_cast<float>(lmk_world.y()), static_cast<float>(lmk_world.z()));
+      previous_3d.push_back(lmk_f);
+      tracklet_ids.push_back(tracklet_id);
+    }
+
   }
 
   //TODO: if we have zero tracket features -> this means need to fix the way the frontend takes feature points so we never 
@@ -216,8 +272,14 @@ bool Tracking::solveInitalCamModel(Frame::Ptr previous_frame_, Frame::Ptr curren
     }
   }
 
+  gtsam::Pose3 pose =  utils::cvMatsToGtsamPose3(Rot, Tvec).inverse();
 
-  current_frame_->pose = utils::cvMatsToGtsamPose3(Rot, Tvec).inverse();
+  if(solve_in_camera_frame) {
+    //need to compose this pose and the previous pose as "pose" as solved by PnP should be a relative pose
+    pose = previous_frame->pose * pose;
+  }
+
+  current_frame_->pose = pose;
   LOG(INFO) << current_frame_->pose;
   return true;
 

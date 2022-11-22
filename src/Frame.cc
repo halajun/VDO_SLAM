@@ -14,6 +14,14 @@ Frame::Frame(const ImagePacket& images_, Timestamp timestamp_, size_t frame_id_,
 {
 }
 
+void Frame::refreshFeatures(ORBextractor::UniquePtr& detector, double depth_background_thresh) {
+  observations.clear();
+  static_features.clear();
+  detectFeatures(detector);
+  processStaticFeatures(depth_background_thresh);
+}
+
+
 void Frame::addStaticFeatures(const Observations& observations_) {
   observations = observations_;
   LOG(INFO) << "Added observations - " << observations.size();
@@ -42,6 +50,7 @@ void Frame::detectFeatures(ORBextractor::UniquePtr& detector)
     LOG(ERROR) << "zero features detected - frame " << frame_id;
     //what if we have zero features but some left over observations
   }
+    LOG(INFO) << "before new detections " << observations.size();
 
   //TODO: make param
   //TODO: this will  add onto the exsiting obs -> we should try and spread the kp's around using something like NMS
@@ -53,6 +62,8 @@ void Frame::detectFeatures(ORBextractor::UniquePtr& detector)
     obs.type = Observation::Type::DETECTION;
     observations.push_back(obs);
   }
+
+  LOG(INFO) << "after new detections " << observations.size();
 
   // undistortKeypoints(keypoints, keypoints);
 }
@@ -90,7 +101,7 @@ void Frame::processStaticFeatures(double depth_background_thresh)
   }
 
   const cv::Mat& ref_image = images.rgb;
-
+  LOG(INFO) << "Processing static obs " << observations.size();
   for (int i = 0; i < observations.size(); ++i)
   {
     const Observation& obs = observations[i];
@@ -154,6 +165,7 @@ void Frame::processStaticFeatures(double depth_background_thresh)
       }
     }
   }
+  LOG(INFO) << "Processed static features " << static_features.size();
 }
 
 void Frame::processDynamicFeatures(double depth_object_thresh)

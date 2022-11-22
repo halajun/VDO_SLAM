@@ -61,6 +61,10 @@ private:
   //false if failed and so neeeds to detect new fatures
   bool staticTrackOpticalFlow(const Frame::Ptr& previous_frame_, Frame::Ptr current_frame_);
 
+  //find the observations from the previous frame that should be tracked into the next (current) frame
+  void calculateOpticalFlowTracks(const Frame::Ptr& previous_frame_, Observations& observations);
+  //using the static features from the previous frame and current frame, calculates and sets the pose 
+  //of the current frame. Features are marked as outliers based on PnP ransac and will not be included in the next frame
   bool solveInitalCamModel(Frame::Ptr previous_frame_, Frame::Ptr current_frame_);
 
   
@@ -93,7 +97,6 @@ private:
   // // images
   // ImagePacket images;  // the rgb image should be rgb
 
-  Frame::Ptr current_frame{ nullptr };
   Frame::Ptr previous_frame{ nullptr };
 };
 

@@ -263,77 +263,58 @@ gtsam::Pose3 KittiSequenceDataProvider::ObjPoseParsingKT(const std::vector<doubl
 {
   CHECK(obj_pose_gt.size() == 10);
 
-  // assign t vector
-  gtsam::Vector6 xi;
+   cv::Mat t(3, 1, CV_64FC1);
+  t.at<double>(0) = obj_pose_gt[6];
+  t.at<double>(1) = obj_pose_gt[7];
+  t.at<double>(2) = obj_pose_gt[8];
 
-  xi(0) = 0.0;
-  // Y-axis in camera coordinates
-  xi(1) = obj_pose_gt[9] + (3.1415926 / 2);  // +(3.1415926/2)
-  xi(2) = 0;
+  // from Euler to Rotation Matrix
+  cv::Mat R(3, 3, CV_64FC1);
 
-  xi(3) = obj_pose_gt[6];
-  xi(4) = obj_pose_gt[7];
-  xi(5) = obj_pose_gt[8];
+  // assign r vector
+  double y = obj_pose_gt[9]+(3.1415926/2); // +(3.1415926/2)
+  double x = 0.0;
+  double z = 0.0;
 
-  return gtsam::Pose3::Expmap(xi);
+  // the angles are in radians.
+  double cy = cos(y);
+  double sy = sin(y);
+  double cx = cos(x);
+  double sx = sin(x);
+  double cz = cos(z);
+  double sz = sin(z);
 
-  // // assign r vector
-  // float y = vObjPose_gt[9] + (3.1415926 / 2);  // +(3.1415926/2)
-  // float x = 0.0;
-  // float z = 0.0;
+  double m00, m01, m02, m10, m11, m12, m20, m21, m22;
 
-  // // the angles are in radians.
-  // float cy = cos(y);
-  // float sy = sin(y);
-  // float cx = cos(x);
-  // float sx = sin(x);
-  // float cz = cos(z);
-  // float sz = sin(z);
+  m00 = cy*cz+sy*sx*sz;
+  m01 = -cy*sz+sy*sx*cz;
+  m02 = sy*cx;
+  m10 = cx*sz;
+  m11 = cx*cz;
+  m12 = -sx;
+  m20 = -sy*cz+cy*sx*sz;
+  m21 = sy*sz+cy*sx*cz;
+  m22 = cy*cx;
 
-  // float m00, m01, m02, m10, m11, m12, m20, m21, m22;
 
-  // // ====== R = Ry*Rx*Rz =======
+  R.at<double>(0,0) = m00;
+  R.at<double>(0,1) = m01;
+  R.at<double>(0,2) = m02;
+  R.at<double>(1,0) = m10;
+  R.at<double>(1,1) = m11;
+  R.at<double>(1,2) = m12;
+  R.at<double>(2,0) = m20;
+  R.at<double>(2,1) = m21;
+  R.at<double>(2,2) = m22;
 
-  // m00 = cy * cz + sy * sx * sz;
-  // m01 = -cy * sz + sy * sx * cz;
-  // m02 = sy * cx;
-  // m10 = cx * sz;
-  // m11 = cx * cz;
-  // m12 = -sx;
-  // m20 = -sy * cz + cy * sx * sz;
-  // m21 = sy * sz + cy * sx * cz;
-  // m22 = cy * cx;
+  // construct 4x4 transformation matrix
+  cv::Mat Pose = cv::Mat::eye(4,4,CV_64F);
+  Pose.at<double>(0,0) = R.at<double>(0,0); Pose.at<double>(0,1) = R.at<double>(0,1); Pose.at<double>(0,2) = R.at<double>(0,2); Pose.at<double>(0,3) = t.at<double>(0);
+  Pose.at<double>(1,0) = R.at<double>(1,0); Pose.at<double>(1,1) = R.at<double>(1,1); Pose.at<double>(1,2) = R.at<double>(1,2); Pose.at<double>(1,3) = t.at<double>(1);
+  Pose.at<double>(2,0) = R.at<double>(2,0); Pose.at<double>(2,1) = R.at<double>(2,1); Pose.at<double>(2,2) = R.at<double>(2,2); Pose.at<double>(2,3) = t.at<double>(2);
 
-  // // **************************************************
+  return utils::cvMatToGtsamPose3(Pose);
 
-  // R.at<float>(0, 0) = m00;
-  // R.at<float>(0, 1) = m01;
-  // R.at<float>(0, 2) = m02;
-  // R.at<float>(1, 0) = m10;
-  // R.at<float>(1, 1) = m11;
-  // R.at<float>(1, 2) = m12;
-  // R.at<float>(2, 0) = m20;
-  // R.at<float>(2, 1) = m21;
-  // R.at<float>(2, 2) = m22;
-
-  // // construct 4x4 transformation matrix
-  // cv::Mat Pose = cv::Mat::eye(4, 4, CV_32F);
-  // Pose.at<float>(0, 0) = R.at<float>(0, 0);
-  // Pose.at<float>(0, 1) = R.at<float>(0, 1);
-  // Pose.at<float>(0, 2) = R.at<float>(0, 2);
-  // Pose.at<float>(0, 3) = t.at<float>(0);
-  // Pose.at<float>(1, 0) = R.at<float>(1, 0);
-  // Pose.at<float>(1, 1) = R.at<float>(1, 1);
-  // Pose.at<float>(1, 2) = R.at<float>(1, 2);
-  // Pose.at<float>(1, 3) = t.at<float>(1);
-  // Pose.at<float>(2, 0) = R.at<float>(2, 0);
-  // Pose.at<float>(2, 1) = R.at<float>(2, 1);
-  // Pose.at<float>(2, 2) = R.at<float>(2, 2);
-  // Pose.at<float>(2, 3) = t.at<float>(2);
-
-  // cout << "OBJ Pose: " << endl << Pose << endl;
-
-  // return Pose;
 }
 
 }  // namespace vdo

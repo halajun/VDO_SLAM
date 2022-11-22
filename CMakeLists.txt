@@ -88,6 +88,7 @@ src/viz/Visualizer.cc
 src/Camera.cc
 src/ORBextractor.cc
 src/Frame.cc
+src/Optimizer.cc
 
 )
 

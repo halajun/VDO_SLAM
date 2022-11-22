@@ -43,6 +43,9 @@ public:
     return dynamic_landmarks;
   }
 
+  //clears current observations, redetects features using the detector and updates the static tracksd
+  void refreshFeatures(ORBextractor::UniquePtr& detector, double depth_background_thresh);
+
   //we can either detect features or add new ones (from optical flow)
   //HACK: for now
   void addStaticFeatures(const Observations& observations_);

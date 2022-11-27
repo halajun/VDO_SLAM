@@ -9,7 +9,7 @@ namespace vdo {
 
 template<>
 inline void Formatter<gtsam::Pose3>::header(std::ofstream& stream) {
-    stream << "x,y,z,w,x,y,z";
+    stream << "x,y,z,qw,qx,qy,qz";
 }
 
 template<>
@@ -28,10 +28,8 @@ inline void Formatter<gtsam::Pose3>::format(std::ofstream& stream, const gtsam::
 
 template<>
 inline void Formatter<Frame>::header(std::ofstream& stream) {
-    stream << "frame_id,timestamp,";
-    Formatter<gtsam::Pose3>::header(stream);
-    stream << ",";
-    Formatter<gtsam::Pose3>::header(stream);
+    //frame id, timestamp, estimated pose, grount truth pose
+    stream << "frame_id,timestamp,x,y,z,qw,qx,qy,qz,gt_x,gt_y,gt_z,gt_qw,gt_qx,gt_qy,gt_qz";
 }
 
 template<>

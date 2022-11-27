@@ -85,7 +85,9 @@ System::System(const std::string& settings_file)
 gtsam::Pose3 System::TrackRGBD(const InputPacket& input, boost::optional<const GroundTruthInputPacket&> ground_truth)
 {
   FrontendOutput::Ptr output = tracker->process(input, ground_truth);
-
+  //TODO: calculate and log errors (can do in system)
+  //TODO: parse to backend
+  //TODO: update frontend
   VisualiserInput viz_input(output);
   viz->process(viz_input);
   return gtsam::Pose3::identity();

@@ -12,9 +12,7 @@ namespace vdo
 {
 Tracking::Tracking(const TrackingParams& params_, const Camera& camera_) : params(params_), camera(camera_)
 {
-  feature_detector =
-      vdo::make_unique<ORBextractor>(params.n_features, static_cast<float>(params.scale_factor), params.n_levels,
-                                     params.init_threshold_fast, params.min_threshold_fast);
+  feature_tracker = vdo::make_unique<FeatureTracker>(params_, camera_);
 }
 
 FrontendOutput::Ptr Tracking::process(const InputPacket& input, GroundTruthInputPacket::ConstOptional ground_truth)
@@ -41,11 +39,14 @@ FrontendOutput::Ptr Tracking::processBoostrap(const InputPacket& input,
   preprocessInput(input, images);
   // constrict frame
   Frame::Ptr frame = std::make_shared<Frame>(images, timestamp, frame_id, camera.Params());
-  frame->detectFeatures(feature_detector);
-  frame->processStaticFeatures(params.depth_background_thresh);
+
+  size_t n_optical_flow, n_new_tracks;
+  feature_tracker->trackFeatures(nullptr, frame, n_optical_flow, n_new_tracks);
+  // frame->detectFeatures(feature_detector);
+  // frame->processStaticFeatures(params.depth_background_thresh);
   frame->processDynamicFeatures(params.depth_obj_thresh);
   displayFeatures(*frame);
-  frame->projectKeypoints(camera);
+  // frame->projectKeypoints(camera);
   // use ground truth to initalise pose
   if (ground_truth)
   {
@@ -75,31 +76,15 @@ FrontendOutput::Ptr Tracking::processNominal(const InputPacket& input,
   // constrict frame
   Frame::Ptr frame = std::make_shared<Frame>(images, timestamp, frame_id, camera.Params());
   //optical flow tracking failed so we need to redetect all features
+  size_t n_optical_flow, n_new_tracks;
+  feature_tracker->trackFeatures(previous_frame, frame, n_optical_flow, n_new_tracks);
 
-  Observations of_tracked_observations;
-  calculateOpticalFlowTracks(previous_frame, of_tracked_observations);
-  //if we have enough tracks from optical flow then we only use these ones
-  Observations tracked_observations(of_tracked_observations);
- 
-  LOG(INFO) << "Tracks with OF - " << of_tracked_observations.size();
-  if(of_tracked_observations.size() < 100) {
-    //redect on the previous frame
-    previous_frame->refreshFeatures(feature_detector, params.depth_background_thresh);
-    Observations newly_tracked_observations;
-    calculateOpticalFlowTracks(previous_frame, newly_tracked_observations);
-    LOG(INFO) << "Newly tracked obs " << newly_tracked_observations.size();
-    //merge the two sets of tracked feautes, some old and some new
-    std::copy(newly_tracked_observations.begin(), newly_tracked_observations.end(), std::back_inserter(tracked_observations));
-  }
+  LOG(INFO) << "After tracking optical flow/new tracks - " << n_optical_flow << "/" << static_cast<int>(n_new_tracks);
+  LOG(INFO) << "After processing - feature size " << frame->static_features.size();
 
-  LOG(INFO) << "Total obs " << tracked_observations.size();
-  frame->addStaticFeatures(tracked_observations);
   
-  frame->processStaticFeatures(params.depth_background_thresh);
-
   frame->processDynamicFeatures(params.depth_obj_thresh);
-  frame->projectKeypoints(camera);
-  displayFeatures(*frame);
+  // frame->projectKeypoints(camera);
 
   //estimate initialPos
   solveInitalCamModel(previous_frame, frame);
@@ -109,71 +94,14 @@ FrontendOutput::Ptr Tracking::processNominal(const InputPacket& input,
     frame->ground_truth = ground_truth;
     LOG(INFO) << "Initalising pose using ground truth " << frame->ground_truth->X_wc;
   }
+  displayFeatures(*frame);
+
+  frame_logger.log(*frame);
 
   previous_frame = frame;
   return std::make_shared<FrontendOutput>(frame);
 }
 
-//TODO: depricate
-bool Tracking::staticTrackOpticalFlow(const Frame::Ptr& previous_frame_, Frame::Ptr current_frame_) {
-  //TODO: mark feature as inlier/outlier
-  const TrackletIdFeatureMap& previous_features = previous_frame_->static_features;
-  Observations tracked_observation;
-  
-  for(const auto& feature_pair : previous_features) {
-    const std::size_t& tracklet_id = feature_pair.first;
-    const Feature& previous_feature = *feature_pair.second;
-    KeypointCV kp = previous_feature.predicted_keypoint;
-
-    //AND is an inlier
-
-    if(camera.isKeypointContained(kp, previous_feature.depth) && previous_feature.inlier) {
-      Observation obs;
-      obs.keypoint = kp;
-      obs.type = Observation::Type::OPTICAL_FLOW;
-      obs.tracklet_id = previous_feature.tracklet_id;
-      tracked_observation.push_back(obs);
-
-    }
-  }
-
-  //TODO: a much more sophisticaed retracking method
-  LOG(INFO) << tracked_observation.size() << " were tracked using OF";
-  current_frame_->addStaticFeatures(tracked_observation);
-  if(tracked_observation.size() < 400) {
-    return false;
-  }
-  else {
-      current_frame_->addStaticFeatures(tracked_observation);
-      return true;
-
-  }
-  current_frame_->addStaticFeatures(tracked_observation);
-
-
-}
-
-void Tracking::calculateOpticalFlowTracks(const Frame::Ptr& previous_frame_, Observations& observations) {
-  observations.clear();
-  const TrackletIdFeatureMap& previous_features = previous_frame_->static_features;
-  
-  for(const auto& feature_pair : previous_features) {
-    const std::size_t& tracklet_id = feature_pair.first;
-    const Feature& previous_feature = *feature_pair.second;
-    KeypointCV kp = previous_feature.predicted_keypoint;
-
-    //AND is an inlier
-
-    if(camera.isKeypointContained(kp, previous_feature.depth) && previous_feature.inlier) {
-      Observation obs;
-      obs.keypoint = kp;
-      obs.type = Observation::Type::OPTICAL_FLOW;
-      obs.tracklet_id = previous_feature.tracklet_id;
-      observations.push_back(obs);
-
-    }
-  }
-}
 
 
 bool Tracking::solveInitalCamModel(Frame::Ptr previous_frame_, Frame::Ptr current_frame_) {
@@ -287,15 +215,6 @@ bool Tracking::solveInitalCamModel(Frame::Ptr previous_frame_, Frame::Ptr curren
 
 
 
-// Frame::Ptr Tracking::constructFrame(const ImagePacket& images, Timestamp timestamp, size_t frame_id)
-// {
-//     Frame::Ptr frame = std::make_shared<Frame>(images, timestamp, frame_id, camera.Params());
-//     detectFeatures(frame);
-//     displayFeatures(*frame);
-//     frame->projectKeypoints(camera);
-//     return frame;
-// }
-
 void Tracking::preprocessInput(const InputPacket& input, ImagePacket& images)
 {
   input.images.rgb.copyTo(images.rgb);
@@ -304,17 +223,6 @@ void Tracking::preprocessInput(const InputPacket& input, ImagePacket& images)
 
   input.images.depth.copyTo(images.depth);
   processInputDepth(input.images.depth, images.depth);
-}
-
-void Tracking::detectFeatures(Frame::Ptr frame)
-{
-  frame->detectFeatures(feature_detector);
-  frame->processStaticFeatures(params.depth_background_thresh);
-  frame->processDynamicFeatures(params.depth_obj_thresh);
-}
-
-void Tracking::initaliseFrameTo3D(Frame::Ptr frame)
-{
 }
 
 void Tracking::processInputDepth(const cv::Mat& disparity, cv::Mat& depth)

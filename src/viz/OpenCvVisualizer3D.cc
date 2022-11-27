@@ -112,8 +112,8 @@ void OpenCvVisualizer3D::drawFrontend(WidgetsMap* widgets_map, const FrontendOut
   std::vector<gtsam::Point3> static_points_w;
   std::vector<gtsam::Point3> dynamic_points_w;
 
-  const Landmarks& static_landmarks = frontend->frame->StaticLandmarks();
-  const Landmarks& dynamic_landmarks = frontend->frame->DynamicLandmarks();
+  const Landmarks& static_landmarks = frontend->frame->static_landmarks;
+  const Landmarks& dynamic_landmarks = frontend->frame->dynamic_landmarks;
 
   for(const Landmark& lmk_c : static_landmarks) {
     static_points_w.push_back(X_wc.transformFrom(lmk_c));

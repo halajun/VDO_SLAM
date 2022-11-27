@@ -14,19 +14,13 @@ Frame::Frame(const ImagePacket& images_, Timestamp timestamp_, size_t frame_id_,
 {
 }
 
-void Frame::refreshFeatures(ORBextractor::UniquePtr& detector, double depth_background_thresh) {
-  observations.clear();
+void Frame::constructFeatures(const Observations& observations_, double depth_background_thresh) {
+  observations = observations_;
   static_features.clear();
-  detectFeatures(detector);
   processStaticFeatures(depth_background_thresh);
 }
 
 
-void Frame::addStaticFeatures(const Observations& observations_) {
-  observations = observations_;
-  LOG(INFO) << "Added observations - " << observations.size();
-  // undistortKeypoints(keypoints, keypoints);
-}
 
 Feature::Ptr Frame::getStaticFeature(std::size_t tracklet_id) const {
   if(static_features.find(tracklet_id) == static_features.end()) {
@@ -37,39 +31,13 @@ Feature::Ptr Frame::getStaticFeature(std::size_t tracklet_id) const {
   }
 }
 
-
-void Frame::detectFeatures(ORBextractor::UniquePtr& detector)
-{
-  cv::Mat mono;
-  prepareRgbForDetection(images.rgb, mono);
-  KeypointsCV keypoints;
-  (*detector)(mono, cv::Mat(), keypoints, descriptors);
-  LOG(INFO) << "Detected " << keypoints.size() << " kp";
-  if (keypoints.size() == 0)
-  {
-    LOG(ERROR) << "zero features detected - frame " << frame_id;
-    //what if we have zero features but some left over observations
-  }
-    LOG(INFO) << "before new detections " << observations.size();
-
-  //TODO: make param
-  //TODO: this will  add onto the exsiting obs -> we should try and spread the kp's around using something like NMS
-  for(const KeypointCV& kp : keypoints) {
-    Observation obs;
-    obs.keypoint = kp;
-    obs.tracklet_id = Frame::tracklet_id_count;
-    Frame::tracklet_id_count++;
-    obs.type = Observation::Type::DETECTION;
-    observations.push_back(obs);
-  }
-
-  LOG(INFO) << "after new detections " << observations.size();
-
-  // undistortKeypoints(keypoints, keypoints);
+bool Frame::staticLandmarksValid() const {
+  return static_features.size() == static_landmarks.size() && static_landmarks.size() > 0;
 }
 
 void Frame::projectKeypoints(const Camera& camera)
 {
+  //this projects everything in including inliers and points that have not been tracked properly yet
   for (const auto& feature_pair : static_features)
   {
     const Feature& feature = *feature_pair.second;
@@ -157,9 +125,10 @@ void Frame::processStaticFeatures(double depth_background_thresh)
         feature->instance_label = Feature::background;
         feature->tracklet_id = obs.tracklet_id;
         CHECK(feature->tracklet_id != -1);
-        // // mvStatKeysTmp.push_back(mvKeys[i]);
-        // predicted_keypoints_static.push_back(cv::KeyPoint(keypoints[i].pt.x+flow_xe,keypoints[i].pt.y+flow_ye,0,0,0,keypoints[i].octave,-1));
-        // predicted_optical_flow.push_back(cv::Point2d(flow_xe,flow_ye));
+        
+        feature->age = obs.age;
+
+        // LOG(INFO) << "Adding feature age - " << feature->age << " from source - " << (obs.type == Observation::Type::DETECTION ? "detection" : "optical flow");
 
         static_features.insert({obs.tracklet_id, feature});
       }
@@ -258,12 +227,17 @@ void Frame::drawStaticFeatures(cv::Mat& image) const
   // assumes image is sized appropiately
   for (const auto& feature_pair : static_features)
   {
+    
     const Feature& feature = *feature_pair.second;
     cv::Point2d point(feature.keypoint.pt.x, feature.keypoint.pt.y);
-    utils::DrawCircleInPlace(image, point, cv::Scalar(0, 255, 0));
-    cv::arrowedLine(image, feature.keypoint.pt, feature.predicted_keypoint.pt, cv::Scalar(255, 0, 0));
-    cv::putText(image, std::to_string(feature.tracklet_id), cv::Point2i(feature.keypoint.pt.x - 10, feature.keypoint.pt.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.3,
-                      cv::Scalar(255, 0, 0));
+    if(feature.inlier) {
+        cv::arrowedLine(image, feature.keypoint.pt, feature.predicted_keypoint.pt, cv::Scalar(255, 0, 0));
+        cv::putText(image, std::to_string(feature.tracklet_id), cv::Point2i(feature.keypoint.pt.x - 10, feature.keypoint.pt.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.3,
+                          cv::Scalar(255, 0, 0));
+    }
+    else {
+      utils::DrawCircleInPlace(image, point, cv::Scalar(0, 0, 255), 1);
+    }
   }
   
 }
@@ -283,21 +257,5 @@ void Frame::drawDynamicFeatures(cv::Mat& image) const
 
 }
 
-void Frame::prepareRgbForDetection(const cv::Mat& rgb, cv::Mat& mono)
-{
-  CHECK(!rgb.empty());
-  PLOG_IF(ERROR, rgb.channels() == 1) << "Input image should be RGB (channels == 3), not 1";
-  // Transfer color image to grey image
-  rgb.copyTo(mono);
-
-  if (mono.channels() == 3)
-  {
-    cv::cvtColor(mono, mono, CV_RGB2GRAY);
-  }
-  else if (rgb.channels() == 4)
-  {
-    cv::cvtColor(mono, mono, CV_RGBA2GRAY);
-  }
-}
 
 }  // namespace vdo

@@ -25,38 +25,26 @@ public:
   }
 
   Feature::Ptr getStaticFeature(std::size_t tracklet_id) const;
-  // inline const Features& StaticFeatures() const
-  // {
-  //   return static_features;
-  // }
-  // inline const Features& DynamicFeatures() const
-  // {
-  //   return dynamic_features;
-  // }
 
-  inline const Landmarks& StaticLandmarks() const
-  {
-    return static_landmarks;
-  }
-  inline const Landmarks& DynamicLandmarks() const
-  {
-    return dynamic_landmarks;
-  }
+  //a quick validation check that we have the same number of Features as landmaks
+  // and that number is > 0
+  bool staticLandmarksValid() const;
 
   //clears current observations, redetects features using the detector and updates the static tracksd
-  void refreshFeatures(ORBextractor::UniquePtr& detector, double depth_background_thresh);
+  //
+  void constructFeatures(const Observations& observations_, double depth_background_thresh);
 
-  //we can either detect features or add new ones (from optical flow)
-  //HACK: for now
-  void addStaticFeatures(const Observations& observations_);
-  // void addFeatures(const Features& features_);
-  // void addKeypoints(const KeypointsCV& keypoints_);
-  void detectFeatures(ORBextractor::UniquePtr& detector);
+  // //we can either detect features or add new ones (from optical flow)
+  // //HACK: for now
+  // void addStaticFeatures(const Observations& observations_);
+  // // void addFeatures(const Features& features_);
+  // // void addKeypoints(const KeypointsCV& keypoints_);
+  // void detectFeatures(ORBextractor::UniquePtr& detector);
   // static and dynamic?
   void projectKeypoints(const Camera& camera);
   // //at each detected keypoint, process the flow and construct a predicted position of the feature in the next
   // //frame using the flow
-  // void predictStaticFeatureCorrespondences(double depth_background_thresh);
+
   void processStaticFeatures(double depth_background_thresh);
   void processDynamicFeatures(double depth_object_thresh);
 

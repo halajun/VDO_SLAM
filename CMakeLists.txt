@@ -74,9 +74,11 @@ src/System.cc
 src/Tracking.cc
 src/DataProvider.cc
 src/UtilsGtsam.cc
+src/FeatureTracker.cc
 
 src/utils/ParamParser.cc
 src/utils/UtilsOpenCV.cc
+src/utils/Logger.cc
 
 src/viz/Display.cc
 src/viz/DisplayParams.cc

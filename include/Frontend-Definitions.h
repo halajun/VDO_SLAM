@@ -8,6 +8,30 @@
 namespace vdo
 {
 
+struct TrackingParams
+{
+  // tracking points params
+  size_t max_tracking_points_bg;
+  size_t max_tracking_points_obj;
+
+  // scene flow thresholds
+  double scene_flow_magnitude;
+  double scene_flow_percentage;
+
+  // depth thresholds
+  double depth_background_thresh;
+  double depth_obj_thresh;
+
+  double depth_scale_factor;
+
+  // ORB detector params
+  int n_features;
+  double scale_factor;
+  int n_levels;
+  int init_threshold_fast;
+  int min_threshold_fast;
+};
+
 struct Observation {
 
   enum class Type {
@@ -15,11 +39,14 @@ struct Observation {
     DETECTION
   };
 
-
-
+  //want to be const but then deleted copty constructor
   cv::KeyPoint keypoint;
-  size_t tracklet_id = -1; //if -1, untrackled -> should never be set to this
+  size_t tracklet_id;
   Type type;
+  size_t age;
+
+  Observation(const cv::KeyPoint& kp, size_t tracklet_id_, const Type& type_, size_t age_)
+  : keypoint(kp), tracklet_id(tracklet_id_), type(type_), age(age_) {}
 };
 
 struct Feature
@@ -38,6 +65,7 @@ struct Feature
   size_t frame_id = -1;
   Depth depth = -1;
   size_t tracklet_id = -1;
+  size_t age = 0; //how many times this landmark has been seen
 
   Type type;
 

@@ -14,7 +14,7 @@ class CSVLoader(object):
                 reader = csv.DictReader(csv_file, delimiter=",")
                 for row in reader:
                     self.rows.append(row)
-                    print(row)
+                    # print(row)
         except Exception as e:
             print(str(e))
 

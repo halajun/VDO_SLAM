@@ -105,7 +105,7 @@ FrontendOutput::Ptr Tracking::processNominal(const InputPacket& input,
 
 
 bool Tracking::solveInitalCamModel(Frame::Ptr previous_frame_, Frame::Ptr current_frame_) {
-  bool solve_in_camera_frame = true;
+  bool solve_in_camera_frame = false;
 
   std::vector<cv::Point2f> current_2d;
   std::vector<cv::Point3f> previous_3d;

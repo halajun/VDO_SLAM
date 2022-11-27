@@ -33,6 +33,9 @@
 
 .vscode
 *.csv
+*.png
+
+**/__pycache__
 
 build
 Examples/RGB-D/rgbd_tum

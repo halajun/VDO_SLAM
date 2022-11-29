@@ -7,7 +7,6 @@
 
 namespace vdo
 {
-
 struct TrackingParams
 {
   // tracking points params
@@ -32,21 +31,24 @@ struct TrackingParams
   int min_threshold_fast;
 };
 
-struct Observation {
-
-  enum class Type {
+struct Observation
+{
+  enum class Type
+  {
     OPTICAL_FLOW,
     DETECTION
   };
 
-  //want to be const but then deleted copty constructor
+  // want to be const but then deleted copty constructor
   cv::KeyPoint keypoint;
   size_t tracklet_id;
   Type type;
   size_t age;
 
   Observation(const cv::KeyPoint& kp, size_t tracklet_id_, const Type& type_, size_t age_)
-  : keypoint(kp), tracklet_id(tracklet_id_), type(type_), age(age_) {}
+    : keypoint(kp), tracklet_id(tracklet_id_), type(type_), age(age_)
+  {
+  }
 };
 
 struct Feature
@@ -65,7 +67,7 @@ struct Feature
   size_t frame_id = -1;
   Depth depth = -1;
   size_t tracklet_id = -1;
-  size_t age = 0; //how many times this landmark has been seen
+  size_t age = 0;  // how many times this landmark has been seen
 
   Type type;
 
@@ -75,10 +77,9 @@ struct Feature
 
   bool inlier = true;
 
-  //as we're moving forward this is actually the previous point as the flow is backwards.
-  //the matching actually happens with the previous point
+  // as we're moving forward this is actually the previous point as the flow is backwards.
+  // the matching actually happens with the previous point
   cv::KeyPoint predicted_keypoint;
-
 
   InstanceLabel instance_label{ background };
 };
@@ -87,6 +88,5 @@ using Features = std::vector<Feature>;
 using Observations = std::vector<Observation>;
 
 using TrackletIdFeatureMap = std::map<std::size_t, Feature::Ptr>;
-
 
 }  // namespace vdo

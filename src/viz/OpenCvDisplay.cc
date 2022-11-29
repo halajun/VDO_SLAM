@@ -37,7 +37,6 @@ void OpenCvDisplay::process(const VisualiserInput& viz_input)
   display_images.clear();
 }
 
-
 void OpenCvDisplay::drawInputImages(const Frame& frame)
 {
   // draw each portion of the inputs

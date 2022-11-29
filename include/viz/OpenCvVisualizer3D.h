@@ -30,9 +30,9 @@ private:
 
   void drawFrontend(WidgetsMap* widgets_map, const FrontendOutput::Ptr& frontend);
 
-  //pose in the world frame
-  std::unique_ptr<cv::viz::WCameraPosition>  createPoseWidget(const gtsam::Pose3& pose_w, const cv::viz::Color& colour);
-  std::unique_ptr<cv::viz::WCloud> createCloudWidget(const Landmarks& landmarks,  const cv::viz::Color& colour);
+  // pose in the world frame
+  std::unique_ptr<cv::viz::WCameraPosition> createPoseWidget(const gtsam::Pose3& pose_w, const cv::viz::Color& colour);
+  std::unique_ptr<cv::viz::WCloud> createCloudWidget(const Landmarks& landmarks, const cv::viz::Color& colour);
   // void drawCurrentCameraPose(WidgetsMap* widgets_map);
   // void followCurrentView();
 

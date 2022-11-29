@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Types.h"
 #include "Macros.h"
 #include "Camera.h"
 #include "ORBextractor.h"
@@ -13,17 +14,10 @@
 
 namespace vdo
 {
-
 class Tracking
 {
 public:
   VDO_POINTER_TYPEDEFS(Tracking);
-
-  enum class State
-  {
-    kBoostrap,
-    kNominal
-  };
 
   Tracking(const TrackingParams& params_, const Camera& camera_);
 
@@ -37,10 +31,10 @@ private:
   FrontendOutput::Ptr processNominal(const InputPacket& input,
                                      GroundTruthInputPacket::ConstOptional ground_truth = boost::none);
 
-  //using the static features from the previous frame and current frame, calculates and sets the pose 
-  //of the current frame. Features are marked as outliers based on PnP ransac and will not be included in the next frame
+  // using the static features from the previous frame and current frame, calculates and sets the pose
+  // of the current frame. Features are marked as outliers based on PnP ransac and will not be included in the next
+  // frame
   bool solveInitalCamModel(Frame::Ptr previous_frame_, Frame::Ptr current_frame_);
-
 
   // calculates the input depth map from the disparity map
   // sets state variables
@@ -70,7 +64,7 @@ private:
 
   Frame::Ptr previous_frame{ nullptr };
 
-  Logger<Frame> frame_logger{"frame.csv"};
+  Logger<Frame> frame_logger{ "frame.csv" };
 };
 
 }  // namespace vdo

@@ -6,7 +6,6 @@
 #include "ORBextractor.h"
 #include "Camera.h"
 
-
 #include <map>
 #include <gtsam/geometry/Pose3.h>
 
@@ -26,11 +25,11 @@ public:
 
   Feature::Ptr getStaticFeature(std::size_t tracklet_id) const;
 
-  //a quick validation check that we have the same number of Features as landmaks
+  // a quick validation check that we have the same number of Features as landmaks
   // and that number is > 0
   bool staticLandmarksValid() const;
 
-  //clears current observations, redetects features using the detector and updates the static tracksd
+  // clears current observations, redetects features using the detector and updates the static tracksd
   //
   void constructFeatures(const Observations& observations_, double depth_background_thresh);
 
@@ -52,8 +51,9 @@ public:
   void drawDynamicFeatures(cv::Mat& image) const;
 
   // public for now
-  gtsam::Pose3 pose;
-  //not sure if best repreented by pose3
+  gtsam::Pose3 pose;  // in world
+
+  // not sure if best repreented by pose3
   gtsam::Pose3 motion_model;
   GroundTruthInputPacket::ConstOptional ground_truth{ boost::none };
 
@@ -63,7 +63,7 @@ private:
 
   void undistortKeypoints(const KeypointsCV& distorted, KeypointsCV& undistorted);
 
-//HACK: for now
+  // HACK: for now
 public:
   const ImagePacket images;  // must be const to ensure unchangable references to images
   const Timestamp timestamp;
@@ -75,14 +75,14 @@ public:
   // depths of each keypoint (as taken from the depth map)
   cv::Mat descriptors;
 
-  //TODO: probably make pointers
+  // TODO: probably make pointers
   TrackletIdFeatureMap static_features;
   Landmarks static_landmarks;  // as projected in the camera frame
 
   Features dynamic_features;
   Landmarks dynamic_landmarks;  // as projected in the camera frame
 
-  static std::size_t tracklet_id_count; //for static and dynamic
+  static std::size_t tracklet_id_count;  // for static and dynamic
 };
 
 }  // namespace vdo

@@ -75,6 +75,7 @@ src/Tracking.cc
 src/DataProvider.cc
 src/UtilsGtsam.cc
 src/FeatureTracker.cc
+src/FactorGraphManager.cc
 
 src/utils/ParamParser.cc
 src/utils/UtilsOpenCV.cc

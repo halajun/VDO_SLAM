@@ -181,7 +181,7 @@ bool KittiSequenceDataProvider::loadData(const std::string& path_to_sequence, In
   LOG(INFO) << vObjPoseID.size();
 
   // now read image image and add grount truths
-  for (size_t frame_id = 0; frame_id < nTimes-1; frame_id++)
+  for (size_t frame_id = 0; frame_id < nTimes - 1; frame_id++)
   {
     // LOG(INFO) << "Loading data at - frame ID " << frame_id;
     Timestamp timestamp = vTimestamps[frame_id];
@@ -263,7 +263,7 @@ gtsam::Pose3 KittiSequenceDataProvider::ObjPoseParsingKT(const std::vector<doubl
 {
   CHECK(obj_pose_gt.size() == 10);
 
-   cv::Mat t(3, 1, CV_64FC1);
+  cv::Mat t(3, 1, CV_64FC1);
   t.at<double>(0) = obj_pose_gt[6];
   t.at<double>(1) = obj_pose_gt[7];
   t.at<double>(2) = obj_pose_gt[8];
@@ -272,7 +272,7 @@ gtsam::Pose3 KittiSequenceDataProvider::ObjPoseParsingKT(const std::vector<doubl
   cv::Mat R(3, 3, CV_64FC1);
 
   // assign r vector
-  double y = obj_pose_gt[9]+(3.1415926/2); // +(3.1415926/2)
+  double y = obj_pose_gt[9] + (3.1415926 / 2);  // +(3.1415926/2)
   double x = 0.0;
   double z = 0.0;
 
@@ -286,35 +286,42 @@ gtsam::Pose3 KittiSequenceDataProvider::ObjPoseParsingKT(const std::vector<doubl
 
   double m00, m01, m02, m10, m11, m12, m20, m21, m22;
 
-  m00 = cy*cz+sy*sx*sz;
-  m01 = -cy*sz+sy*sx*cz;
-  m02 = sy*cx;
-  m10 = cx*sz;
-  m11 = cx*cz;
+  m00 = cy * cz + sy * sx * sz;
+  m01 = -cy * sz + sy * sx * cz;
+  m02 = sy * cx;
+  m10 = cx * sz;
+  m11 = cx * cz;
   m12 = -sx;
-  m20 = -sy*cz+cy*sx*sz;
-  m21 = sy*sz+cy*sx*cz;
-  m22 = cy*cx;
+  m20 = -sy * cz + cy * sx * sz;
+  m21 = sy * sz + cy * sx * cz;
+  m22 = cy * cx;
 
-
-  R.at<double>(0,0) = m00;
-  R.at<double>(0,1) = m01;
-  R.at<double>(0,2) = m02;
-  R.at<double>(1,0) = m10;
-  R.at<double>(1,1) = m11;
-  R.at<double>(1,2) = m12;
-  R.at<double>(2,0) = m20;
-  R.at<double>(2,1) = m21;
-  R.at<double>(2,2) = m22;
+  R.at<double>(0, 0) = m00;
+  R.at<double>(0, 1) = m01;
+  R.at<double>(0, 2) = m02;
+  R.at<double>(1, 0) = m10;
+  R.at<double>(1, 1) = m11;
+  R.at<double>(1, 2) = m12;
+  R.at<double>(2, 0) = m20;
+  R.at<double>(2, 1) = m21;
+  R.at<double>(2, 2) = m22;
 
   // construct 4x4 transformation matrix
-  cv::Mat Pose = cv::Mat::eye(4,4,CV_64F);
-  Pose.at<double>(0,0) = R.at<double>(0,0); Pose.at<double>(0,1) = R.at<double>(0,1); Pose.at<double>(0,2) = R.at<double>(0,2); Pose.at<double>(0,3) = t.at<double>(0);
-  Pose.at<double>(1,0) = R.at<double>(1,0); Pose.at<double>(1,1) = R.at<double>(1,1); Pose.at<double>(1,2) = R.at<double>(1,2); Pose.at<double>(1,3) = t.at<double>(1);
-  Pose.at<double>(2,0) = R.at<double>(2,0); Pose.at<double>(2,1) = R.at<double>(2,1); Pose.at<double>(2,2) = R.at<double>(2,2); Pose.at<double>(2,3) = t.at<double>(2);
+  cv::Mat Pose = cv::Mat::eye(4, 4, CV_64F);
+  Pose.at<double>(0, 0) = R.at<double>(0, 0);
+  Pose.at<double>(0, 1) = R.at<double>(0, 1);
+  Pose.at<double>(0, 2) = R.at<double>(0, 2);
+  Pose.at<double>(0, 3) = t.at<double>(0);
+  Pose.at<double>(1, 0) = R.at<double>(1, 0);
+  Pose.at<double>(1, 1) = R.at<double>(1, 1);
+  Pose.at<double>(1, 2) = R.at<double>(1, 2);
+  Pose.at<double>(1, 3) = t.at<double>(1);
+  Pose.at<double>(2, 0) = R.at<double>(2, 0);
+  Pose.at<double>(2, 1) = R.at<double>(2, 1);
+  Pose.at<double>(2, 2) = R.at<double>(2, 2);
+  Pose.at<double>(2, 3) = t.at<double>(2);
 
   return utils::cvMatToGtsamPose3(Pose);
-
 }
 
 }  // namespace vdo

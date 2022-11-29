@@ -69,89 +69,103 @@ void OpenCvVisualizer3D::setupModelViewMatrix()
   // model_view_matrix = ModelViewLookAt(viewpointX, viewpointY, viewpointZ, 0, 0, 0, 0.0, -1.0, 0.0);
 }
 
-void OpenCvVisualizer3D::drawFrontend(WidgetsMap* widgets_map, const FrontendOutput::Ptr& frontend) {
-  //draw camera pose
+void OpenCvVisualizer3D::drawFrontend(WidgetsMap* widgets_map, const FrontendOutput::Ptr& frontend)
+{
+  // draw camera pose
   const gtsam::Pose3 X_wc = frontend->frame->pose;
   std::unique_ptr<cv::viz::WCameraPosition> cam_pose = std::move(createPoseWidget(X_wc, cv::viz::Color::red()));
 
-  if(cam_pose) {
+  if (cam_pose)
+  {
     (*widgets_map)["camera_pose"] = std::move(cam_pose);
     markWidgetForRemoval("camera_pose");
   }
-  
 
-  //if gt pose, add
-  if(frontend->frame->ground_truth) {
+  // if gt pose, add
+  if (frontend->frame->ground_truth)
+  {
     const GroundTruthInputPacket& gt = *frontend->frame->ground_truth;
 
     const gtsam::Pose3 X_wc_gt = gt.X_wc;
-      std::unique_ptr<cv::viz::WCameraPosition> cam_pose_gt = std::move(createPoseWidget(X_wc_gt, cv::viz::Color::green()));
+    std::unique_ptr<cv::viz::WCameraPosition> cam_pose_gt =
+        std::move(createPoseWidget(X_wc_gt, cv::viz::Color::green()));
 
-      if(cam_pose_gt) {
-          (*widgets_map)["camera_pose_gt"] = std::move(cam_pose_gt);
-          markWidgetForRemoval("camera_pose_gt");
+    if (cam_pose_gt)
+    {
+      (*widgets_map)["camera_pose_gt"] = std::move(cam_pose_gt);
+      markWidgetForRemoval("camera_pose_gt");
+    }
+
+    // draw pose for each object
+    for (const ObjectPoseGT& object_pose_gt : gt.obj_poses)
+    {
+      gtsam::Pose3 object_pose_w = X_wc_gt * object_pose_gt.pose;
+      std::unique_ptr<cv::viz::WCameraPosition> object_pose_widget =
+          std::move(createPoseWidget(object_pose_w, cv::viz::Color::bluberry()));
+
+      if (object_pose_widget)
+      {
+        std::string name = "camera_pose_gt" + std::to_string(object_pose_gt.object_id);
+        (*widgets_map)[name] = std::move(object_pose_widget);
+        markWidgetForRemoval(name);
       }
-
-      //draw pose for each object
-      for(const ObjectPoseGT& object_pose_gt : gt.obj_poses) {
-        gtsam::Pose3 object_pose_w = X_wc_gt * object_pose_gt.pose;
-        std::unique_ptr<cv::viz::WCameraPosition> object_pose_widget = std::move(createPoseWidget(object_pose_w, cv::viz::Color::bluberry()));
-
-         if(object_pose_widget) {
-          std::string name = "camera_pose_gt" + std::to_string(object_pose_gt.object_id);
-          (*widgets_map)[name] = std::move(object_pose_widget);
-          markWidgetForRemoval(name);
-        }
-
-      }
-
-
+    }
   }
 
-  //add points as projected in the camera frame. convert to world frame
+  // add points as projected in the camera frame. convert to world frame
   std::vector<gtsam::Point3> static_points_w;
   std::vector<gtsam::Point3> dynamic_points_w;
 
   const Landmarks& static_landmarks = frontend->frame->static_landmarks;
   const Landmarks& dynamic_landmarks = frontend->frame->dynamic_landmarks;
 
-  for(const Landmark& lmk_c : static_landmarks) {
+  for (const Landmark& lmk_c : static_landmarks)
+  {
     static_points_w.push_back(X_wc.transformFrom(lmk_c));
   }
 
-  for(const Landmark& lmk_c : dynamic_landmarks) {
+  for (const Landmark& lmk_c : dynamic_landmarks)
+  {
     dynamic_points_w.push_back(X_wc.transformFrom(lmk_c));
   }
 
   std::unique_ptr<cv::viz::WCloud> static_cloud = std::move(createCloudWidget(static_points_w, cv::viz::Color::red()));
-  std::unique_ptr<cv::viz::WCloud> dynamic_cloud = std::move(createCloudWidget(dynamic_points_w, cv::viz::Color::blue()));
+  std::unique_ptr<cv::viz::WCloud> dynamic_cloud =
+      std::move(createCloudWidget(dynamic_points_w, cv::viz::Color::blue()));
 
-  if(static_cloud) {
+  if (static_cloud)
+  {
     (*widgets_map)["staitc_cloud"] = std::move(static_cloud);
     markWidgetForRemoval("staitc_cloud");
   }
 
-  if(dynamic_cloud) {
+  if (dynamic_cloud)
+  {
     (*widgets_map)["dynamic_cloud"] = std::move(dynamic_cloud);
     markWidgetForRemoval("dynamic_cloud");
   }
 
-  //draw pose for object
-
-
-
+  // draw pose for object
 }
 
-std::unique_ptr<cv::viz::WCameraPosition>  OpenCvVisualizer3D::createPoseWidget(const gtsam::Pose3& pose_w, const cv::viz::Color& colour) {
-  std::unique_ptr<cv::viz::WCameraPosition> cam_widget_ptr =  vdo::make_unique<cv::viz::WCameraPosition>(K_, 1.0, colour);
+std::unique_ptr<cv::viz::WCameraPosition> OpenCvVisualizer3D::createPoseWidget(const gtsam::Pose3& pose_w,
+                                                                               const cv::viz::Color& colour)
+{
+  std::unique_ptr<cv::viz::WCameraPosition> cam_widget_ptr =
+      vdo::make_unique<cv::viz::WCameraPosition>(K_, 1.0, colour);
   cv::Mat cv_pose = utils::gtsamPose3ToCvMat(pose_w);
   cv::Affine3d cv_affine_pose = utils::matPoseToCvAffine3d(cv_pose);
   cam_widget_ptr->setPose(cv_affine_pose);
   return cam_widget_ptr;
 }
 
-std::unique_ptr<cv::viz::WCloud> OpenCvVisualizer3D::createCloudWidget(const Landmarks& landmarks,  const cv::viz::Color& colour) {
-  if(landmarks.empty()) { return nullptr; }
+std::unique_ptr<cv::viz::WCloud> OpenCvVisualizer3D::createCloudWidget(const Landmarks& landmarks,
+                                                                       const cv::viz::Color& colour)
+{
+  if (landmarks.empty())
+  {
+    return nullptr;
+  }
   cv::Mat point_cloud(1, landmarks.size(), CV_32FC3);
   // cv::Mat point_cloud_color(
   //     1, point_cloud_color.size(), CV_8UC3, cloud_color_);
@@ -167,13 +181,10 @@ std::unique_ptr<cv::viz::WCloud> OpenCvVisualizer3D::createCloudWidget(const Lan
   }
 
   // Create a cloud widget.
-  std::unique_ptr<cv::viz::WCloud> cloud_widget =
-      vdo::make_unique<cv::viz::WCloud>(point_cloud, colour);
+  std::unique_ptr<cv::viz::WCloud> cloud_widget = vdo::make_unique<cv::viz::WCloud>(point_cloud, colour);
   cloud_widget->setRenderingProperty(cv::viz::POINT_SIZE, 2);
   return cloud_widget;
 }
-
-
 
 // void OpenCvVisualizer3D::followCurrentView()
 // {
@@ -184,20 +195,20 @@ std::unique_ptr<cv::viz::WCloud> OpenCvVisualizer3D::createCloudWidget(const Lan
 
 // void OpenCvVisualizer3D::drawCurrentCameraPose(WidgetsMap* widgets_map)
 // {
-  // todo add posr to trajectory?
-  // const int N = map->vpFeatSta.size() - 1;
-  // cv::Mat camera_pose_mat = map->vmCameraPose[N];
-  // put into camera pose with inverted already
-  // cv::Affine3d camera_pose = utils::matPoseToCvAffine3d(camera_pose_mat);
+// todo add posr to trajectory?
+// const int N = map->vpFeatSta.size() - 1;
+// cv::Mat camera_pose_mat = map->vmCameraPose[N];
+// put into camera pose with inverted already
+// cv::Affine3d camera_pose = utils::matPoseToCvAffine3d(camera_pose_mat);
 
-  // CHECK_NOTNULL(widgets_map);
-  // std::unique_ptr<cv::viz::WCameraPosition> cam_widget_ptr = nullptr;
-  // cam_widget_ptr = vdo::make_unique<cv::viz::WCameraPosition>(K_, 1.0, cv::viz::Color::green());
-  // CHECK(cam_widget_ptr);
-  // cam_widget_ptr->setPose(camera_pose);
-  // (*widgets_map)["Camera_pose"] = std::move(cam_widget_ptr);
+// CHECK_NOTNULL(widgets_map);
+// std::unique_ptr<cv::viz::WCameraPosition> cam_widget_ptr = nullptr;
+// cam_widget_ptr = vdo::make_unique<cv::viz::WCameraPosition>(K_, 1.0, cv::viz::Color::green());
+// CHECK(cam_widget_ptr);
+// cam_widget_ptr->setPose(camera_pose);
+// (*widgets_map)["Camera_pose"] = std::move(cam_widget_ptr);
 
-  // markWidgetForRemoval("Camera_pose");
+// markWidgetForRemoval("Camera_pose");
 // }
 
 // void OpenCvVisualizer3D::addToTrajectory()
@@ -243,180 +254,180 @@ void OpenCvVisualizer3D::markWidgetForRemoval(const std::string& widget_id)
 
 // void OpenCvVisualizer3D::drawStaticPointCloud(WidgetsMap* widgets_map)
 // {
-  // const int N = map->vpFeatSta.size();
-  // const std::vector<std::vector<std::pair<int, int>>>& StaTracks = map->TrackletSta;
-  // std::vector<gtsam::Point3> points;
-  // if (N < 2)
-  // {
-  //   return;
-  // }
-  // // copied from process in optimizer
-  // // mark each feature if it is satisfied (valid) for usage
-  // // here we use track length as threshold, for static >=3, dynamic >=3.
-  // // label each feature of the position in TrackLets: -1(invalid) or >=0(TrackID);
-  // // size: static: (N)xM_1, M_1 is the size of features in each frame
-  // std::vector<std::vector<int>> vnFeaLabSta(N);
-  // for (int i = 0; i < N; ++i)
-  // {
-  //   std::vector<int> vnFLS_tmp(map->vpFeatSta[i].size(), -1);
-  //   vnFeaLabSta[i] = vnFLS_tmp;
-  // }
+// const int N = map->vpFeatSta.size();
+// const std::vector<std::vector<std::pair<int, int>>>& StaTracks = map->TrackletSta;
+// std::vector<gtsam::Point3> points;
+// if (N < 2)
+// {
+//   return;
+// }
+// // copied from process in optimizer
+// // mark each feature if it is satisfied (valid) for usage
+// // here we use track length as threshold, for static >=3, dynamic >=3.
+// // label each feature of the position in TrackLets: -1(invalid) or >=0(TrackID);
+// // size: static: (N)xM_1, M_1 is the size of features in each frame
+// std::vector<std::vector<int>> vnFeaLabSta(N);
+// for (int i = 0; i < N; ++i)
+// {
+//   std::vector<int> vnFLS_tmp(map->vpFeatSta[i].size(), -1);
+//   vnFeaLabSta[i] = vnFLS_tmp;
+// }
 
-  // // label static feature
-  // for (int i = 0; i < StaTracks.size(); ++i)
-  // {
-  //   // filter the tracklets via threshold
-  //   if (StaTracks[i].size() < 3)
-  //   {  // 3 the length of track on background.
-  //     continue;
-  //   }
-  //   // label them
-  //   for (int j = 0; j < StaTracks[i].size(); ++j)
-  //   {
-  //     // first -> frameId, second -> feature Id
-  //     if (StaTracks[i][j].first >= vnFeaLabSta.size())
-  //     {
-  //       // LOG(WARNING) << "Static feature tracks longer than frames";
-  //       continue;
-  //     }
+// // label static feature
+// for (int i = 0; i < StaTracks.size(); ++i)
+// {
+//   // filter the tracklets via threshold
+//   if (StaTracks[i].size() < 3)
+//   {  // 3 the length of track on background.
+//     continue;
+//   }
+//   // label them
+//   for (int j = 0; j < StaTracks[i].size(); ++j)
+//   {
+//     // first -> frameId, second -> feature Id
+//     if (StaTracks[i][j].first >= vnFeaLabSta.size())
+//     {
+//       // LOG(WARNING) << "Static feature tracks longer than frames";
+//       continue;
+//     }
 
-  //     if (StaTracks[i][j].second >= vnFeaLabSta[StaTracks[i][j].first].size())
-  //     {
-  //       // LOG(WARNING) << "Static feature tracks greater than feature Id for frame " << StaTracks[i][j].first;
-  //       continue;
-  //     }
+//     if (StaTracks[i][j].second >= vnFeaLabSta[StaTracks[i][j].first].size())
+//     {
+//       // LOG(WARNING) << "Static feature tracks greater than feature Id for frame " << StaTracks[i][j].first;
+//       continue;
+//     }
 
-  //     vnFeaLabSta[StaTracks[i][j].first][StaTracks[i][j].second] = i;
-  //   }
-  // }
+//     vnFeaLabSta[StaTracks[i][j].first][StaTracks[i][j].second] = i;
+//   }
+// }
 
-  // // loop over everything many times?
-  // for (int i = 0; i < N; i++)
-  // {
-  //   // loop for static features
-  //   for (int j = 0; j < vnFeaLabSta[i].size(); j++)
-  //   {
-  //     // check feature validation
-  //     if (vnFeaLabSta[i][j] == -1)
-  //     {
-  //       continue;
-  //     }
-  //     gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointSta[i][j]);
-  //     points.push_back(X_w);
-  //   }
-  // }
+// // loop over everything many times?
+// for (int i = 0; i < N; i++)
+// {
+//   // loop for static features
+//   for (int j = 0; j < vnFeaLabSta[i].size(); j++)
+//   {
+//     // check feature validation
+//     if (vnFeaLabSta[i][j] == -1)
+//     {
+//       continue;
+//     }
+//     gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointSta[i][j]);
+//     points.push_back(X_w);
+//   }
+// }
 
-  // if (points.size() == 0)
-  // {
-  //   LOG(WARNING) << "Point Cloud empty. Not vizualising";
-  //   return;
-  // }
+// if (points.size() == 0)
+// {
+//   LOG(WARNING) << "Point Cloud empty. Not vizualising";
+//   return;
+// }
 
-  // LOG(INFO) << "Making point cloud of size " << points.size();
+// LOG(INFO) << "Making point cloud of size " << points.size();
 
-  // // Populate cloud structure with 3D points.
-  // cv::Mat point_cloud(1, points.size(), CV_32FC3);
-  // // cv::Mat point_cloud_color(
-  // //     1, point_cloud_color.size(), CV_8UC3, cloud_color_);
+// // Populate cloud structure with 3D points.
+// cv::Mat point_cloud(1, points.size(), CV_32FC3);
+// // cv::Mat point_cloud_color(
+// //     1, point_cloud_color.size(), CV_8UC3, cloud_color_);
 
-  // cv::Point3f* data = point_cloud.ptr<cv::Point3f>();
-  // size_t i = 0;
-  // for (const gtsam::Point3& point : points)
-  // {
-  //   data[i].x = static_cast<float>(point.x());
-  //   data[i].y = static_cast<float>(point.y());
-  //   data[i].z = static_cast<float>(point.z());
-  //   i++;
-  // }
+// cv::Point3f* data = point_cloud.ptr<cv::Point3f>();
+// size_t i = 0;
+// for (const gtsam::Point3& point : points)
+// {
+//   data[i].x = static_cast<float>(point.x());
+//   data[i].y = static_cast<float>(point.y());
+//   data[i].z = static_cast<float>(point.z());
+//   i++;
+// }
 
-  // // Create a cloud widget.
-  // std::unique_ptr<cv::viz::WCloud> cloud_widget =
-  //     VDO_SLAM::make_unique<cv::viz::WCloud>(point_cloud, cv::viz::Color::black());
-  // cloud_widget->setRenderingProperty(cv::viz::POINT_SIZE, 2);
+// // Create a cloud widget.
+// std::unique_ptr<cv::viz::WCloud> cloud_widget =
+//     VDO_SLAM::make_unique<cv::viz::WCloud>(point_cloud, cv::viz::Color::black());
+// cloud_widget->setRenderingProperty(cv::viz::POINT_SIZE, 2);
 
-  // (*widgets_map)["Point cloud"] = std::move(cloud_widget);
+// (*widgets_map)["Point cloud"] = std::move(cloud_widget);
 
-  // markWidgetForRemoval("Point cloud");
+// markWidgetForRemoval("Point cloud");
 // }
 
 // void OpenCvVisualizer3D::drawDynamicPointClouds(WidgetsMap* widgets_map)
 // {
-  // const int N = map->vpFeatSta.size();
-  // const std::vector<std::vector<std::pair<int, int>>>& DynTracks = map->TrackletDyn;
-  // std::vector<gtsam::Point3> points;
-  // std::vector<cv::Scalar> colours;
-  // if (N < 2)
-  // {
-  //   return;
-  // }
+// const int N = map->vpFeatSta.size();
+// const std::vector<std::vector<std::pair<int, int>>>& DynTracks = map->TrackletDyn;
+// std::vector<gtsam::Point3> points;
+// std::vector<cv::Scalar> colours;
+// if (N < 2)
+// {
+//   return;
+// }
 
-  // // do previous frame if not tracked yet?
-  // for (int i = N - 2; i < N - 1; i++)
-  // {
-  //   LOG(INFO) << map->vnFeatLabel[i].size();
-  //   CHECK_EQ(map->vnAssoDyn[i].size(), map->vnFeatLabel[i].size());
-  //   for (int j = 0; j < map->vnAssoDyn[i].size(); j++)
-  //   {
-  //     int dynamic_index = map->vnAssoDyn[i][j];
+// // do previous frame if not tracked yet?
+// for (int i = N - 2; i < N - 1; i++)
+// {
+//   LOG(INFO) << map->vnFeatLabel[i].size();
+//   CHECK_EQ(map->vnAssoDyn[i].size(), map->vnFeatLabel[i].size());
+//   for (int j = 0; j < map->vnAssoDyn[i].size(); j++)
+//   {
+//     int dynamic_index = map->vnAssoDyn[i][j];
 
-  //     if (dynamic_index == -1)
-  //     {
-  //       // can we even get here?
-  //       continue;
-  //     }
+//     if (dynamic_index == -1)
+//     {
+//       // can we even get here?
+//       continue;
+//     }
 
-  //     // CHECK_LT(dynamic_index, map->vnFeatLabel[i].size());
+//     // CHECK_LT(dynamic_index, map->vnFeatLabel[i].size());
 
-  //     int dynamic_label = map->vnFeatLabel[i][j];
-  //     if (dynamic_label == -1 || dynamic_label == 0 || dynamic_label == -2)
-  //     {
-  //       // log warning?
-  //       continue;
-  //     }
+//     int dynamic_label = map->vnFeatLabel[i][j];
+//     if (dynamic_label == -1 || dynamic_label == 0 || dynamic_label == -2)
+//     {
+//       // log warning?
+//       continue;
+//     }
 
-  //     gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[i][dynamic_index]);
-  //     cv::Scalar colour = getObjectColour(dynamic_label);
+//     gtsam::Point3 X_w = utils::cvMatToGtsamPoint3(map->vp3DPointDyn[i][dynamic_index]);
+//     cv::Scalar colour = getObjectColour(dynamic_label);
 
-  //     points.push_back(X_w);
-  //     colours.push_back(colour);
-  //   }
-  // }
+//     points.push_back(X_w);
+//     colours.push_back(colour);
+//   }
+// }
 
-  // if (points.size() == 0)
-  // {
-  //   LOG(WARNING) << "Dynamic Point Cloud empty. Not vizualising";
-  //   return;
-  // }
+// if (points.size() == 0)
+// {
+//   LOG(WARNING) << "Dynamic Point Cloud empty. Not vizualising";
+//   return;
+// }
 
-  // LOG(INFO) << "Making dynamic point cloud of size " << points.size();
-  // CHECK_EQ(points.size(), colours.size());
+// LOG(INFO) << "Making dynamic point cloud of size " << points.size();
+// CHECK_EQ(points.size(), colours.size());
 
-  // // Populate cloud structure with 3D points.
-  // cv::Mat point_cloud(1, points.size(), CV_32FC3);
-  // // default dynamic object?
-  // cv::Mat point_cloud_color(1, colours.size(), CV_8UC3);
+// // Populate cloud structure with 3D points.
+// cv::Mat point_cloud(1, points.size(), CV_32FC3);
+// // default dynamic object?
+// cv::Mat point_cloud_color(1, colours.size(), CV_8UC3);
 
-  // cv::Point3f* data = point_cloud.ptr<cv::Point3f>();
-  // size_t i = 0;
-  // for (const gtsam::Point3& point : points)
-  // {
-  //   data[i].x = static_cast<float>(point.x());
-  //   data[i].y = static_cast<float>(point.y());
-  //   data[i].z = static_cast<float>(point.z());
+// cv::Point3f* data = point_cloud.ptr<cv::Point3f>();
+// size_t i = 0;
+// for (const gtsam::Point3& point : points)
+// {
+//   data[i].x = static_cast<float>(point.x());
+//   data[i].y = static_cast<float>(point.y());
+//   data[i].z = static_cast<float>(point.z());
 
-  //   point_cloud_color.col(i) = colours.at(i);
+//   point_cloud_color.col(i) = colours.at(i);
 
-  //   i++;
-  // }
+//   i++;
+// }
 
-  // // Create a cloud widget.
-  // std::unique_ptr<cv::viz::WCloud> cloud_widget =
-  //     VDO_SLAM::make_unique<cv::viz::WCloud>(point_cloud, point_cloud_color);
-  // cloud_widget->setRenderingProperty(cv::viz::POINT_SIZE, 2);
+// // Create a cloud widget.
+// std::unique_ptr<cv::viz::WCloud> cloud_widget =
+//     VDO_SLAM::make_unique<cv::viz::WCloud>(point_cloud, point_cloud_color);
+// cloud_widget->setRenderingProperty(cv::viz::POINT_SIZE, 2);
 
-  // (*widgets_map)["Dynamic Point cloud"] = std::move(cloud_widget);
+// (*widgets_map)["Dynamic Point cloud"] = std::move(cloud_widget);
 
-  // markWidgetForRemoval("Dynamic Point cloud");
+// markWidgetForRemoval("Dynamic Point cloud");
 // }
 
 void OpenCvVisualizer3D::removeWidgets()

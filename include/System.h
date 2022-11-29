@@ -3,6 +3,7 @@
 #include "Macros.h"
 #include "Types.h"
 #include "Tracking.h"
+#include "Optimizer.h"
 #include "viz/Visualizer.h"
 
 #include <gtsam/geometry/Pose3.h>
@@ -22,6 +23,7 @@ public:
 
 private:
   Tracking::UniquePtr tracker;
+  IncrementalOptimizer::UniquePtr optimizer;
   Visualizer::UniquePtr viz;
 };
 

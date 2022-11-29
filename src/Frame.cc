@@ -7,37 +7,40 @@
 
 namespace vdo
 {
-std::size_t Frame::tracklet_id_count{0};
+std::size_t Frame::tracklet_id_count{ 0 };
 
 Frame::Frame(const ImagePacket& images_, Timestamp timestamp_, size_t frame_id_, const CameraParams& cam_params_)
   : images(images_), timestamp(timestamp_), frame_id(frame_id_), cam_params(cam_params_)
 {
 }
 
-void Frame::constructFeatures(const Observations& observations_, double depth_background_thresh) {
+void Frame::constructFeatures(const Observations& observations_, double depth_background_thresh)
+{
   observations = observations_;
   static_features.clear();
   processStaticFeatures(depth_background_thresh);
 }
 
-
-
-Feature::Ptr Frame::getStaticFeature(std::size_t tracklet_id) const {
-  if(static_features.find(tracklet_id) == static_features.end()) {
+Feature::Ptr Frame::getStaticFeature(std::size_t tracklet_id) const
+{
+  if (static_features.find(tracklet_id) == static_features.end())
+  {
     return nullptr;
   }
-  else {
+  else
+  {
     return static_features.at(tracklet_id);
   }
 }
 
-bool Frame::staticLandmarksValid() const {
+bool Frame::staticLandmarksValid() const
+{
   return static_features.size() == static_landmarks.size() && static_landmarks.size() > 0;
 }
 
 void Frame::projectKeypoints(const Camera& camera)
 {
-  //this projects everything in including inliers and points that have not been tracked properly yet
+  // this projects everything in including inliers and points that have not been tracked properly yet
   for (const auto& feature_pair : static_features)
   {
     const Feature& feature = *feature_pair.second;
@@ -73,12 +76,13 @@ void Frame::processStaticFeatures(double depth_background_thresh)
   for (int i = 0; i < observations.size(); ++i)
   {
     const Observation& obs = observations[i];
-    
+
     int x = obs.keypoint.pt.x;
     int y = obs.keypoint.pt.y;
 
-    //check is in image bounds
-    if(x < 0 || y < 0 || x >= ref_image.cols || y >= ref_image.rows) {
+    // check is in image bounds
+    if (x < 0 || y < 0 || x >= ref_image.cols || y >= ref_image.rows)
+    {
       LOG(WARNING) << "Obs is outside image bounds";
       continue;
     }
@@ -98,7 +102,7 @@ void Frame::processStaticFeatures(double depth_background_thresh)
     double flow_xe_d = static_cast<double>(flow_xe);
     double flow_ye_d = static_cast<double>(flow_ye);
 
-    //WHY ONLY WHEN WE HAVE FLOW?
+    // WHY ONLY WHEN WE HAVE FLOW?
     if (flow_xe != 0 && flow_ye != 0)
     {
       if (x + flow_xe < ref_image.cols && y + flow_ye < ref_image.rows && x < ref_image.cols && y < ref_image.rows)
@@ -125,12 +129,13 @@ void Frame::processStaticFeatures(double depth_background_thresh)
         feature->instance_label = Feature::background;
         feature->tracklet_id = obs.tracklet_id;
         CHECK(feature->tracklet_id != -1);
-        
+
         feature->age = obs.age;
 
-        // LOG(INFO) << "Adding feature age - " << feature->age << " from source - " << (obs.type == Observation::Type::DETECTION ? "detection" : "optical flow");
+        // LOG(INFO) << "Adding feature age - " << feature->age << " from source - " << (obs.type ==
+        // Observation::Type::DETECTION ? "detection" : "optical flow");
 
-        static_features.insert({obs.tracklet_id, feature});
+        static_features.insert({ obs.tracklet_id, feature });
       }
     }
   }
@@ -153,7 +158,6 @@ void Frame::processDynamicFeatures(double depth_object_thresh)
       {
         float flow_x = images.flow.at<cv::Vec2f>(i, j)[0];
         float flow_y = images.flow.at<cv::Vec2f>(i, j)[1];
-        
 
         double flow_x_d = static_cast<double>(flow_x);
         double flow_y_d = static_cast<double>(flow_y);
@@ -227,19 +231,20 @@ void Frame::drawStaticFeatures(cv::Mat& image) const
   // assumes image is sized appropiately
   for (const auto& feature_pair : static_features)
   {
-    
     const Feature& feature = *feature_pair.second;
     cv::Point2d point(feature.keypoint.pt.x, feature.keypoint.pt.y);
-    if(feature.inlier) {
-        cv::arrowedLine(image, feature.keypoint.pt, feature.predicted_keypoint.pt, cv::Scalar(255, 0, 0));
-        cv::putText(image, std::to_string(feature.tracklet_id), cv::Point2i(feature.keypoint.pt.x - 10, feature.keypoint.pt.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.3,
-                          cv::Scalar(255, 0, 0));
+    if (feature.inlier)
+    {
+      cv::arrowedLine(image, feature.keypoint.pt, feature.predicted_keypoint.pt, cv::Scalar(255, 0, 0));
+      cv::putText(image, std::to_string(feature.tracklet_id),
+                  cv::Point2i(feature.keypoint.pt.x - 10, feature.keypoint.pt.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.3,
+                  cv::Scalar(255, 0, 0));
     }
-    else {
+    else
+    {
       utils::DrawCircleInPlace(image, point, cv::Scalar(0, 0, 255), 1);
     }
   }
-  
 }
 
 void Frame::drawDynamicFeatures(cv::Mat& image) const
@@ -249,13 +254,10 @@ void Frame::drawDynamicFeatures(cv::Mat& image) const
     cv::Point2d point(feature.keypoint.pt.x, feature.keypoint.pt.y);
     utils::DrawCircleInPlace(image, point, cv::Scalar(0, 0, 255));
 
-    
     cv::arrowedLine(image, feature.keypoint.pt, feature.predicted_keypoint.pt, cv::Scalar(0, 0, 255));
   }
 
-  //TODO: refactor all this - for now just draw this point to predicted
-
+  // TODO: refactor all this - for now just draw this point to predicted
 }
-
 
 }  // namespace vdo

@@ -25,6 +25,12 @@ using VectorsXd = VectorsXx<double>;
 // int specalisation
 using VectorsXi = VectorsXx<int>;
 
+enum class State
+{
+  kBoostrap,
+  kNominal
+};
+
 struct ImagePacket
 {
   cv::Mat rgb;  // RGB (CV_8UC3) or grayscale (CV_8U)

@@ -31,6 +31,19 @@ System::System(const std::string& settings_file)
   parser.getParam("ORBextractor.iniThFAST", &tracking_params.init_threshold_fast);
   parser.getParam("ORBextractor.minThFAST", &tracking_params.min_threshold_fast);
 
+  // load backend paramss
+  BackendParams backend_params;
+  parser.getParam("Backend.var_3d_static", &backend_params.var_3d_static);
+  parser.getParam("Backend.var_camera", &backend_params.var_camera);
+  parser.getParam("Backend.var_obj_smooth", &backend_params.var_obj_smooth);
+  parser.getParam("Backend.var_obj", &backend_params.var_obj);
+  parser.getParam("Backend.var_3d_dyn", &backend_params.var_3d_dyn);
+  parser.getParam("Backend.var_camera_prior", &backend_params.var_camera_prior);
+  parser.getParam("Backend.use_robust_kernel", &backend_params.use_robust_kernel);
+  // parser getParam("Backend.k_huber_cam_motion", &backend_params.k_huber_cam_motion);
+  parser.getParam("Backend.k_huber_obj_motion", &backend_params.k_huber_obj_motion);
+  parser.getParam("Backend.k_huber_3d_points", &backend_params.k_huber_3d_points);
+
   std::stringstream ss;
   ss << "Tracking Params:" << std::endl;
   ss << "- max tracking points: "
@@ -78,6 +91,8 @@ System::System(const std::string& settings_file)
   Camera camera(camera_params);
   tracker = vdo::make_unique<Tracking>(tracking_params, camera);
 
+  optimizer = vdo::make_unique<IncrementalOptimizer>(backend_params, camera);
+
   DisplayParams::Ptr display_params = DisplayParams::loadFromParamParser(parser);
   viz = vdo::make_unique<Visualizer>(display_params);
 }
@@ -85,9 +100,9 @@ System::System(const std::string& settings_file)
 gtsam::Pose3 System::TrackRGBD(const InputPacket& input, boost::optional<const GroundTruthInputPacket&> ground_truth)
 {
   FrontendOutput::Ptr output = tracker->process(input, ground_truth);
-  //TODO: calculate and log errors (can do in system)
-  //TODO: parse to backend
-  //TODO: update frontend
+  // TODO: calculate and log errors (can do in system)
+  // TODO: parse to backend
+  // TODO: update frontend
   VisualiserInput viz_input(output);
   viz->process(viz_input);
   return gtsam::Pose3::identity();

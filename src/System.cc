@@ -33,11 +33,11 @@ System::System(const std::string& settings_file)
 
   // load backend paramss
   BackendParams backend_params;
-  parser.getParam("Backend.var_3d_static", &backend_params.var_3d_static);
-  parser.getParam("Backend.var_camera", &backend_params.var_camera);
-  parser.getParam("Backend.var_obj_smooth", &backend_params.var_obj_smooth);
-  parser.getParam("Backend.var_obj", &backend_params.var_obj);
-  parser.getParam("Backend.var_3d_dyn", &backend_params.var_3d_dyn);
+  parser.getParam("Backend.var_static_lmk", &backend_params.var_static_lmk);
+  parser.getParam("Backend.var_odom", &backend_params.var_odom);
+  parser.getParam("Backend.var_obj_motion_smooth", &backend_params.var_obj_motion_smooth);
+  parser.getParam("Backend.var_obj_motion", &backend_params.var_obj_motion);
+  parser.getParam("Backend.var_dynamic_lmk", &backend_params.var_dynamic_lmk);
   parser.getParam("Backend.var_camera_prior", &backend_params.var_camera_prior);
   parser.getParam("Backend.use_robust_kernel", &backend_params.use_robust_kernel);
   // parser getParam("Backend.k_huber_cam_motion", &backend_params.k_huber_cam_motion);
@@ -102,6 +102,7 @@ gtsam::Pose3 System::TrackRGBD(const InputPacket& input, boost::optional<const G
   FrontendOutput::Ptr output = tracker->process(input, ground_truth);
   // TODO: calculate and log errors (can do in system)
   // TODO: parse to backend
+  optimizer->process(*output);
   // TODO: update frontend
   VisualiserInput viz_input(output);
   viz->process(viz_input);

@@ -19,38 +19,46 @@
 
 namespace vdo
 {
-using gtsam::symbol_shorthand::H;  // Pose3 object motion (x,y,z,r,p,y)
-using gtsam::symbol_shorthand::L;  // Point3 static Landmark (x,y,z) in world frame
-using gtsam::symbol_shorthand::X;  // Pose3 camera pose in world frame (x,y,z,r,p,y)
 
 class FactorGraphManager
 {
 public:
   VDO_POINTER_TYPEDEFS(FactorGraphManager);
 
+
   FactorGraphManager(const BackendParams& params);
 
-  gtsam::Key addStaticLandmark(const size_t tracklet_id, const gtsam::Key& pose_key, const gtsam::Point3 lmk_w);
+  inline gtsam::Key poseKey(const gtsam::Key frame) { 
+    return gtsam::Symbol(kSymbolCameraPose3Key, frame);
+  }
+
+  inline gtsam::Key staticLandmarkKey(const size_t tracklet_id) {
+    return gtsam::Symbol(kSymbolStaticPoint3Key, tracklet_id);
+  }
+
+  gtsam::Key addStaticLandmark(const size_t tracklet_id, const gtsam::Key& pose_key, const gtsam::Point3 lmk_c);
   gtsam::Key addCameraPose(const gtsam::Key frame, const gtsam::Pose3& pose);
   gtsam::Key addCameraPosePrior(const gtsam::Key frame, const gtsam::Pose3& pose);
-  gtsam::Key addBetweenFactor(const gtsam::Key from_frame, const gtsam::Key to_frame, const gtsam::Pose3& odometry);
+  void addBetweenFactor(const gtsam::Key from_frame, const gtsam::Key to_frame, const gtsam::Pose3& odometry);
 
   // checks if the key is already in the isam2 system OR is in the new_values_ object and hence is about to be added
   bool isKeyInGraph(const gtsam::Key key) const;
 
-  bool optimize();
+
+  bool optimize(const gtsam::Key state_key);
 
 protected:
+
+
+
   bool updateSmoother(const gtsam::NonlinearFactorGraph& new_factors = gtsam::NonlinearFactorGraph(),
                       const gtsam::Values& new_values = gtsam::Values());
 
 protected:
   const BackendParams params_;
-  gtsam::Key state_key_{ 0 };  // probably better to call this frame id or better, just use the frame ID from the
-                               // frontend
 
   gtsam::NonlinearFactorGraph graph_;
-  gtsam::Values new_values_;  // better name might be new values?
+  gtsam::Values new_values_;
 
   gtsam::Values state_;
 
@@ -62,13 +70,14 @@ protected:
   static constexpr unsigned char kSymbolMotion3Key = 'H';        // object motion (pose 3) in camera frame
   static constexpr unsigned char kSymbolDynamicPoint3Key = 'l';  // dynamic landmark in... camera? frame
 
-  // TODO: clean up names
-  gtsam::noiseModel::Diagonal::shared_ptr cameraPosePrior;
-  gtsam::noiseModel::Base::shared_ptr odometryNoiseModel;
-  gtsam::noiseModel::Base::shared_ptr point3DNoiseModel;
-  gtsam::noiseModel::Base::shared_ptr objectMotionNoiseModel;
-  gtsam::noiseModel::Base::shared_ptr objectMotionSmootherNoiseModel;
-  gtsam::noiseModel::Base::shared_ptr dynamicPoint3DNoiseModel;
+  gtsam::noiseModel::Diagonal::shared_ptr cameraPosePrior_; // prior added to the camera pose at the first frame to fix the graph
+  gtsam::noiseModel::Base::shared_ptr odomNoise_; // noise model between consequative poses constructed from the camera motion estimate 
+  gtsam::noiseModel::Base::shared_ptr staticLmkNoise_; //noise model on the 3D projection factor
+  gtsam::noiseModel::Base::shared_ptr dynamicLmkNoise_; //noise model on the 3D projection factor on dynamic objects
+  gtsam::noiseModel::Base::shared_ptr objectMotionNoise_; //noise model used on the motion landmkark ternary factor (H) 
+  gtsam::noiseModel::Base::shared_ptr objectMotionSmoothingNoise_; //noise model used to constrain the relative change in Motion (H_{t-1} -> H_t)
+
+
 
 private:
   void setupNoiseModels(const BackendParams& params);

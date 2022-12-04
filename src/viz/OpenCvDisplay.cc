@@ -20,12 +20,12 @@ void OpenCvDisplay::process(const VisualiserInput& viz_input)
 
   if (params->display_input)
   {
-    drawInputImages(*viz_input.frontend_output->frame);
+    drawInputImages(*viz_input.frontend_output->frame_);
   }
 
   if (params->display_frame)
   {
-    drawFrame(*viz_input.frontend_output->frame);
+    drawFrame(*viz_input.frontend_output->frame_);
   }
 
   for (const ImageToDisplay& display : display_images)

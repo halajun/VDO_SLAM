@@ -72,7 +72,7 @@ void OpenCvVisualizer3D::setupModelViewMatrix()
 void OpenCvVisualizer3D::drawFrontend(WidgetsMap* widgets_map, const FrontendOutput::Ptr& frontend)
 {
   // draw camera pose
-  const gtsam::Pose3 X_wc = frontend->frame->pose;
+  const gtsam::Pose3 X_wc = frontend->estimated_pose_;
   std::unique_ptr<cv::viz::WCameraPosition> cam_pose = std::move(createPoseWidget(X_wc, cv::viz::Color::red()));
 
   if (cam_pose)
@@ -82,9 +82,9 @@ void OpenCvVisualizer3D::drawFrontend(WidgetsMap* widgets_map, const FrontendOut
   }
 
   // if gt pose, add
-  if (frontend->frame->ground_truth)
+  if (frontend->ground_truth_)
   {
-    const GroundTruthInputPacket& gt = *frontend->frame->ground_truth;
+    const GroundTruthInputPacket& gt = *frontend->ground_truth_;
 
     const gtsam::Pose3 X_wc_gt = gt.X_wc;
     std::unique_ptr<cv::viz::WCameraPosition> cam_pose_gt =
@@ -116,8 +116,9 @@ void OpenCvVisualizer3D::drawFrontend(WidgetsMap* widgets_map, const FrontendOut
   std::vector<gtsam::Point3> static_points_w;
   std::vector<gtsam::Point3> dynamic_points_w;
 
-  const Landmarks& static_landmarks = frontend->frame->static_landmarks;
-  const Landmarks& dynamic_landmarks = frontend->frame->dynamic_landmarks;
+  //TODO: make sure we have these
+  const Landmarks& static_landmarks = frontend->frame_->static_landmarks;
+  const Landmarks& dynamic_landmarks = frontend->frame_->dynamic_landmarks;
 
   for (const Landmark& lmk_c : static_landmarks)
   {

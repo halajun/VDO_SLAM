@@ -30,6 +30,11 @@ FrontendOutput::Ptr Tracking::process(const InputPacket& input, GroundTruthInput
   return output;
 }
 
+void Tracking::updateFromBackend(const BackendOutput& backend_output) {
+  if(!previous_frame) {return; } 
+  previous_frame->pose = backend_output.estimated_pose_;
+}
+
 FrontendOutput::Ptr Tracking::processBoostrap(const InputPacket& input,
                                               GroundTruthInputPacket::ConstOptional ground_truth)
 {
@@ -100,6 +105,7 @@ FrontendOutput::Ptr Tracking::processNominal(const InputPacket& input,
   previous_frame = frame;
   return std::make_shared<FrontendOutput>(frame);
 }
+
 
 bool Tracking::solveInitalCamModel(Frame::Ptr previous_frame_, Frame::Ptr current_frame_)
 {

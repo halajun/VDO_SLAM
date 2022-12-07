@@ -94,13 +94,17 @@ BackendOutput::Ptr IncrementalOptimizer::processNominal(const FrontendOutput& in
   //get updated pose
   gtsam::Pose3 best_pose = state_.at<gtsam::Pose3>(pose_key);
 
+  LOG(INFO) << "Opt pose\n" << best_pose; 
+
   calculatePoseError(best_pose, ground_truth->X_wc, t_error_after_opt, r_error_after_opt);
-  LOG(INFO) << "ATE Errors:\n"
+  LOG(INFO) << std::fixed << "ATE Errors:\n"
                   << "Error before: t - " << t_error_before_opt << ", r - " << r_error_before_opt << "\n"
                   << "Error after: t - " << t_error_after_opt << ", r - " << r_error_after_opt << "\n";
 
   num_static_features_added = 0;
-  return nullptr;
+  BackendOutput::Ptr output =  std::make_shared<BackendOutput>();
+  output->estimated_pose_ = best_pose;
+  return output;
 }
 
 
@@ -114,6 +118,7 @@ void IncrementalOptimizer::handleStaticFeatures(const TrackletIdFeatureMap& stat
       const size_t frame_id = feature.frame_id;
 
       gtsam::Key pose_key = poseKey(frame_id);
+      // LOG(INFO) << pose_key;
       gtsam::Symbol symb(pose_key);
 
       // LOG(INFO) << "pose symbol '" << symb.chr() << "' "
@@ -141,8 +146,9 @@ void IncrementalOptimizer::handleStaticFeatures(const TrackletIdFeatureMap& stat
     }
   }
 
+  // LOG(INFO) << 
   //go through tracklets and check length (these should correspond to a landmarks age)
-  static constexpr size_t kMinTrackletLength = 2u;
+  static constexpr size_t kMinTrackletLength = 1u;
   std::vector<size_t> tracklet_ids_to_delete; //which tracklets have now been added to the map
   for(const auto& [ tracklet_id, features ] : unadded_static_tracklets_ ) {
     gtsam::Key potential_landmark_key = staticLandmarkKey(tracklet_id);

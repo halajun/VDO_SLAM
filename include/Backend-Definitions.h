@@ -3,6 +3,8 @@
 #include "Macros.h"
 #include <glog/logging.h>
 
+#include <gtsam/geometry/Pose3.h>
+
 namespace vdo
 {
 struct BackendParams
@@ -52,6 +54,7 @@ struct BackendParams
 struct BackendOutput
 {
   VDO_POINTER_TYPEDEFS(BackendOutput);
+  gtsam::Pose3 estimated_pose_;
 };
 
 }  // namespace vdo

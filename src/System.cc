@@ -5,6 +5,7 @@
 #include "viz/DisplayParams.h"
 #include "viz/Display-Definitions.h"
 #include "FrontendOutput.h"
+#include "Backend-Definitions.h"
 
 namespace vdo
 {
@@ -102,7 +103,11 @@ gtsam::Pose3 System::TrackRGBD(const InputPacket& input, boost::optional<const G
   FrontendOutput::Ptr output = tracker->process(input, ground_truth);
   // TODO: calculate and log errors (can do in system)
   // TODO: parse to backend
-  optimizer->process(*output);
+  BackendOutput::Ptr backend_output = optimizer->process(*output);
+
+  if(backend_output) {
+    tracker->updateFromBackend(*backend_output);
+  }
   // TODO: update frontend
   VisualiserInput viz_input(output);
   viz->process(viz_input);

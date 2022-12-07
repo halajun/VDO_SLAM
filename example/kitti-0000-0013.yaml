@@ -39,7 +39,9 @@ ChooseData: 2
 DepthMapFactor: 256.0
 
 # Close/Far Depth threshold
-ThDepthBG: 40.0
+# ThDepthBG: 40.0
+# ThDepthOBJ: 25.0
+ThDepthBG: 50.0
 ThDepthOBJ: 25.0
 
 # Max Tracking Points on Background and Object in each frame
@@ -94,12 +96,12 @@ Viz.use_3d: 1
 Backend.use_robust_kernel: 1
 # odom noise model
 Backend.var_camera_prior: 0.000001
-Backend.var_odom: 0.01 #noise on the odometry between consequative poses
-Backend.var_static_lmk: 0.01 #noise on the 3D projection factor for static points 
+Backend.var_odom: 0.9 #noise on the odometry between consequative poses
+Backend.var_static_lmk: 0.001 #noise on the 3D projection factor for static points 
 Backend.var_dynamic_lmk: 0.01 #noise on the 3D projection factor for dynamic points 
 Backend.var_obj_motion: 0.1 #noise model used on the motion landmark tenrary factor
 Backend.var_obj_motion_smooth: 0.1 # noise model used to constrain the relative change in Motion (H_{t-1} -> H_t)
-Backend.k_huber_3d_points: 0.0001
+Backend.k_huber_3d_points: 0.001
 Backend.k_huber_obj_motion: 0.1
 
 

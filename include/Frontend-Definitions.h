@@ -51,7 +51,14 @@ struct Observation
   }
 };
 
-struct Feature
+struct VisualMeasurement {
+  cv::KeyPoint keypoint;
+  size_t frame_id = -1;
+  Depth depth = -1;
+  size_t tracklet_id = -1;
+};
+
+struct Feature : public VisualMeasurement
 {
   VDO_POINTER_TYPEDEFS(Feature);
   static constexpr InstanceLabel background = 0;
@@ -62,11 +69,7 @@ struct Feature
     DYNAMIC
   };
 
-  cv::KeyPoint keypoint;
   size_t index = -1;  // the index of the feature in the original vector (eg the keypoints vector)
-  size_t frame_id = -1;
-  Depth depth = -1;
-  size_t tracklet_id = -1;
   size_t age = 0;  // how many times this landmark has been seen
 
   Type type;

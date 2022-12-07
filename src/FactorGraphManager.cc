@@ -13,18 +13,36 @@ FactorGraphManager::FactorGraphManager(const BackendParams& params) : params_(pa
 {
   setupNoiseModels(params_);
 
-  smoother_ = vdo::make_unique<gtsam::ISAM2>();
+  gtsam::ISAM2Params parameters;
+  parameters.relinearizeThreshold = 0.01;
+  parameters.evaluateNonlinearError = false;
+  parameters.relinearizeSkip = 1;
+
+  smoother_ = vdo::make_unique<gtsam::ISAM2>(parameters);
 }
 
 gtsam::Key FactorGraphManager::addStaticLandmark(const size_t tracklet_id, const gtsam::Key& pose_key,
                                                  const gtsam::Point3 lmk_c)
 {
+  gtsam::Pose3 pose;
+  if(new_values_.exists(pose_key)) {
+    pose = new_values_.at<gtsam::Pose3>(pose_key);
+  }
+  else if(smoother_->valueExists(pose_key)) {
+    pose = smoother_->calculateEstimate(pose_key).cast<gtsam::Pose3>();
+  }
+  else {
+    CHECK(false) << "pose key - " << pose_key << " was not yet in new_values_ or isam graph";
+  }
+
+  gtsam::Point3 lmk_world = pose.transformFrom(lmk_c);
+  
   // if not in graph, add to values -> else just add new factor
   gtsam::Symbol landmark_symbol = staticLandmarkKey(tracklet_id);
   if (!isKeyInGraph(landmark_symbol))
   {
     // add value
-    new_values_.insert(landmark_symbol, lmk_c);
+    new_values_.insert(landmark_symbol, lmk_world);
   }
   // add the factor regarldess
   graph_.emplace_shared<Point3DFactor>(pose_key, landmark_symbol, lmk_c, staticLmkNoise_);
@@ -71,6 +89,8 @@ bool FactorGraphManager::optimize(const gtsam::Key state_key)
 {
   auto tic_update = utils::Timer::tic();
   bool smoother_ok = updateSmoother(graph_, new_values_);
+  updateSmoother();
+  updateSmoother();
   auto update_duration = utils::Timer::toc(tic_update);
 
   std::int64_t update_time = update_duration.count();
@@ -92,7 +112,7 @@ bool FactorGraphManager::optimize(const gtsam::Key state_key)
     const double error_before = graph_.error(state_before_opt);
     
     // update state
-    state_ = smoother_->calculateEstimate();
+    state_ = smoother_->calculateBestEstimate();
 
     const double error_after = graph_.error(state_);
     LOG(INFO) << "Optimization Errors:\n"

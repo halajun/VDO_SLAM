@@ -12,16 +12,13 @@ struct FrontendOutput
 {
   VDO_POINTER_TYPEDEFS(FrontendOutput);
 
-  const Frame::Ptr frame_; //really just for vizualisation
+  const Frame::Ptr frame_;  // really just for vizualisation
   const gtsam::Pose3 estimated_pose_;
   const size_t frame_id_;
   const GroundTruthInputPacket::ConstOptional ground_truth_;
 
-  FrontendOutput(Frame::Ptr frame) 
-  : frame_(frame), 
-    estimated_pose_(frame->pose),
-    frame_id_(frame->frame_id),
-    ground_truth_(frame->ground_truth)
+  FrontendOutput(Frame::Ptr frame)
+    : frame_(frame), estimated_pose_(frame->pose_), frame_id_(frame->frame_id_), ground_truth_(frame->ground_truth_)
   {
   }
 };

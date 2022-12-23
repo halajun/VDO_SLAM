@@ -5,10 +5,11 @@
 int main(int argc, char** argv)
 
 {
+  google::ParseCommandLineFlags(&argc, &argv, true);
   google::InitGoogleLogging(argv[0]);
   google::InstallFailureSignalHandler();
 
-  PCHECK(argc == 3) << "Usage: ./vdo_slam path_to_settings path_to_sequence";
+  PCHECK(argc >= 3) << "Usage: ./vdo_slam path_to_settings path_to_sequence";
 
   vdo::DataProvider::UniquePtr data_provider = vdo::make_unique<vdo::KittiSequenceDataProvider>(argv[2]);
 

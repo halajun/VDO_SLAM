@@ -19,20 +19,20 @@
 
 namespace vdo
 {
-
 class FactorGraphManager
 {
 public:
   VDO_POINTER_TYPEDEFS(FactorGraphManager);
 
-
   FactorGraphManager(const BackendParams& params);
 
-  inline gtsam::Key poseKey(const gtsam::Key frame) { 
+  inline gtsam::Key poseKey(const gtsam::Key frame)
+  {
     return gtsam::Symbol(kSymbolCameraPose3Key, frame);
   }
 
-  inline gtsam::Key staticLandmarkKey(const size_t tracklet_id) {
+  inline gtsam::Key staticLandmarkKey(const size_t tracklet_id)
+  {
     return gtsam::Symbol(kSymbolStaticPoint3Key, tracklet_id);
   }
 
@@ -44,13 +44,9 @@ public:
   // checks if the key is already in the isam2 system OR is in the new_values_ object and hence is about to be added
   bool isKeyInGraph(const gtsam::Key key) const;
 
-
   bool optimize(const gtsam::Key state_key);
 
 protected:
-
-
-
   bool updateSmoother(const gtsam::NonlinearFactorGraph& new_factors = gtsam::NonlinearFactorGraph(),
                       const gtsam::Values& new_values = gtsam::Values());
 
@@ -70,14 +66,16 @@ protected:
   static constexpr unsigned char kSymbolMotion3Key = 'H';        // object motion (pose 3) in camera frame
   static constexpr unsigned char kSymbolDynamicPoint3Key = 'l';  // dynamic landmark in... camera? frame
 
-  gtsam::noiseModel::Diagonal::shared_ptr cameraPosePrior_; // prior added to the camera pose at the first frame to fix the graph
-  gtsam::noiseModel::Base::shared_ptr odomNoise_; // noise model between consequative poses constructed from the camera motion estimate 
-  gtsam::noiseModel::Base::shared_ptr staticLmkNoise_; //noise model on the 3D projection factor
-  gtsam::noiseModel::Base::shared_ptr dynamicLmkNoise_; //noise model on the 3D projection factor on dynamic objects
-  gtsam::noiseModel::Base::shared_ptr objectMotionNoise_; //noise model used on the motion landmkark ternary factor (H) 
-  gtsam::noiseModel::Base::shared_ptr objectMotionSmoothingNoise_; //noise model used to constrain the relative change in Motion (H_{t-1} -> H_t)
-
-
+  gtsam::noiseModel::Diagonal::shared_ptr cameraPosePrior_;  // prior added to the camera pose at the first frame to fix
+                                                             // the graph
+  gtsam::noiseModel::Base::shared_ptr odomNoise_;  // noise model between consequative poses constructed from the camera
+                                                   // motion estimate
+  gtsam::noiseModel::Base::shared_ptr staticLmkNoise_;     // noise model on the 3D projection factor
+  gtsam::noiseModel::Base::shared_ptr dynamicLmkNoise_;    // noise model on the 3D projection factor on dynamic objects
+  gtsam::noiseModel::Base::shared_ptr objectMotionNoise_;  // noise model used on the motion landmkark ternary factor
+                                                           // (H)
+  gtsam::noiseModel::Base::shared_ptr objectMotionSmoothingNoise_;  // noise model used to constrain the relative change
+                                                                    // in Motion (H_{t-1} -> H_t)
 
 private:
   void setupNoiseModels(const BackendParams& params);

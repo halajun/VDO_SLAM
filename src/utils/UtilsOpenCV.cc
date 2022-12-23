@@ -140,6 +140,32 @@ cv::Mat transformCameraPoseToWorld(const cv::Mat& pose)
   return transform * pose;
 }
 
+void flowToRgb(const cv::Mat& flow, cv::Mat& rgb)
+{
+  CHECK(flow.channels() == 2) << "Expecting flow in frame to have 2 channels";
+
+  // Visualization part
+  cv::Mat flow_parts[2];
+  cv::split(flow, flow_parts);
+
+  // Convert the algorithm's output into Polar coordinates
+  cv::Mat magnitude, angle, magn_norm;
+  cv::cartToPolar(flow_parts[0], flow_parts[1], magnitude, angle, true);
+  cv::normalize(magnitude, magn_norm, 0.0f, 1.0f, cv::NORM_MINMAX);
+  angle *= ((1.f / 360.f) * (180.f / 255.f));
+
+  // Build hsv image
+  cv::Mat _hsv[3], hsv, hsv8, bgr;
+  _hsv[0] = angle;
+  _hsv[1] = cv::Mat::ones(angle.size(), CV_32F);
+  _hsv[2] = magn_norm;
+  cv::merge(_hsv, 3, hsv);
+  hsv.convertTo(hsv8, CV_8U, 255.0);
+
+  // Display the results
+  cv::cvtColor(hsv8, rgb, cv::COLOR_HSV2BGR);
+}
+
 // // add circles in the image at desired position/size/color
 // void DrawCirclesInPlace(cv::Mat& img,
 //                                      const KeypointsCV& image_points,

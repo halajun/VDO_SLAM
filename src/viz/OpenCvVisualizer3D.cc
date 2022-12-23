@@ -116,35 +116,37 @@ void OpenCvVisualizer3D::drawFrontend(WidgetsMap* widgets_map, const FrontendOut
   std::vector<gtsam::Point3> static_points_w;
   std::vector<gtsam::Point3> dynamic_points_w;
 
-  //TODO: make sure we have these
-  const Landmarks& static_landmarks = frontend->frame_->static_landmarks;
-  const Landmarks& dynamic_landmarks = frontend->frame_->dynamic_landmarks;
+  // TODO:
 
-  for (const Landmark& lmk_c : static_landmarks)
-  {
-    static_points_w.push_back(X_wc.transformFrom(lmk_c));
-  }
+  // // TODO: make sure we have these
+  // const Landmarks& static_landmarks = frontend->frame_->static_landmarks;
+  // const Landmarks& dynamic_landmarks = frontend->frame_->dynamic_landmarks;
 
-  for (const Landmark& lmk_c : dynamic_landmarks)
-  {
-    dynamic_points_w.push_back(X_wc.transformFrom(lmk_c));
-  }
+  // for (const Landmark& lmk_c : static_landmarks)
+  // {
+  //   static_points_w.push_back(X_wc.transformFrom(lmk_c));
+  // }
 
-  std::unique_ptr<cv::viz::WCloud> static_cloud = std::move(createCloudWidget(static_points_w, cv::viz::Color::red()));
-  std::unique_ptr<cv::viz::WCloud> dynamic_cloud =
-      std::move(createCloudWidget(dynamic_points_w, cv::viz::Color::blue()));
+  // for (const Landmark& lmk_c : dynamic_landmarks)
+  // {
+  //   dynamic_points_w.push_back(X_wc.transformFrom(lmk_c));
+  // }
 
-  if (static_cloud)
-  {
-    (*widgets_map)["staitc_cloud"] = std::move(static_cloud);
-    markWidgetForRemoval("staitc_cloud");
-  }
+  // std::unique_ptr<cv::viz::WCloud> static_cloud = std::move(createCloudWidget(static_points_w,
+  // cv::viz::Color::red())); std::unique_ptr<cv::viz::WCloud> dynamic_cloud =
+  //     std::move(createCloudWidget(dynamic_points_w, cv::viz::Color::blue()));
 
-  if (dynamic_cloud)
-  {
-    (*widgets_map)["dynamic_cloud"] = std::move(dynamic_cloud);
-    markWidgetForRemoval("dynamic_cloud");
-  }
+  // if (static_cloud)
+  // {
+  //   (*widgets_map)["staitc_cloud"] = std::move(static_cloud);
+  //   markWidgetForRemoval("staitc_cloud");
+  // }
+
+  // if (dynamic_cloud)
+  // {
+  //   (*widgets_map)["dynamic_cloud"] = std::move(dynamic_cloud);
+  //   markWidgetForRemoval("dynamic_cloud");
+  // }
 
   // draw pose for object
 }

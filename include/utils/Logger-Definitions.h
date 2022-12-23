@@ -35,12 +35,12 @@ inline void Formatter<Frame>::header(std::ofstream& stream)
 template <>
 inline void Formatter<Frame>::format(std::ofstream& stream, const Frame& value)
 {
-  stream << value.frame_id << "," << value.timestamp << ",";
+  stream << value.frame_id_ << "," << value.timestamp_ << ",";
   // Formatter<gtsam::Pose3>::format(stream, value.pose);
   // stream << ",";
 
   double t_error, r_error;
-  calculatePoseError(value.pose, value.ground_truth->X_wc, t_error, r_error);
+  calculatePoseError(value.pose_, value.ground_truth_->X_wc, t_error, r_error);
   stream << t_error << "," << r_error;
 }
 

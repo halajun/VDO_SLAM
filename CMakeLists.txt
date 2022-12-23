@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-project(ObjSLAM)
+project(vdo_slam)
 
 add_definitions(-std=c++17 -Wall -Wextra)
 
@@ -113,12 +113,14 @@ python2.7 #for matplotlib_cpp
 
 
 # Build example
+# set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/example)
+# Add an alias so that library can be used inside the build tree,
+# e.g. when testing
+add_library(vdo_slam::vdo_slam ALIAS vdo_slam)
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/example)
-
-add_executable(vdo_slam
-example/vdo_slam.cc)
-target_link_libraries(vdo_slam ${PROJECT_NAME})
+add_executable(vdo_slam_kitti
+  example/vdo_slam.cc)
+target_link_libraries(vdo_slam_kitti vdo_slam::vdo_slam)
 
 ############################### TESTS ##########################################
 ### Add testing
@@ -161,9 +163,10 @@ if(VDO_SLAM_BUILD_TESTS)
   include(CTest)
   add_executable(testVdoSlam
     test/testCameraParam.cc
+    test/testTracking.cc
     test/testVdoSlam.cc
     )
-  target_link_libraries(testVdoSlam gtest ${PROJECT_NAME})
+  target_link_libraries(testVdoSlam gtest vdo_slam::vdo_slam)
 
   if(CMAKE_VERSION VERSION_LESS 3.10)
     enable_testing()

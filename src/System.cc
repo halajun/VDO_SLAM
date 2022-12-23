@@ -105,7 +105,8 @@ gtsam::Pose3 System::TrackRGBD(const InputPacket& input, boost::optional<const G
   // TODO: parse to backend
   BackendOutput::Ptr backend_output = optimizer->process(*output);
 
-  if(backend_output) {
+  if (backend_output)
+  {
     tracker->updateFromBackend(*backend_output);
   }
   // TODO: update frontend

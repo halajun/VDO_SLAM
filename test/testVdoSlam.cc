@@ -2,7 +2,7 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
-// DEFINE_bool(display, false, "Display test results.");
+DEFINE_string(test_data_path, "../tests/data", "Path to data for unit tests.");
 
 int main(int argc, char** argv)
 {

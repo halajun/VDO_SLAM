@@ -41,16 +41,16 @@ void OpenCvDisplay::drawInputImages(const Frame& frame)
 {
   // draw each portion of the inputs
   cv::Mat rgb, depth, flow, mask;
-  frame.Images().rgb.copyTo(rgb);
+  frame.images_.rgb.copyTo(rgb);
   CHECK(rgb.channels() == 3) << "Expecting rgb in frame to gave 3 channels";
 
-  frame.Images().depth.copyTo(depth);
+  frame.images_.depth.copyTo(depth);
   // expect depth in float 32
   depth.convertTo(depth, CV_8UC1);
 
-  frame.Images().flow.copyTo(flow);
+  frame.images_.flow.copyTo(flow);
 
-  frame.Images().semantic_mask.copyTo(mask);
+  frame.images_.semantic_mask.copyTo(mask);
 
   // canot display the original ones so these needs special treatment...
   cv::Mat flow_viz, mask_viz;
@@ -69,7 +69,7 @@ void OpenCvDisplay::drawInputImages(const Frame& frame)
 void OpenCvDisplay::drawFrame(const Frame& frame)
 {
   cv::Mat frame_viz, rgb;
-  frame.Images().rgb.copyTo(rgb);
+  frame.images_.rgb.copyTo(rgb);
   CHECK(rgb.channels() == 3) << "Expecting rgb in frame to gave 3 channels";
 
   // drawTracklet(rgb, frame_viz, input.static_tracklets, input.map);
@@ -85,28 +85,7 @@ void OpenCvDisplay::drawFeatures(const cv::Mat& rgb, const Frame& frame, cv::Mat
 
 void OpenCvDisplay::drawOpticalFlow(const cv::Mat& flow, cv::Mat& flow_viz)
 {
-  CHECK(flow.channels() == 2) << "Expecting flow in frame to have 2 channels";
-
-  // Visualization part
-  cv::Mat flow_parts[2];
-  cv::split(flow, flow_parts);
-
-  // Convert the algorithm's output into Polar coordinates
-  cv::Mat magnitude, angle, magn_norm;
-  cv::cartToPolar(flow_parts[0], flow_parts[1], magnitude, angle, true);
-  cv::normalize(magnitude, magn_norm, 0.0f, 1.0f, cv::NORM_MINMAX);
-  angle *= ((1.f / 360.f) * (180.f / 255.f));
-
-  // Build hsv image
-  cv::Mat _hsv[3], hsv, hsv8, bgr;
-  _hsv[0] = angle;
-  _hsv[1] = cv::Mat::ones(angle.size(), CV_32F);
-  _hsv[2] = magn_norm;
-  cv::merge(_hsv, 3, hsv);
-  hsv.convertTo(hsv8, CV_8U, 255.0);
-
-  // Display the results
-  cv::cvtColor(hsv8, flow_viz, cv::COLOR_HSV2BGR);
+  utils::flowToRgb(flow, flow_viz);
 }
 
 void OpenCvDisplay::drawSemanticInstances(const cv::Mat& rgb, const cv::Mat& mask, cv::Mat& mask_viz)

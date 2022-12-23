@@ -24,7 +24,7 @@ public:
 
   FrontendOutput::Ptr process(const InputPacket& input,
                               GroundTruthInputPacket::ConstOptional ground_truth = boost::none);
-    //for now just pose
+  // for now just pose
   void updateFromBackend(const BackendOutput& backend_output);
 
 private:
@@ -33,7 +33,6 @@ private:
 
   FrontendOutput::Ptr processNominal(const InputPacket& input,
                                      GroundTruthInputPacket::ConstOptional ground_truth = boost::none);
-
 
   // using the static features from the previous frame and current frame, calculates and sets the pose
   // of the current frame. Features are marked as outliers based on PnP ransac and will not be included in the next

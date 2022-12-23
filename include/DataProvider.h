@@ -7,6 +7,13 @@
 
 namespace vdo
 {
+bool loadRGB(const std::string& image_path, cv::Mat& img);
+bool loadDepth(const std::string& image_path, cv::Mat& img);
+bool loadFlow(const std::string& image_path, cv::Mat& img);
+
+// mask must be resized before hand
+bool loadSemanticMask(const std::string& image_path, cv::Mat& mask);
+
 class DataProvider
 {
 public:
@@ -33,7 +40,6 @@ public:
 
 private:
   bool loadData(const std::string& path_to_sequence, InputsVector& inputs_vector);
-  void loadSemanticMask(const std::string& strFilenamesMask, cv::Mat& mask);
 
   gtsam::Pose3 ObjPoseParsingKT(const std::vector<double>& obj_pose_gt);
 

@@ -7,6 +7,62 @@
 
 namespace vdo
 {
+bool loadRGB(const std::string& image_path, cv::Mat& img)
+{
+  img = cv::imread(image_path, CV_LOAD_IMAGE_UNCHANGED);
+  return true;
+}
+
+bool loadDepth(const std::string& image_path, cv::Mat& img)
+{
+  img = cv::imread(image_path, CV_LOAD_IMAGE_UNCHANGED);
+  // For stereo disparity input
+  img.convertTo(img, CV_64F);
+  return true;
+}
+
+bool loadFlow(const std::string& image_path, cv::Mat& img)
+{
+  img = cv::optflow::readOpticalFlow(image_path);
+  return true;
+}
+
+bool loadSemanticMask(const std::string& image_path, cv::Mat& mask)
+{
+  std::ifstream file_mask;
+  file_mask.open(image_path.c_str());
+
+  // Main loop
+  int count = 0;
+  while (!file_mask.eof())
+  {
+    std::string s;
+    getline(file_mask, s);
+    if (!s.empty())
+    {
+      std::stringstream ss;
+      ss << s;
+      int tmp;
+      for (int i = 0; i < mask.cols; ++i)
+      {
+        ss >> tmp;
+        if (tmp != 0)
+        {
+          mask.at<int>(count, i) = tmp;
+        }
+        else
+        {
+          mask.at<int>(count, i) = 0;
+        }
+      }
+      count++;
+    }
+  }
+
+  file_mask.close();
+  return true;
+}
+
 size_t DataProvider::next(Inputs& input)
 {
   return next(input.first, input.second);
@@ -201,12 +257,9 @@ bool KittiSequenceDataProvider::loadData(const std::string& path_to_sequence, In
     // add input packets
     cv::Mat rgb, depth, flow;
     // Read imreadmage and depthmap from file
-    rgb = cv::imread(vstrFilenamesRGB[frame_id], CV_LOAD_IMAGE_UNCHANGED);
-    depth = cv::imread(vstrFilenamesDEP[frame_id], CV_LOAD_IMAGE_UNCHANGED);
-    // / For stereo disparity input
-    depth.convertTo(depth, CV_64F);
-
-    flow = cv::optflow::readOpticalFlow(vstrFilenamesFLO[frame_id]);
+    loadRGB(vstrFilenamesRGB[frame_id], rgb);
+    loadDepth(vstrFilenamesDEP[frame_id], depth);
+    loadFlow(vstrFilenamesFLO[frame_id], flow);
 
     cv::Mat sem(rgb.rows, rgb.cols, CV_32SC1);
     loadSemanticMask(vstrFilenamesSEM[frame_id], sem);
@@ -222,41 +275,6 @@ bool KittiSequenceDataProvider::loadData(const std::string& path_to_sequence, In
   }
 
   return true;
-}
-
-void KittiSequenceDataProvider::loadSemanticMask(const std::string& strFilenamesMask, cv::Mat& mask)
-{
-  std::ifstream file_mask;
-  file_mask.open(strFilenamesMask.c_str());
-
-  // Main loop
-  int count = 0;
-  while (!file_mask.eof())
-  {
-    std::string s;
-    getline(file_mask, s);
-    if (!s.empty())
-    {
-      std::stringstream ss;
-      ss << s;
-      int tmp;
-      for (int i = 0; i < mask.cols; ++i)
-      {
-        ss >> tmp;
-        if (tmp != 0)
-        {
-          mask.at<int>(count, i) = tmp;
-        }
-        else
-        {
-          mask.at<int>(count, i) = 0;
-        }
-      }
-      count++;
-    }
-  }
-
-  file_mask.close();
 }
 
 gtsam::Pose3 KittiSequenceDataProvider::ObjPoseParsingKT(const std::vector<double>& obj_pose_gt)

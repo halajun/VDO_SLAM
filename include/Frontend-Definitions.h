@@ -51,7 +51,8 @@ struct Observation
   }
 };
 
-struct VisualMeasurement {
+struct VisualMeasurement
+{
   cv::KeyPoint keypoint;
   size_t frame_id = -1;
   Depth depth = -1;
@@ -70,7 +71,7 @@ struct Feature : public VisualMeasurement
   };
 
   size_t index = -1;  // the index of the feature in the original vector (eg the keypoints vector)
-  size_t age = 0;  // how many times this landmark has been seen
+  size_t age = 0;     // how many times this landmark has been seen
 
   Type type;
 
@@ -87,9 +88,10 @@ struct Feature : public VisualMeasurement
   InstanceLabel instance_label{ background };
 };
 
-using Features = std::vector<Feature>;
-using Observations = std::vector<Observation>;
+using Features = std::vector<vdo::Feature>;
+using FeaturePtrs = std::vector<vdo::Feature::Ptr>;
+using Observations = std::vector<vdo::Observation>;
 
-using TrackletIdFeatureMap = std::map<std::size_t, Feature::Ptr>;
+using TrackletIdFeatureMap = std::map<std::size_t, vdo::Feature::Ptr>;
 
 }  // namespace vdo

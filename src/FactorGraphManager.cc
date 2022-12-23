@@ -25,18 +25,21 @@ gtsam::Key FactorGraphManager::addStaticLandmark(const size_t tracklet_id, const
                                                  const gtsam::Point3 lmk_c)
 {
   gtsam::Pose3 pose;
-  if(new_values_.exists(pose_key)) {
+  if (new_values_.exists(pose_key))
+  {
     pose = new_values_.at<gtsam::Pose3>(pose_key);
   }
-  else if(smoother_->valueExists(pose_key)) {
+  else if (smoother_->valueExists(pose_key))
+  {
     pose = smoother_->calculateEstimate(pose_key).cast<gtsam::Pose3>();
   }
-  else {
+  else
+  {
     CHECK(false) << "pose key - " << pose_key << " was not yet in new_values_ or isam graph";
   }
 
   gtsam::Point3 lmk_world = pose.transformFrom(lmk_c);
-  
+
   // if not in graph, add to values -> else just add new factor
   gtsam::Symbol landmark_symbol = staticLandmarkKey(tracklet_id);
   if (!isKeyInGraph(landmark_symbol))
@@ -64,13 +67,12 @@ gtsam::Key FactorGraphManager::addCameraPosePrior(const gtsam::Key frame, const 
 }
 
 void FactorGraphManager::addBetweenFactor(const gtsam::Key from_frame, const gtsam::Key to_frame,
-                                                const gtsam::Pose3& odometry)
+                                          const gtsam::Pose3& odometry)
 {
   gtsam::Symbol from_pose_symbol = poseKey(from_frame);
   gtsam::Symbol to_pose_symbol = poseKey(to_frame);
 
-  graph_.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(from_pose_symbol, to_pose_symbol, odometry,
-                                                            odomNoise_);
+  graph_.emplace_shared<gtsam::BetweenFactor<gtsam::Pose3>>(from_pose_symbol, to_pose_symbol, odometry, odomNoise_);
 }
 
 bool FactorGraphManager::isKeyInGraph(const gtsam::Key key) const
@@ -103,23 +105,23 @@ bool FactorGraphManager::optimize(const gtsam::Key state_key)
 
   if (smoother_ok)
   {
-    //book keeping on the state of the graph
+    // book keeping on the state of the graph
     gtsam::Values state_before_opt = gtsam::Values(state_);
     BOOST_FOREACH (const gtsam::Values::ConstKeyValuePair& key_value, new_values_)
     {
       state_before_opt.insert(key_value.key, key_value.value);
     }
     const double error_before = graph_.error(state_before_opt);
-    
+
     // update state
     state_ = smoother_->calculateBestEstimate();
 
     const double error_after = graph_.error(state_);
     LOG(INFO) << "Optimization Errors:\n"
-                  << "Error before: " << error_before << "\n"
-                  << "Error after: " << error_after;
+              << "Error before: " << error_before << "\n"
+              << "Error after: " << error_after;
 
-    //clear states
+    // clear states
     new_values_.clear();
     graph_.resize(0);
   }
@@ -157,7 +159,7 @@ bool FactorGraphManager::updateSmoother(const gtsam::NonlinearFactorGraph& new_f
 
     LOG(ERROR) << "ERROR: Variable has type '" << symb.chr() << "' "
                << "and index " << symb.index() << std::endl;
-     throw;
+    throw;
   }
   catch (const gtsam::ValuesKeyAlreadyExists& e)
   {
@@ -167,7 +169,7 @@ bool FactorGraphManager::updateSmoother(const gtsam::NonlinearFactorGraph& new_f
 
     LOG(ERROR) << "ERROR: Variable has type '" << symb.chr() << "' "
                << "and index " << symb.index() << std::endl;
-     throw;
+    throw;
   }
 }
 
@@ -194,13 +196,12 @@ void FactorGraphManager::setupNoiseModels(const BackendParams& params)
     // assuming that this doesnt mess with with original pointer as we're reassigning the member ptrs
     staticLmkNoise_ = gtsam::noiseModel::Robust::Create(
         gtsam::noiseModel::mEstimator::Huber::Create(params.k_huber_3d_points), staticLmkNoise_);
-    
+
     dynamicLmkNoise_ = gtsam::noiseModel::Robust::Create(
         gtsam::noiseModel::mEstimator::Huber::Create(params.k_huber_3d_points), dynamicLmkNoise_);
 
-
-  //   objectMotionNoiseModel = gtsam::noiseModel::Robust::Create(
-  //       gtsam::noiseModel::mEstimator::Huber::Create(params.k_huber_obj_motion), objectMotionNoiseModel);
+    //   objectMotionNoiseModel = gtsam::noiseModel::Robust::Create(
+    //       gtsam::noiseModel::mEstimator::Huber::Create(params.k_huber_obj_motion), objectMotionNoiseModel);
   }
 }
 

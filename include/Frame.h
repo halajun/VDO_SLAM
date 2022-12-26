@@ -15,6 +15,7 @@ struct Frame
 {
   VDO_POINTER_TYPEDEFS(Frame);
   FeaturePtrs features_;
+  TrackletIdFeatureMap feature_by_tracklet_id_;
   const ImagePacket images_;  // must be const to ensure unchangable references to images
   const Timestamp timestamp_;
   const size_t frame_id_;
@@ -23,6 +24,17 @@ struct Frame
   GroundTruthInputPacket::ConstOptional ground_truth_{ boost::none };
 
   Frame(const ImagePacket& images, Timestamp timestamp, size_t frame_id);
+
+  inline Feature::Ptr getByTrackletId(size_t tracklet_id) const {
+    if(feature_by_tracklet_id_.find(tracklet_id) == feature_by_tracklet_id_.end()) {
+      return nullptr;
+    }
+    else {
+      return feature_by_tracklet_id_.at(tracklet_id);
+    }
+  }
+
+
 };
 
 // class Frame

@@ -29,6 +29,7 @@ private:
   void setupModelViewMatrix();
 
   void drawFrontend(WidgetsMap* widgets_map, const FrontendOutput::Ptr& frontend);
+  void drawBackend(WidgetsMap* widgets_map, const BackendOutput::Ptr& backend);
 
   // pose in the world frame
   std::unique_ptr<cv::viz::WCameraPosition> createPoseWidget(const gtsam::Pose3& pose_w, const cv::viz::Color& colour);

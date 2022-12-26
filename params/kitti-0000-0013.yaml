@@ -41,7 +41,7 @@ DepthMapFactor: 256.0
 # Close/Far Depth threshold
 # ThDepthBG: 40.0
 # ThDepthOBJ: 25.0
-ThDepthBG: 50.0
+ThDepthBG: 60.0
 ThDepthOBJ: 25.0
 
 # Max Tracking Points on Background and Object in each frame
@@ -69,7 +69,7 @@ UseSampleFeature: 0
 #--------------------------------------------------------------------------------------------
 
 # ORB Extractor: Number of features per image
-ORBextractor.nFeatures: 1000
+ORBextractor.nFeatures: 1200
 
 # ORB Extractor: Scale factor between levels in the scale pyramid
 ORBextractor.scaleFactor: 1.2
@@ -96,7 +96,7 @@ Viz.use_3d: 1
 Backend.use_robust_kernel: 1
 # odom noise model
 Backend.var_camera_prior: 0.000001
-Backend.var_odom: 0.9 #noise on the odometry between consequative poses
+Backend.var_odom: 0.8 #noise on the odometry between consequative poses
 Backend.var_static_lmk: 0.001 #noise on the 3D projection factor for static points 
 Backend.var_dynamic_lmk: 0.01 #noise on the 3D projection factor for dynamic points 
 Backend.var_obj_motion: 0.1 #noise model used on the motion landmark tenrary factor

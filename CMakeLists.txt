@@ -76,9 +76,11 @@ src/DataProvider.cc
 src/UtilsGtsam.cc
 src/FeatureTracker.cc
 src/FactorGraphManager.cc
+src/Tracking-Tools.cc
 
 src/utils/ParamParser.cc
 src/utils/UtilsOpenCV.cc
+src/utils/UtilsG2O.cc
 src/utils/Logger.cc
 
 src/viz/Display.cc
@@ -163,7 +165,8 @@ if(VDO_SLAM_BUILD_TESTS)
   include(CTest)
   add_executable(testVdoSlam
     test/testCameraParam.cc
-    test/testTracking.cc
+    # test/testTracking.cc
+    test/testTrackingTools.cc
     test/testVdoSlam.cc
     )
   target_link_libraries(testVdoSlam gtest vdo_slam::vdo_slam)

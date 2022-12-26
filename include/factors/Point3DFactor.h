@@ -27,7 +27,7 @@ class Point3DFactor : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Point
 private:
   // measurement information
   // double mx_, my_, mz_;
-  gtsam::Point3 measured_;
+  gtsam::Point3 measured_; //in camera coordinates
 
 public:
   /**
@@ -45,6 +45,7 @@ public:
   }
 
   // error function
+  //L is landmark in world coordinates
   gtsam::Vector evaluateError(const gtsam::Pose3& X, const gtsam::Point3& l,
                               boost::optional<gtsam::Matrix&> J1 = boost::none,
                               boost::optional<gtsam::Matrix&> J2 = boost::none) const

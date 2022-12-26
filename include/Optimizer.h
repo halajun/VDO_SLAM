@@ -14,7 +14,11 @@ class FrontendOutput;
 
 struct PoseOptimizationFlow2Cam
 {
-  void operator()(Frame::Ptr previous_frame_, Frame::Ptr current_frame_);
+  PoseOptimizationFlow2Cam(const Camera& camera);
+  
+  void operator()(Frame::Ptr previous_frame, Frame::Ptr current_frame);
+
+  const Camera camera_;
 };
 
 class IncrementalOptimizer : public FactorGraphManager
@@ -37,7 +41,7 @@ private:
   BackendOutput::Ptr processBoostrap(const FrontendOutput& input);
   BackendOutput::Ptr processNominal(const FrontendOutput& input);
 
-  void handleStaticFeatures(const TrackletIdFeatureMap& static_features);
+  void handleStaticFeatures(const FeaturePtrs& static_features);
   // assume inliers
   void collectFeature(const Feature& feature);
 

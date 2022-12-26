@@ -17,6 +17,9 @@ struct FrontendOutput
   const size_t frame_id_;
   const GroundTruthInputPacket::ConstOptional ground_truth_;
 
+  //in camera frame
+  TackletIdToLandmark tracklet_landmark_map_;
+
   FrontendOutput(Frame::Ptr frame)
     : frame_(frame), estimated_pose_(frame->pose_), frame_id_(frame->frame_id_), ground_truth_(frame->ground_truth_)
   {

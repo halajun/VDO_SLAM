@@ -85,6 +85,8 @@ struct Feature : public VisualMeasurement
   // the matching actually happens with the previous point
   cv::KeyPoint predicted_keypoint;
 
+  cv::KeyPoint refined_keypoint;
+
   InstanceLabel instance_label{ background };
 };
 

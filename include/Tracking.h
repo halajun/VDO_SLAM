@@ -13,6 +13,8 @@
 
 #include "utils/Logger.h"
 
+#include <map>
+
 namespace vdo
 {
 class Tracking
@@ -37,7 +39,7 @@ private:
   // using the static features from the previous frame and current frame, calculates and sets the pose
   // of the current frame. Features are marked as outliers based on PnP ransac and will not be included in the next
   // frame
-  bool solveInitalCamModel(Frame::Ptr previous_frame_, Frame::Ptr current_frame_);
+  bool solveInitalCamModel(Frame::Ptr previous_frame, Frame::Ptr current_frame);
 
   // calculates the input depth map from the disparity map
   // sets state variables
@@ -51,7 +53,10 @@ private:
   // for viz
   void displayFeatures(const Frame& frame);
 
+  void updateStaticTrackletMap(const FeaturePtrs& static_features );
+
 private:
+  using TrackletMap = std::map<size_t, FeaturePtrs>;
   TrackingParams params;
   Camera camera;
 
@@ -65,7 +70,8 @@ private:
   // // images
   // ImagePacket images;  // the rgb image should be rgb
 
-  Frame::Ptr previous_frame{ nullptr };
+  Frame::Ptr previous_frame_{ nullptr };
+  TrackletMap static_tracklet_map_;
 
   Logger<Frame> frame_logger{ "frame.csv" };
 };

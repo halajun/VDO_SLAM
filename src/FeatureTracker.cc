@@ -155,11 +155,18 @@ Frame::Ptr FeatureTracker::track(const InputPacket& input_packet, size_t& n_opti
 
   size_t total_tracks = features.size();
   n_new_tracks = total_tracks - n_optical_flow;
-  LOG(INFO) << "new tracks - " << n_optical_flow;
+  LOG(INFO) << "new tracks - " << n_new_tracks;
   LOG(INFO) << "total tracks - " << total_tracks;
 
   Frame::Ptr frame = std::make_shared<Frame>(images, timestamp, frame_id);
   frame->features_ = features;
+
+  for(Feature::Ptr feature : frame->features_) {
+    frame->feature_by_tracklet_id_.insert({feature->tracklet_id, feature});
+  }
+
+  CHECK_EQ(frame->feature_by_tracklet_id_.size(), frame->features_.size());
+
   previous_frame_ = frame;
   return frame;
 }
@@ -167,8 +174,10 @@ Frame::Ptr FeatureTracker::track(const InputPacket& input_packet, size_t& n_opti
 Feature::Ptr FeatureTracker::constructStaticFeature(const ImagePacket& images, cv::KeyPoint& kp, size_t age,
                                                     size_t tracklet_id, size_t frame_id) const
 {
-  const int x = kp.pt.x;
-  const int y = kp.pt.y;
+  const int& x = kp.pt.x;
+  const int& y = kp.pt.y;
+  const int& rows = images.rgb.rows;
+  const int& cols = images.rgb.cols;
   if (images.semantic_mask.at<int>(y, x) != Feature::background)
   {
     return nullptr;
@@ -179,8 +188,25 @@ Feature::Ptr FeatureTracker::constructStaticFeature(const ImagePacket& images, c
     return nullptr;
   }
 
+  //check flow
+  double flow_xe = static_cast<double>(images.flow.at<cv::Vec2f>(y, x)[0]);
+  double flow_ye = static_cast<double>(images.flow.at<cv::Vec2f>(y, x)[1]);
+
+  if(!(flow_xe != 0 && flow_ye != 0)) {
+    return nullptr;
+  }
+
+  //check predicted flow is within image
+  cv::KeyPoint predicted_kp(x + flow_xe, y + flow_ye, 0, 0, 0, kp.octave, -1);
+  if(predicted_kp.pt.x >= cols || predicted_kp.pt.y >= rows) {
+    return nullptr;
+  }
+
+
+
   Feature::Ptr feature = std::make_shared<Feature>();
   feature->keypoint = kp;
+  feature->refined_keypoint = kp;
   feature->age = age;
   feature->tracklet_id = tracklet_id;
   feature->frame_id = frame_id;
@@ -188,8 +214,6 @@ Feature::Ptr FeatureTracker::constructStaticFeature(const ImagePacket& images, c
   // feature->index ?
   feature->instance_label = images.semantic_mask.at<InstanceLabel>(y, x);
 
-  double flow_xe = static_cast<double>(images.flow.at<cv::Vec2f>(y, x)[0]);
-  double flow_ye = static_cast<double>(images.flow.at<cv::Vec2f>(y, x)[1]);
   feature->optical_flow = cv::Point2d(flow_xe, flow_ye);
   feature->predicted_keypoint = cv::KeyPoint(x + flow_xe, y + flow_ye, 0, 0, 0, kp.octave, -1);
 

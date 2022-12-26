@@ -4,6 +4,7 @@
 #include <vector>
 #include <gtsam/geometry/Pose3.h>
 #include <boost/optional.hpp>
+#include <map>
 
 namespace vdo
 {
@@ -11,11 +12,15 @@ using Timestamp = double;
 using Depth = double;
 using InstanceLabel = int;
 using Landmark = gtsam::Point3;
+using TrackletId = size_t;
 
 using KeypointCV = cv::KeyPoint;
 using KeypointsCV = std::vector<KeypointCV>;
 using Landmarks = std::vector<Landmark>;
 using Depths = std::vector<Depth>;
+using TrackletIds = std::vector<TrackletId>;
+
+using TackletIdToLandmark = std::map<TrackletId, Landmark>;
 
 template <typename T>
 using VectorsXx = std::vector<std::vector<T>>;

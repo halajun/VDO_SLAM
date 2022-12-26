@@ -14,9 +14,9 @@ FactorGraphManager::FactorGraphManager(const BackendParams& params) : params_(pa
   setupNoiseModels(params_);
 
   gtsam::ISAM2Params parameters;
-  parameters.relinearizeThreshold = 0.01;
-  parameters.evaluateNonlinearError = false;
-  parameters.relinearizeSkip = 1;
+  // parameters.relinearizeThreshold = 0.01;
+  // parameters.evaluateNonlinearError = false;
+  // parameters.relinearizeSkip = 1;
 
   smoother_ = vdo::make_unique<gtsam::ISAM2>(parameters);
 }

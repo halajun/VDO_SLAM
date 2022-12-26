@@ -29,13 +29,14 @@ void OpenCvVisualizer3D::process(const VisualiserInput& viz_input)
   }
 
   WidgetsMap widgets;
-  drawFrontend(&widgets, viz_input.frontend_output);
-  // addToTrajectory();
-  // drawTrajectory(&widgets);
 
-  // // followCurrentView();
-  // drawStaticPointCloud(&widgets);
-  // drawDynamicPointClouds(&widgets);
+  if(viz_input.frontend_output) {
+    drawFrontend(&widgets, viz_input.frontend_output);
+  }
+
+  if(viz_input.backend_output) {
+      drawBackend(&widgets, viz_input.backend_output);
+  }
 
   for (auto it = widgets.begin(); it != widgets.end(); ++it)
   {
@@ -119,28 +120,24 @@ void OpenCvVisualizer3D::drawFrontend(WidgetsMap* widgets_map, const FrontendOut
   // TODO:
 
   // // TODO: make sure we have these
-  // const Landmarks& static_landmarks = frontend->frame_->static_landmarks;
+  const TackletIdToLandmark& static_landmarks = frontend->tracklet_landmark_map_;
   // const Landmarks& dynamic_landmarks = frontend->frame_->dynamic_landmarks;
 
-  // for (const Landmark& lmk_c : static_landmarks)
-  // {
-  //   static_points_w.push_back(X_wc.transformFrom(lmk_c));
-  // }
+  for (const auto& tracklet_lmk_pair : static_landmarks)
+  {
+    static_points_w.push_back(X_wc.transformFrom(tracklet_lmk_pair.second));
+  }
 
-  // for (const Landmark& lmk_c : dynamic_landmarks)
-  // {
-  //   dynamic_points_w.push_back(X_wc.transformFrom(lmk_c));
-  // }
 
-  // std::unique_ptr<cv::viz::WCloud> static_cloud = std::move(createCloudWidget(static_points_w,
-  // cv::viz::Color::red())); std::unique_ptr<cv::viz::WCloud> dynamic_cloud =
-  //     std::move(createCloudWidget(dynamic_points_w, cv::viz::Color::blue()));
+  std::unique_ptr<cv::viz::WCloud> static_cloud = std::move(createCloudWidget(static_points_w,
+  cv::viz::Color::red())); std::unique_ptr<cv::viz::WCloud> dynamic_cloud =
+      std::move(createCloudWidget(dynamic_points_w, cv::viz::Color::blue()));
 
-  // if (static_cloud)
-  // {
-  //   (*widgets_map)["staitc_cloud"] = std::move(static_cloud);
-  //   markWidgetForRemoval("staitc_cloud");
-  // }
+  if (static_cloud)
+  {
+    (*widgets_map)["static_cloud"] = std::move(static_cloud);
+    markWidgetForRemoval("static_cloud");
+  }
 
   // if (dynamic_cloud)
   // {
@@ -150,6 +147,19 @@ void OpenCvVisualizer3D::drawFrontend(WidgetsMap* widgets_map, const FrontendOut
 
   // draw pose for object
 }
+
+void OpenCvVisualizer3D::drawBackend(WidgetsMap* widgets_map, const BackendOutput::Ptr& backend) {
+  // draw camera pose
+  const gtsam::Pose3 X_wc = backend->estimated_pose_;
+  std::unique_ptr<cv::viz::WCameraPosition> cam_pose = std::move(createPoseWidget(X_wc, cv::viz::Color::blue()));
+
+  if (cam_pose)
+  {
+    (*widgets_map)["camera_pose_opt"] = std::move(cam_pose);
+    markWidgetForRemoval("camera_pose_opt");
+  }
+}
+
 
 std::unique_ptr<cv::viz::WCameraPosition> OpenCvVisualizer3D::createPoseWidget(const gtsam::Pose3& pose_w,
                                                                                const cv::viz::Color& colour)

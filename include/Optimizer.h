@@ -32,8 +32,10 @@ public:
   using KeyToFeatureMap = std::map<gtsam::Key, FeatureTrackletIdPair>;
   // tracklet ids to features vector
   using TrackletsMap = std::map<size_t, Features>;
+  using TrackletsPtrMap = std::map<size_t, FeaturePtrs>;
 
   IncrementalOptimizer(const BackendParams& params, const Camera& camera);
+  ~IncrementalOptimizer();
 
   BackendOutput::Ptr process(const FrontendOutput& input);
 
@@ -56,6 +58,8 @@ private:
                                            // being optimzised
   TrackletsMap unadded_static_tracklets_;  // map of tracklets and used to update the map. the length should correspond
                                            // to the features age
+
+  TrackletsPtrMap all_tracklets_;
 
   // debug stats per framer
   int num_static_features_added = 0;

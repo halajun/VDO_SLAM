@@ -31,7 +31,7 @@ PoseOptimizationFlow2Cam::PoseOptimizationFlow2Cam(const Camera& camera) : camer
 
 
 void PoseOptimizationFlow2Cam::operator()(Frame::Ptr previous_frame, Frame::Ptr current_frame) {
-  float rp_thres = 0.01;  // 0.01
+  float rp_thres = 0.04;  // 0.01
   bool updateflow = true;
 
   g2o::SparseOptimizer optimizer;
@@ -205,22 +205,24 @@ void PoseOptimizationFlow2Cam::operator()(Frame::Ptr previous_frame, Frame::Ptr 
       g2o::EdgeSE3ProjectFlow2* e = vpEdgesMono[i];
 
       const size_t idx = vnIndexEdgeMono[i];
-      const TrackletId tracklet_id = tracklet_ids[i];
+      const TrackletId tracklet_id = tracklet_ids[idx];
       Feature::Ptr feature = previous_frame->getByTrackletId(tracklet_id);
+      Feature::Ptr current_feature = current_frame->getByTrackletId(tracklet_id);
 
       //at the start of this optimzation all edges in the graph are constructed from INLIER
       //observations. So if something is now no longer an inlier it was marked as an outlier during the
       //optimziation process
-      if (!feature->inlier)
-      {
+      // if (!feature->inlier)
+      // {
         e->computeError();
-      }
+      // }
 
       const float chi2 = e->chi2();
 
       if (chi2 > chi2Mono[it])
       {
         feature->inlier = false;
+        current_feature->inlier = false;
         e->setLevel(1);
         nBad++;
       }
@@ -232,6 +234,7 @@ void PoseOptimizationFlow2Cam::operator()(Frame::Ptr previous_frame, Frame::Ptr 
           repro_e = repro_e + std::sqrt(chi2);
         }
         feature->inlier = true;
+        current_feature->inlier = true;
         e->setLevel(0);
       }
 
@@ -279,8 +282,7 @@ void PoseOptimizationFlow2Cam::operator()(Frame::Ptr previous_frame, Frame::Ptr 
       predicted_kp.pt.y += static_cast<double>(flow_new(1));
       previous_feature->predicted_keypoint = predicted_kp;
 
-      current_feature->refined_keypoint =  current_feature->keypoint;
-      current_feature->keypoint.pt = predicted_kp.pt; //update the actual KP
+      current_feature->keypoint = previous_feature->predicted_keypoint; //update the actual KP
 
       updated_n_flows++;
     }
@@ -298,6 +300,20 @@ IncrementalOptimizer::IncrementalOptimizer(const BackendParams& params, const Ca
   : FactorGraphManager(params), camera_(camera)
 {
   params_.print();
+}
+
+IncrementalOptimizer::~IncrementalOptimizer() {
+  //do some logging at the end
+  int num_more_than_five_tracket = 0;
+  //TODO: check if still inliers?
+  for(const auto& tracklet_id_feature : all_tracklets_) {
+
+    if(tracklet_id_feature.second.size() > 5) {
+      num_more_than_five_tracket++;
+    }
+  }
+
+  LOG(INFO) << "Num tracklets of length > 5 - " << num_more_than_five_tracket;
 }
 
 BackendOutput::Ptr IncrementalOptimizer::process(const FrontendOutput& input)
@@ -389,10 +405,11 @@ void IncrementalOptimizer::handleStaticFeatures(const FeaturePtrs& static_featur
   for (Feature::Ptr feature_ptr : static_features)
   {
     const Feature& feature = *feature_ptr;
+    const size_t tracklet_id = feature.tracklet_id;
+    const size_t frame_id = feature.frame_id;
     if (feature.inlier)
     {
-      const size_t tracklet_id = feature.tracklet_id;
-      const size_t frame_id = feature.frame_id;
+
 
       gtsam::Key pose_key = poseKey(frame_id);
       // LOG(INFO) << pose_key;
@@ -419,7 +436,19 @@ void IncrementalOptimizer::handleStaticFeatures(const FeaturePtrs& static_featur
         // add it to the feature map
         collectFeature(feature);
       }
+
+      //we also just all to the static map
+      // if not already in tracklet map, create new vector and add
+      if (all_tracklets_.find(tracklet_id) != all_tracklets_.end())
+      {
+        all_tracklets_.at(tracklet_id).push_back(feature_ptr);
+      }
+      else
+      {
+        all_tracklets_.insert({ tracklet_id, { feature_ptr } });
+      }
     }
+
   }
 
   // LOG(INFO) <<

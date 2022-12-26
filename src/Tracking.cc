@@ -173,9 +173,8 @@ bool Tracking::solveInitalCamModel(Frame::Ptr previous_frame, Frame::Ptr current
 
     utils::DrawCircleInPlace(viz, current_feature->keypoint.pt, cv::Scalar(0, 255, 0));
     cv::arrowedLine(viz, previous_feature->keypoint.pt, current_feature->keypoint.pt,cv::Scalar(0, 0, 255));
-    utils::DrawCircleInPlace(viz, current_feature->refined_keypoint.pt, cv::Scalar(255, 0, 0), 0.8);
 
-    current_2d.push_back(current_feature->refined_keypoint.pt);
+    current_2d.push_back(current_feature->keypoint.pt);
     Landmark lmk;
     camera.backProject(previous_feature->keypoint, previous_feature->depth, &lmk);
     if (solve_in_camera_frame)

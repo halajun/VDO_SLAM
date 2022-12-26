@@ -104,7 +104,7 @@ gtsam::Pose3 System::TrackRGBD(const InputPacket& input, boost::optional<const G
   // TODO: calculate and log errors (can do in system)
   // TODO: parse to backend
   BackendOutput::Ptr backend_output = nullptr;
-  // backend_output = optimizer->process(*frontend_output);
+  backend_output = optimizer->process(*frontend_output);
 
   if (backend_output)
   {

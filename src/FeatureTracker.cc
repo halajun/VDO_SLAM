@@ -206,7 +206,6 @@ Feature::Ptr FeatureTracker::constructStaticFeature(const ImagePacket& images, c
 
   Feature::Ptr feature = std::make_shared<Feature>();
   feature->keypoint = kp;
-  feature->refined_keypoint = kp;
   feature->age = age;
   feature->tracklet_id = tracklet_id;
   feature->frame_id = frame_id;

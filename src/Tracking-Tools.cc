@@ -3,6 +3,7 @@
 #include "Macros.h"
 #include "Types.h"
 #include "Frame.h"
+#include "Camera.h"
 
 #include <algorithm>  // std::set_difference, std::sort
 #include <vector>     // std::vector
@@ -46,5 +47,22 @@ void updateMotionModel(const Frame::Ptr& previous_frame, Frame::Ptr current_fram
     //motion is from the camera pose at t-1 -> pose at t
     current_frame->motion_model_ = relative_motion;
 }
+
+
+//for objects!!
+void calculateSceneFlow(const Frame::Ptr& previous_frame, Frame::Ptr current_frame, const Camera& camera) {
+    VLOG(2) << "Calculating scene flow";
+    
+    //shoudl check that all scene flows have been updates
+    //the order matters here as this is how we do the initial association 
+    for(Feature::Ptr feature : current_frame->dynamic_features_) {
+        CHECK(feature->instance_label != Feature::background);
+        CHECK(feature->depth != -1);
+
+        Landmark lmk_current, lmk_previous;
+    }
+
+}
+
 
 }

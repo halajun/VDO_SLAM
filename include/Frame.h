@@ -16,6 +16,8 @@ struct Frame
   VDO_POINTER_TYPEDEFS(Frame);
   FeaturePtrs features_;
   TrackletIdFeatureMap feature_by_tracklet_id_;
+
+  FeaturePtrs dynamic_features_;
   const ImagePacket images_;  // must be const to ensure unchangable references to images
   const Timestamp timestamp_;
   const size_t frame_id_;

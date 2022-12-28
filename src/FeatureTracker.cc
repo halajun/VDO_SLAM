@@ -32,6 +32,29 @@ Frame::Ptr FeatureTracker::track(const InputPacket& input_packet, size_t& n_opti
     initial_computation_ = false;
   }
 
+  const size_t& frame_id = input_packet.frame_id;
+  const Timestamp& timestamp = input_packet.timestamp;
+
+  FeaturePtrs static_features;
+  trackStatic(input_packet, static_features, n_optical_flow, n_new_tracks);
+
+  Frame::Ptr frame = std::make_shared<Frame>(images, timestamp, frame_id);
+  frame->features_ = static_features;
+
+  for(Feature::Ptr feature : frame->features_) {
+    frame->feature_by_tracklet_id_.insert({feature->tracklet_id, feature});
+  }
+
+  CHECK_EQ(frame->feature_by_tracklet_id_.size(), frame->features_.size());
+
+  previous_frame_ = frame;
+  return frame;
+
+}
+
+void FeatureTracker::trackStatic(const InputPacket& input_packet, FeaturePtrs& static_features, size_t& n_optical_flow, size_t& n_new_tracks) {
+
+  const ImagePacket& images = input_packet.images;
   // convert rgb image to mono for detection
   // TODO: make function
   const cv::Mat& rgb = images.rgb;
@@ -101,62 +124,8 @@ Frame::Ptr FeatureTracker::track(const InputPacket& input_packet, size_t& n_opti
     }
   }
 
-  //apply tracking
-  // if(previous_frame_) {
-  //   for (Feature::Ptr previous_feature : previous_frame_->features_)
-  //   {
-      
-  //     if(!previous_feature->inlier) {continue;}
-      
-  //     const KeypointCV& predicted_kp = previous_feature->predicted_keypoint;
-  //     const size_t tracklet_id = previous_feature->tracklet_id;
-  //     const size_t age = previous_feature->age;
-  //     float min_dist = 100;
-  //     for(size_t i = 0; i < detected_keypoints.size(); i++) {
-  //       const KeypointCV& detected_keypoint = detected_keypoints[i];
-  //       const int& x = detected_keypoint.pt.x;
-  //       const int& y = detected_keypoint.pt.y;
-
-  //       //make sure that the detected kp is on the background and that we havent tracked this feature before
-  //       //assumes this is the best association?
-  //       if (images.semantic_mask.at<int>(y, x) != Feature::background || detections_tracked[i]) {continue;}
-
-
-
-  //       //dist
-  //       float dist = std::abs(std::sqrt(
-  //           (predicted_kp.pt.x - detected_keypoint.pt.x) * (predicted_kp.pt.x - detected_keypoint.pt.x) +
-  //           (predicted_kp.pt.y - detected_keypoint.pt.y) * (predicted_kp.pt.y - detected_keypoint.pt.y)));
-
-  //       //we will simply reject distances that are > 100 which is the starting min distance
-  //       if(dist < min_dist) {
-  //         min_dist = dist;
-  //       }
-
-  //       static constexpr float kMinThreshold = 1.0;
-  //       if(min_dist < kMinThreshold && camera_.isKeypointContained(detected_keypoint, previous_feature->depth)) {
-  //         size_t new_age = age + 1;
-  //         LOG(INFO) << "new_age " << new_age;
-  //         //line from previous feature to predicted kp
-  //         cv::arrowedLine(viz, detected_keypoint.pt, predicted_kp.pt,cv::Scalar(255, 0, 0));
-  //         //line from previosu feature to detecrted kp
-  //         cv::arrowedLine(viz, previous_feature->keypoint.pt, detected_keypoint.pt,cv::Scalar(0, 255, 0));
-  //         Feature::Ptr feature = constructStaticFeature(images, detected_keypoint, new_age, tracklet_id, frame_id);
-  //         if (feature)
-  //         {
-  //           features_tracked.push_back(feature);
-  //           detections_tracked[i] = true;
-  //         }
-  //         break;
-  //       }
-  //     }
-
-  //   }
-  // }
-
-
   n_optical_flow = features_tracked.size();
-   VLOG(20) << "tracked with optical flow - " << n_optical_flow;
+  VLOG(20) << "tracked with optical flow - " << n_optical_flow;
 
 
   // Assign Features to Grid Cells
@@ -234,7 +203,7 @@ Frame::Ptr FeatureTracker::track(const InputPacket& input_packet, size_t& n_opti
     }
   }
 
-   cv::imshow("Optical flow", viz);
+  cv::imshow("Optical flow", viz);
   cv::waitKey(1);
 
   size_t total_tracks = features_assigned.size();
@@ -242,17 +211,81 @@ Frame::Ptr FeatureTracker::track(const InputPacket& input_packet, size_t& n_opti
   LOG(INFO) << "new tracks - " << n_new_tracks;
   LOG(INFO) << "total tracks - " << total_tracks;
 
-  Frame::Ptr frame = std::make_shared<Frame>(images, timestamp, frame_id);
-  frame->features_ = features_assigned;
+  static_features.clear();
+  static_features = features_assigned;
 
-  for(Feature::Ptr feature : frame->features_) {
-    frame->feature_by_tracklet_id_.insert({feature->tracklet_id, feature});
+}
+
+void FeatureTracker::trackDynamic(const InputPacket& input_packet, FeaturePtrs& dynamic_features) {
+  //first dectect dynamic points
+  const ImagePacket& images = input_packet.images;
+  const cv::Mat& rgb = images.rgb;
+  const cv::Mat& depth = images.depth;
+  const cv::Mat& flow = images.flow;
+  const size_t& frame_id = input_packet.frame_id;
+  const Timestamp& timestamp = input_packet.timestamp;
+  int step = 4;  // 3
+
+  FeaturePtrs sampled_features;
+  // ObjectInstanceFeatureMap object_instance_map;
+  for (int i = 0; i < rgb.rows; i = i + step)
+  {
+    for (int j = 0; j < rgb.cols; j = j + step)
+    {
+      
+      if (images.semantic_mask.at<int>(i, j) == Feature::background) {
+        continue;
+      }
+
+      if (images.depth.at<double>(i, j) >= tracking_params_.depth_obj_thresh || images.depth.at<double>(i, j) <= 0) {
+        continue;
+      }
+
+      double flow_xe = static_cast<double>(images.flow.at<cv::Vec2f>(i, j)[0]);
+      double flow_ye = static_cast<double>(images.flow.at<cv::Vec2f>(i, j)[1]);
+
+
+      // we are within the image bounds?
+      if (j + flow_xe < rgb.cols && j + flow_xe > 0 && i + flow_ye < rgb.rows && i + flow_ye > 0)
+      {
+        // // save correspondences
+        Feature::Ptr feature = std::make_shared<Feature>();
+        feature->instance_label = images.semantic_mask.at<InstanceLabel>(j, j);
+        feature->frame_id = frame_id;
+        feature->type = Feature::Type::STATIC;
+        //the flow is not actually what 
+        cv::KeyPoint predicted_kp(j + flow_xe, i + flow_ye, 0, 0, 0, 0, -1);
+        feature->optical_flow = cv::Point2d(flow_xe, flow_ye);
+        feature->predicted_keypoint = predicted_kp;
+        feature->keypoint = cv::KeyPoint(j, i, 0, 0, 0, -1);
+
+
+        Depth d = images.depth.at<double>(i, j);  // be careful with the order  !!!
+        if (d > 0)
+        {
+          feature->depth = d;
+        }
+        else
+        {
+          // log warning?
+          feature->depth = -1;
+        }
+        CHECK_EQ(feature->object_id, -1);
+        sampled_features.push_back(feature);
+
+        // //really would be nice for this to be a templated function as i use this code all the time
+        // if(object_instance_map.find(feature->instance_label) == object_instance_map.end()) {
+        //   object_instance_map.insert({feature->instance_label, {feature}});
+        // }
+        // else {
+        //   object_instance_map.at(feature->instance_label).push_back(feature);
+        // }
+        
+      }
+    }
   }
 
-  CHECK_EQ(frame->feature_by_tracklet_id_.size(), frame->features_.size());
-
-  previous_frame_ = frame;
-  return frame;
+  LOG(INFO) << "Sampled " << sampled_features.size();
 }
 
 

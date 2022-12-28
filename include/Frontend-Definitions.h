@@ -76,6 +76,7 @@ struct Feature : public VisualMeasurement
   Type type;
 
   cv::Point2d optical_flow;  // the optical flow calculated at this keypoint
+  cv::Point3d scene_flow;
   // //the predicted position of this feature in the next frame -> initially this will be calculated
   // with optical flow
 
@@ -85,7 +86,10 @@ struct Feature : public VisualMeasurement
   // the matching actually happens with the previous point
   cv::KeyPoint predicted_keypoint;
 
-  InstanceLabel instance_label{ background };
+  InstanceLabel instance_label{ background }; //
+
+  //object id -> only valid for dynamic object
+  int object_id {-1};
 };
 
 using Features = std::vector<vdo::Feature>;
@@ -93,5 +97,6 @@ using FeaturePtrs = std::vector<vdo::Feature::Ptr>;
 using Observations = std::vector<vdo::Observation>;
 
 using TrackletIdFeatureMap = std::map<std::size_t, vdo::Feature::Ptr>;
+using ObjectInstanceFeatureMap = std::map<InstanceLabel, FeaturePtrs>;
 
 }  // namespace vdo

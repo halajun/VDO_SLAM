@@ -120,13 +120,6 @@ FrontendOutput::Ptr Tracking::processNominal(const InputPacket& input,
             << "Error after flow opt: t - " << rel_t_error_after_opt << ", r - " << rel_r_error_after_opt << "\n";
 
 
-  // updateStaticTrackletMap(frame->features_);
-
-  // LOG(INFO) << "After tracking optical flow/new tracks - " << n_optical_flow << "/" <<
-  // static_cast<int>(n_new_tracks); LOG(INFO) << "After processing - feature size " << frame->static_features.size();
-
-  // frame->processDynamicFeatures(params.depth_obj_thresh);
-  // frame->projectKeypoints(camera);
 
 
   if (ground_truth)

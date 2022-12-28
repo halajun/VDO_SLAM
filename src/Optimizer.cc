@@ -187,7 +187,7 @@ void PoseOptimizationFlow2Cam::operator()(Frame::Ptr previous_frame, Frame::Ptr 
 
   // // We perform 4 optimizations, after each optimization we classify observation as inlier/outlier
   // // At the next optimization, outliers are not included, but at the end they can be classified as inliers again.
-  const float chi2Mono[4] = { rp_thres, 5.991, 5.991, 5.991 };  // {5.991,5.991,5.991,5.991} {4,4,4,4}
+  const float chi2Mono[4] = { rp_thres,rp_thres, rp_thres, rp_thres };  // {5.991,5.991,5.991,5.991} {4,4,4,4}
   const int its[4] = { 100, 100, 100, 100 };
 
   int nBad = 0;
@@ -229,6 +229,7 @@ void PoseOptimizationFlow2Cam::operator()(Frame::Ptr previous_frame, Frame::Ptr 
       else
       {
         // ++++ new added for calculating re-projection error +++
+        //this only calculates for each one -> we should show for each iteration!!
         if (it == 0)
         {
           repro_e = repro_e + std::sqrt(chi2);
@@ -251,9 +252,9 @@ void PoseOptimizationFlow2Cam::operator()(Frame::Ptr previous_frame, Frame::Ptr 
   g2o::SE3Quat SE3quat_recov = vSE3_recov->estimate();
   gtsam::Pose3 Xcw = utils::toGtsamPose3(SE3quat_recov);
 
-  LOG(INFO) << "pose before estimate - \n" <<  current_frame->pose_;
+  // LOG(INFO) << "pose before estimate - \n" <<  current_frame->pose_;
   current_frame->pose_ = Xcw.inverse();
-  LOG(INFO) << "pose after estimate - \n" <<  current_frame->pose_;
+  // LOG(INFO) << "pose after estimate - \n" <<  current_frame->pose_;
 
   int updated_n_flows = 0;
   // *** Recover optimized optical flow ***

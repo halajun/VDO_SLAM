@@ -21,6 +21,7 @@ struct Frame
   const size_t frame_id_;
 
   gtsam::Pose3 pose_;  // in world
+  gtsam::Pose3 motion_model_;
   GroundTruthInputPacket::ConstOptional ground_truth_{ boost::none };
 
   Frame(const ImagePacket& images, Timestamp timestamp, size_t frame_id);

@@ -61,11 +61,16 @@ Frame::Ptr FeatureTracker::track(const InputPacket& input_packet, size_t& n_opti
   cv::Mat descriptors;
   KeypointsCV detected_keypoints;
   (*feature_detector_)(mono, cv::Mat(), detected_keypoints, descriptors);
+  //save detections
+  orb_detections_.insert({frame_id, detected_keypoints});
   // cv::drawKeypoints(viz, detected_keypoints, viz, cv::Scalar(0, 0, 255));
-  LOG(INFO) << "detected - " << detected_keypoints.size();
+   VLOG(20) << "detected - " << detected_keypoints.size();
 
   FeaturePtrs features_tracked;
   std::vector<bool> detections_tracked(detected_keypoints.size(),false);
+
+  const int& min_tracks = tracking_params_.n_features;
+  std::vector<std::size_t> grid[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
 
   // appy tracking
@@ -151,15 +156,12 @@ Frame::Ptr FeatureTracker::track(const InputPacket& input_packet, size_t& n_opti
 
 
   n_optical_flow = features_tracked.size();
-  LOG(INFO) << "tracked with optical flow - " << n_optical_flow;
+   VLOG(20) << "tracked with optical flow - " << n_optical_flow;
 
-  const int& min_tracks = tracking_params_.n_features;
-
-  std::vector<std::size_t> grid[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
   // Assign Features to Grid Cells
   int n_reserve = (FRAME_GRID_COLS * FRAME_GRID_ROWS) / (0.5 * min_tracks);
-  LOG(INFO) << "reserving - " << n_reserve;
+  VLOG(20) << "reserving - " << n_reserve;
   // for (unsigned int i = 0; i < FRAME_GRID_COLS; i++)
   //   for (unsigned int j = 0; j < FRAME_GRID_ROWS; j++)
   //     grid[i][j].reserve(n_reserve);
@@ -177,7 +179,7 @@ Frame::Ptr FeatureTracker::track(const InputPacket& input_packet, size_t& n_opti
     }
   }
 
-  LOG(INFO) << "assigned grid features - " << features_assigned.size();
+  VLOG(20) << "assigned grid features - " << features_assigned.size();
   // only add new features if tracks drop below min tracks
   if (features_assigned.size() < min_tracks)
   {
@@ -252,6 +254,7 @@ Frame::Ptr FeatureTracker::track(const InputPacket& input_packet, size_t& n_opti
   previous_frame_ = frame;
   return frame;
 }
+
 
 Feature::Ptr FeatureTracker::constructStaticFeature(const ImagePacket& images, const cv::KeyPoint& kp, size_t age,
                                                     size_t tracklet_id, size_t frame_id) const

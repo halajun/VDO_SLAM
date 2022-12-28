@@ -18,6 +18,7 @@ public:
   FeatureTracker(const TrackingParams& tracking_params, const Camera& camera);
   Frame::Ptr track(const InputPacket& input_packet, size_t& n_optical_flow, size_t& n_new_tracks);
 
+
 private:
   // feature will be none if checks fail (ie. the point is an object, depth fails etc)
   Feature::Ptr constructStaticFeature(const ImagePacket& images, const cv::KeyPoint& kp, size_t age, size_t tracklet_id,
@@ -30,6 +31,9 @@ private:
   Camera camera_;
   ORBextractor::UniquePtr feature_detector_;
   Frame::Ptr previous_frame_{ nullptr };
+
+  //map of frame Id to detectect keyppoints. a way to store the original detections for each frame
+  using DetectionsMap = std::map<size_t, KeypointsCV>;
 
   size_t tracklet_count = 0;
 
@@ -47,6 +51,8 @@ private:
   // grid of trackled Id's
   double grid_elements_width_inv_;
   double grid_elements_height_inv_;
+
+  DetectionsMap orb_detections_;
 };
 
 }  // namespace vdo

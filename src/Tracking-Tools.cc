@@ -37,4 +37,14 @@ void determineOutlierIds(const TrackletIds& inliers, const TrackletIds& tracklet
                       std::inserter(outliers, outliers.begin()));
 }
 
+void updateMotionModel(const Frame::Ptr& previous_frame, Frame::Ptr current_frame) {
+    //T_wc at t-1
+    const gtsam::Pose3& X_previous = previous_frame->pose_;
+    //T_wc at t
+    const gtsam::Pose3& X_current = current_frame->pose_;
+    gtsam::Pose3 relative_motion = X_previous.inverse() * X_current;
+    //motion is from the camera pose at t-1 -> pose at t
+    current_frame->motion_model_ = relative_motion;
+}
+
 }

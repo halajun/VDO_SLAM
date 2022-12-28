@@ -40,6 +40,7 @@ void Tracking::updateFromBackend(const BackendOutput& backend_output)
     return;
   }
   previous_frame_->pose_ = backend_output.estimated_pose_;
+  //update motion model?
 }
 
 FrontendOutput::Ptr Tracking::processBoostrap(const InputPacket& input,
@@ -94,18 +95,29 @@ FrontendOutput::Ptr Tracking::processNominal(const InputPacket& input,
 
 
     // estimate initialPos
+    //assumes we have set the motion model from the previous frame
   solveInitalCamModel(previous_frame_, frame);
 
   double t_error_before_opt, r_error_before_opt, t_error_after_opt, r_error_after_opt;
+  double rel_t_error_before_opt, rel_r_error_before_opt, rel_t_error_after_opt, rel_r_error_after_opt;
   calculatePoseError(frame->pose_, ground_truth->X_wc, t_error_before_opt, r_error_before_opt);
+  calculateRelativePoseError(
+    previous_frame_->pose_, frame->pose_, previous_frame_->ground_truth_->X_wc, ground_truth->X_wc, 
+    rel_t_error_before_opt, rel_r_error_before_opt);
 
   PoseOptimizationFlow2Cam flow2camOpt(camera);
   flow2camOpt(previous_frame_, frame);
 
-   calculatePoseError(frame->pose_, ground_truth->X_wc, t_error_after_opt, r_error_after_opt);
+  calculatePoseError(frame->pose_, ground_truth->X_wc, t_error_after_opt, r_error_after_opt);
+  calculateRelativePoseError(
+    previous_frame_->pose_, frame->pose_, previous_frame_->ground_truth_->X_wc, ground_truth->X_wc, 
+    rel_t_error_after_opt, rel_r_error_after_opt);
   LOG(INFO) << std::fixed << "ATE Errors:\n"
             << "Error before flow opt: t - " << t_error_before_opt << ", r - " << r_error_before_opt << "\n"
             << "Error after flow opt: t - " << t_error_after_opt << ", r - " << r_error_after_opt << "\n";
+  LOG(INFO) << std::fixed << "RTE Errors:\n"
+            << "Error before flow opt: t - " << rel_t_error_before_opt << ", r - " << rel_r_error_before_opt << "\n"
+            << "Error after flow opt: t - " << rel_t_error_after_opt << ", r - " << rel_r_error_after_opt << "\n";
 
 
   // updateStaticTrackletMap(frame->features_);
@@ -120,9 +132,11 @@ FrontendOutput::Ptr Tracking::processNominal(const InputPacket& input,
   if (ground_truth)
   {
     frame->ground_truth_ = ground_truth;
+    // frame->pose_ = frame->ground_truth_->X_wc;
     LOG(INFO) << "Initalising pose using ground truth " << frame->ground_truth_->X_wc;
   }
   displayFeatures(*frame);
+  updateMotionModel(previous_frame_, frame);
 
   // frame_logger.log(*frame);
 
@@ -254,9 +268,10 @@ bool Tracking::solveInitalCamModel(Frame::Ptr previous_frame, Frame::Ptr current
   determineOutlierIds(pnp_tracklet_inliers, tracklet_ids, pnp_tracklet_outliers);
   CHECK_EQ((pnp_tracklet_inliers.size() + pnp_tracklet_outliers.size()), tracklet_ids.size());
   CHECK_EQ(pnp_tracklet_inliers.size(), pnp_inliers.rows);
-  LOG(INFO) << "Inliers/total = " << pnp_inliers.rows << "/" << previous_3d.size();
+  LOG(INFO) << "PNP Inliers/total = " << pnp_inliers.rows << "/" << previous_3d.size();
 
-  // mark all features in current frame as either inlier or outlier
+  // // mark all features in current frame as either inlier or outlier
+  //TODO: after the motion estimation
   for(TrackletId inlier_id : pnp_tracklet_inliers) {
     Feature::Ptr feature = current_frame->getByTrackletId(inlier_id);
     CHECK_NOTNULL(feature);
@@ -269,16 +284,94 @@ bool Tracking::solveInitalCamModel(Frame::Ptr previous_frame, Frame::Ptr current
     feature->inlier = false;
   }
 
-  gtsam::Pose3 pose = utils::cvMatsToGtsamPose3(Rot, Tvec).inverse();
+  gtsam::Pose3 pnp_pose = utils::cvMatsToGtsamPose3(Rot, Tvec).inverse();
   gtsam::Pose3 relative_pose;
 
   if (solve_in_camera_frame)
   {
     // need to compose this pose and the previous pose as "pose" as solved by PnP should be a relative pose
-    pose = previous_frame->pose_ * pose;
+    pnp_pose = previous_frame->pose_ * pnp_pose;
   }
 
-  current_frame->pose_ = pose;
+  LOG(INFO) << "pnp pose\n\n" << pnp_pose;
+  LOG(INFO) << "motion_model\n\n" << previous_frame->motion_model_;
+
+  //TODO: make functions
+  //using current velocity estimate, step from previous pose to current pose
+  //pose in in world frame
+  gtsam::Pose3 pose_from_motion_model = previous_frame->pose_ * previous_frame->motion_model_;
+  //iterate through all the points
+  float total_reprojection_error = 0.0;
+  float total_reprojection_error_inliers = 0.0;
+  int successful_projections = 0;
+  TrackletIds motion_tracklet_inliers, motion_tracklet_outliers;
+  for(TrackletId i = 0; i < tracklet_ids.size(); i++) {
+    const TrackletId tracklet_id = tracklet_ids[i];
+    Landmark lmk_camera; //the previous 3d point as projected into the current camera frame using the motion model
+    KeypointCV kp_observed; //the 2d observation of the projected kp
+    kp_observed.pt = current_2d[i];
+
+    cv::Point3f cv_lmk_previous = previous_3d[i];
+    gtsam::Point3 lmk_previous(static_cast<double>(cv_lmk_previous.x),
+      static_cast<double>(cv_lmk_previous.y), static_cast<double>(cv_lmk_previous.z));
+
+    if (solve_in_camera_frame)
+    {
+      //lmk_previous will be in camera frame of the previous camera pose
+      //we need to translate it into the current camera pose
+      //we use the motion model which should be the transform between C_{t-1} and C_t
+      // lmk_camera = previous_frame->motion_model_.inverse() * lmk_previous;
+      lmk_camera = previous_frame->motion_model_.inverse() * lmk_previous;
+
+    }
+    else
+    {
+     //lmk_previous will be in the world frame abd we want it in the camera frame
+     lmk_camera = pose_from_motion_model.inverse() * lmk_previous;
+    }
+
+    //at this point lmk camera is a landmark in the reference frame of camera t and kp is the observation
+    //in the image frame
+    //calcualte reporojection error
+    KeypointCV projected;
+    bool is_contained = camera.isLandmarkContained(lmk_camera, projected);
+    if(!is_contained) {
+      continue;
+    }
+    else {
+      successful_projections++;
+    }
+
+    const float u_err = kp_observed.pt.x - projected.pt.x;
+    const float v_err = kp_observed.pt.y - projected.pt.y;
+    const float reprojection_err = std::sqrt(u_err * u_err + v_err * v_err);
+    total_reprojection_error+=reprojection_err;
+
+    if(reprojection_err < static_cast<float>(reprojectionError)) {
+      motion_tracklet_inliers.push_back(tracklet_id);
+      total_reprojection_error_inliers+=reprojection_err;
+      
+    }
+
+
+  }
+
+  //housekeeping
+  total_reprojection_error /= tracklet_ids.size();
+  total_reprojection_error_inliers /= motion_tracklet_inliers.size();
+
+  LOG(INFO) << "Motion model estimation\n inliers - " << motion_tracklet_inliers.size() 
+      << "\ntotal repr error - " << total_reprojection_error 
+      << "\ninlier repr error - " << total_reprojection_error_inliers
+      << "\nsuccessful projections - " << successful_projections << "/" << tracklet_ids.size();
+
+  //calculate outliers
+  determineOutlierIds(motion_tracklet_inliers, tracklet_ids, motion_tracklet_outliers);
+  CHECK_EQ((motion_tracklet_inliers.size() + motion_tracklet_outliers.size()), tracklet_ids.size());
+  LOG(INFO) << "Motion Inliers/total = " << motion_tracklet_inliers.size() << "/" << tracklet_ids.size();
+
+
+  current_frame->pose_ = pnp_pose;
   LOG(INFO) << current_frame->pose_;
   return true;
 }

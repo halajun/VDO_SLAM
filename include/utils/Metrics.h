@@ -29,4 +29,19 @@ static inline void calculatePoseError(const gtsam::Pose3& estimated, const gtsam
   rot_error = acos((trace_ate - 1.0) / 2.0) * 180.0 / 3.1415926;
 }
 
+
+//all in world frame
+static inline void calculateRelativePoseError(const gtsam::Pose3& previous_pose_estimated,
+                                              const gtsam::Pose3& current_pose_estimated, 
+                                              const gtsam::Pose3& previous_ground_truth, 
+                                              const gtsam::Pose3& current_ground_truth, 
+                                              double& t_error,
+                                              double& rot_error)
+{
+  //pose change between previous and current
+  const gtsam::Pose3 estimated_pose_change = previous_pose_estimated.inverse() * current_pose_estimated;
+  const gtsam::Pose3 ground_truth_pose_change = previous_ground_truth.inverse() * current_ground_truth;
+  calculatePoseError(estimated_pose_change, ground_truth_pose_change, t_error, rot_error);
+}
+
 }  // namespace vdo

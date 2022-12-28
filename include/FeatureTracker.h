@@ -20,7 +20,7 @@ public:
 
 private:
   // feature will be none if checks fail (ie. the point is an object, depth fails etc)
-  Feature::Ptr constructStaticFeature(const ImagePacket& images, cv::KeyPoint& kp, size_t age, size_t tracklet_id,
+  Feature::Ptr constructStaticFeature(const ImagePacket& images, const cv::KeyPoint& kp, size_t age, size_t tracklet_id,
                                       size_t frame_id) const;
   bool posInGrid(const cv::KeyPoint& kp, int& pos_x, int& pos_y) const;
   void computeImageBounds(const cv::Size& size, int& min_x, int& max_x, int& min_y, int& max_y) const;

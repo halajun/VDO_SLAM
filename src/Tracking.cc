@@ -171,8 +171,18 @@ bool Tracking::solveInitalCamModel(Frame::Ptr previous_frame, Frame::Ptr current
       continue;
     }
 
-    utils::DrawCircleInPlace(viz, current_feature->keypoint.pt, cv::Scalar(0, 255, 0));
-    cv::arrowedLine(viz, previous_feature->keypoint.pt, current_feature->keypoint.pt,cv::Scalar(0, 0, 255));
+    // utils::DrawCircleInPlace(viz, current_feature->keypoint.pt, cv::Scalar(0, 255, 0));
+
+    // // if(current_feature->age > ) {
+    //       cv::arrowedLine(viz, previous_feature->keypoint.pt, current_feature->keypoint.pt,cv::Scalar(0, 0, 255));
+    // // }
+     float dist = std::sqrt(
+            (current_feature->keypoint.pt.x - previous_feature->keypoint.pt.x) * (current_feature->keypoint.pt.x - previous_feature->keypoint.pt.x) +
+            (current_feature->keypoint.pt.y - previous_feature->keypoint.pt.y) * (current_feature->keypoint.pt.y - previous_feature->keypoint.pt.y));
+      if(dist > 100) {
+        // cv::arrowedLine(viz, previous_feature->keypoint.pt, current_feature->keypoint.pt,cv::Scalar(255, 0, 0));
+        LOG(INFO) << current_feature->age << " " << previous_feature->age << " " << current_feature->tracklet_id;
+      }
 
     current_2d.push_back(current_feature->keypoint.pt);
     Landmark lmk;
@@ -196,8 +206,8 @@ bool Tracking::solveInitalCamModel(Frame::Ptr previous_frame, Frame::Ptr current
 
   }
 
-  cv::imshow("Optical flow", viz);
-  cv::waitKey(1);
+  // cv::imshow("Optical flow", viz);
+  // cv::waitKey(1);
 
   // TODO: if we have zero tracket features -> this means need to fix the way the frontend takes feature points so we
   // never completely clear our tracks

@@ -18,7 +18,7 @@ struct Frame
   TrackletIdFeatureMap feature_by_tracklet_id_;
 
   FeaturePtrs dynamic_features_;
-  const ImagePacket images_;  // must be const to ensure unchangable references to images
+  ImagePacket images_;  //there are some situationtions where we want to update the images
   const Timestamp timestamp_;
   const size_t frame_id_;
 

@@ -19,6 +19,9 @@ void determineOutlierIds(const TrackletIds& inliers, const TrackletIds& tracklet
 void updateMotionModel(const Frame::Ptr& previous_frame, Frame::Ptr current_frame);
 void calculateSceneFlow(const Frame::Ptr& previous_frame, Frame::Ptr current_frame, const Camera& camera);
 
+//using the previous frame updates the mask of the upcoming frame
+void updateFrameMask(const Frame::Ptr& previous_frame, Frame::Ptr current_frame);
+
 
 
 }

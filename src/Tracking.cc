@@ -6,6 +6,7 @@
 #include "utils/UtilsOpenCV.h"
 #include "Tracking-Tools.h"
 #include "Optimizer.h"
+#include "viz/Display.h"
 
 #include <opencv2/opencv.hpp>
 #include <glog/logging.h>
@@ -439,6 +440,23 @@ void Tracking::displayFeatures(const Frame& frame)
     {
       vdo::utils::DrawCircleInPlace(disp, point, cv::Scalar(0, 0, 255), 1);
     }
+  }
+
+  for (const Feature::Ptr feature : frame.dynamic_features_)
+  {
+    cv::Point2d point(feature->keypoint.pt.x, feature->keypoint.pt.y);
+    // if (feature.inlier)
+    // {
+      cv::arrowedLine(disp, feature->keypoint.pt, feature->predicted_keypoint.pt, cv::Scalar(255, 0, 0));
+      // cv::putText(disp, std::to_string(feature.tracklet_id),
+    //               cv::Point2i(feature.keypoint.pt.x - 10, feature.keypoint.pt.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.3,
+    //               cv::Scalar(255, 0, 0));
+    // }
+    // else
+    // {
+    // utils::DrawCircleInPlace(disp, point, Display::getObjectColour(feature->instance_label), 1);
+    // }
+    
   }
 
   cv::imshow("Frames", disp);

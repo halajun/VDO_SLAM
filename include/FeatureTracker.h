@@ -23,6 +23,8 @@ private:
   void trackStatic(const InputPacket& input_packet, FeaturePtrs& static_features, size_t& n_optical_flow, size_t& n_new_tracks);
   void trackDynamic(const InputPacket& input_packet, FeaturePtrs& dynamic_features);
 
+
+
   // feature will be none if checks fail (ie. the point is an object, depth fails etc)
   Feature::Ptr constructStaticFeature(const ImagePacket& images, const cv::KeyPoint& kp, size_t age, size_t tracklet_id,
                                       size_t frame_id) const;

@@ -18,9 +18,12 @@ struct Frame
   TrackletIdFeatureMap feature_by_tracklet_id_;
 
   FeaturePtrs dynamic_features_;
+  TrackletIdFeatureMap dynamuic_feature_by_tracklet_id_;
   ImagePacket images_;  //there are some situationtions where we want to update the images
   const Timestamp timestamp_;
   const size_t frame_id_;
+
+  ObjectInstanceFeatureMap semantic_instance_map_;
 
   gtsam::Pose3 pose_;  // in world
   gtsam::Pose3 motion_model_;
@@ -34,6 +37,15 @@ struct Frame
     }
     else {
       return feature_by_tracklet_id_.at(tracklet_id);
+    }
+  }
+
+  inline Feature::Ptr getDynamicByTrackletId(size_t tracklet_id) const {
+    if(dynamuic_feature_by_tracklet_id_.find(tracklet_id) == dynamuic_feature_by_tracklet_id_.end()) {
+      return nullptr;
+    }
+    else {
+      return dynamuic_feature_by_tracklet_id_.at(tracklet_id);
     }
   }
 

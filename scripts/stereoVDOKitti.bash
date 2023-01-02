@@ -61,15 +61,11 @@ fi
 # independent of where we call it from.
 cd $BUILD_PATH
 
-FULL_PARAM_FILE=$PARAM_PATH/$PARAM_FILE
-DATASET_PATH="$(cd "$(dirname $DATASET_PATH)"; pwd)/$(basename $DATASET_PATH)"
 
-echo "Using param file at file: $FULL_PARAM_FILE"
-echo "Using dataset at path: $DATASET_PATH"
-
-
-if [ RUN_TEST_ONLY == 1 ]
+if [ $RUN_TEST_ONLY == 1 ]
 then
+    echo "Using test data path: $TEST_DATA_PATH"
+    
     ./testVdoSlam \
         --test_data_path="$TEST_DATA_PATH" \
         --output_path="$OUTPUT_PATH" \
@@ -78,6 +74,13 @@ then
         --log_prefix=1 \
         --v=2
 else
+
+    FULL_PARAM_FILE=$PARAM_PATH/$PARAM_FILE
+    DATASET_PATH="$(cd "$(dirname $DATASET_PATH)"; pwd)/$(basename $DATASET_PATH)"
+
+    echo "Using param file at file: $FULL_PARAM_FILE"
+    echo "Using dataset at path: $DATASET_PATH"
+
     ./vdo_slam_kitti "$FULL_PARAM_FILE" "$DATASET_PATH" \
         --output_path="$OUTPUT_PATH" \
         --logtostderr=1 \

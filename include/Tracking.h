@@ -55,12 +55,16 @@ private:
 
   void updateStaticTrackletMap(const FeaturePtrs& static_features );
 
+  void trackDynamicObjects(Frame::Ptr frame);
+
 private:
   using TrackletMap = std::map<size_t, FeaturePtrs>;
   TrackingParams params;
   Camera camera;
 
   FeatureTracker::UniquePtr feature_tracker;
+
+  int object_id_count = 1;
 
   // state data
   State state{ State::kBoostrap };

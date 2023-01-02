@@ -13,6 +13,7 @@ bool loadFlow(const std::string& image_path, cv::Mat& img);
 
 // mask must be resized before hand
 bool loadSemanticMask(const std::string& image_path, cv::Mat& mask);
+void convertToUniqueLabels(const cv::Mat& semantic_instance_mask, cv::Mat& unique_mask);
 
 class DataProvider
 {

@@ -81,6 +81,9 @@ void updateFrameMask(const Frame::Ptr& previous_frame, Frame::Ptr current_frame)
   const cv::Mat& rgb = previous_frame->images_.rgb;
   const cv::Mat& previous_semantic_mask = previous_frame->images_.semantic_mask;
   const cv::Mat& previous_flow = previous_frame->images_.flow;
+
+      //note reference
+  cv::Mat& current_semantic_mask = current_frame->images_.semantic_mask;
   VLOG(2) << "Updating mask";
   std::vector<InstanceLabel> instance_labels;
   for(Feature::Ptr dynamic_feature : previous_frame->dynamic_features_) {
@@ -88,7 +91,7 @@ void updateFrameMask(const Frame::Ptr& previous_frame, Frame::Ptr current_frame)
       instance_labels.push_back(dynamic_feature->instance_label);
     // }
   }
-CHECK_EQ(instance_labels.size(), previous_frame->dynamic_features_.size());
+  CHECK_EQ(instance_labels.size(), previous_frame->dynamic_features_.size());
 
 
   std::sort(instance_labels.begin(), instance_labels.end());
@@ -97,9 +100,10 @@ CHECK_EQ(instance_labels.size(), previous_frame->dynamic_features_.size());
 
 
   // collect the predicted labels and semantic labels in vector
-  for(size_t i = 0; i < instance_labels.size(); i++) {
+  for(size_t i = 0; i < previous_frame->dynamic_features_.size(); i++) {
     Feature::Ptr dynamic_feature = previous_frame->dynamic_features_[i];
     for(size_t j = 0; j < instance_labels.size(); j++) {
+      //save object label for object j with feature i
       if(dynamic_feature->instance_label == instance_labels[j]) {
         object_features[j].push_back(i);
         break;
@@ -108,43 +112,53 @@ CHECK_EQ(instance_labels.size(), previous_frame->dynamic_features_.size());
   }
 
    // check each object label distribution in the coming frame
-    int updated_mask_points = 0;
+  int updated_mask_points = 0;
   for(size_t i = 0; i < object_features.size(); i++) {
     std::vector<InstanceLabel> temp_label;
     for(size_t j = 0; j < object_features[i].size(); j++) {
-        Feature::Ptr feature = previous_frame->dynamic_features_[object_features[i][j]];
+      Feature::Ptr feature = previous_frame->dynamic_features_[object_features[i][j]];
       const KeypointCV& predicted_kp = feature->predicted_keypoint;
-      const float u = predicted_kp.pt.x;
-      const float v = predicted_kp.pt.y;
+      const int u = predicted_kp.pt.x;
+      const int v = predicted_kp.pt.y;
 
-      //ensure u and v are sitll inside the frame
+      //ensure u and v are sitll inside the CURRENT frame
       if(u < rgb.cols && u > 0 && v < rgb.rows && v > 0) {
-        temp_label.push_back(previous_semantic_mask.at<InstanceLabel>(v, u));
+        temp_label.push_back(current_semantic_mask.at<InstanceLabel>(v, u));
       }
     }
 
     if(temp_label.size() < 100) {
-      LOG(WARNING) << "not enoug points to track object " << i;
+      LOG(WARNING) << "not enoug points to track object " << static_cast<int>(i) << " poins size - " << temp_label.size();
       //then do we mark as outliers?
       continue;
     }
 
+
     // find label that appears most in LabTmp()
     // (1) count duplicates
     std::map<int, int> label_duplicates;
-    for (int k : temp_label) { ++label_duplicates[k];}
-    // (2) and sort them by descending order
+    for (int k : temp_label) { 
+      if (label_duplicates.find(k) == label_duplicates.end()) {
+        label_duplicates.insert({k, 0});
+      }
+      else {
+        label_duplicates.at(k)++;
+      }
+    }
+    // (2) and sort them by descending order by number of times an object appeared (ie. by pair.second)
     std::vector<std::pair<int, int>> sorted;
     for (auto k : label_duplicates) {
       sorted.push_back(std::make_pair(k.first, k.second));
     }
     std::sort(sorted.begin(), sorted.end(), SortPairInt);
-
-    //note reference
-    cv::Mat& current_semantic_mask = current_frame->images_.flow;
+    LOG(INFO) << "Iteration i - " <<  instance_labels[i];
+    for(auto s : sorted) {
+      std::cout << " obj i " << s.first << " appearing " << s.second << "\n";
+    }
+    std::cout << std::endl;
 
     // recover the missing mask (time consuming!)
-    if (sorted[0].first == 0)
+    if (sorted[0].first == 0) //?
     {
       for (int j = 0; j < rgb.rows; j++)
       {

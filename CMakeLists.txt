@@ -165,6 +165,7 @@ if(VDO_SLAM_BUILD_TESTS)
   include(CTest)
   add_executable(testVdoSlam
     test/testCameraParam.cc
+    test/tesDataProvider.cc
     # test/testTracking.cc
     test/testTrackingTools.cc
     test/testVdoSlam.cc

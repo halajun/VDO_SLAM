@@ -76,7 +76,7 @@ struct Feature : public VisualMeasurement
   Type type;
 
   cv::Point2d optical_flow;  // the optical flow calculated at this keypoint
-  cv::Point3d scene_flow;
+  gtsam::Point3 scene_flow; //in the camera reference frame (t-1)
   // //the predicted position of this feature in the next frame -> initially this will be calculated
   // with optical flow
 

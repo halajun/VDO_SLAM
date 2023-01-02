@@ -1,7 +1,7 @@
 #include "FeatureTracker.h"
 #include "utils/UtilsOpenCV.h"
 #include "Tracking-Tools.h"
-
+#include "viz/Display.h"
 
 #include <glog/logging.h>
 
@@ -54,8 +54,21 @@ Frame::Ptr FeatureTracker::track(const InputPacket& input_packet, size_t& n_opti
   for(Feature::Ptr feature : frame->features_) {
     frame->feature_by_tracklet_id_.insert({feature->tracklet_id, feature});
   }
-
   CHECK_EQ(frame->feature_by_tracklet_id_.size(), frame->features_.size());
+
+  for(Feature::Ptr feature : frame->dynamic_features_) {
+    frame->dynamuic_feature_by_tracklet_id_.insert({feature->tracklet_id, feature});
+
+     // //really would be nice for this to be a templated function as i use this code all the time
+    if(frame->semantic_instance_map_.find(feature->instance_label) == frame->semantic_instance_map_.end()) {
+      frame->semantic_instance_map_.insert({feature->instance_label, {feature}});
+    }
+    else {
+      frame->semantic_instance_map_.at(feature->instance_label).push_back(feature);
+    }
+
+  }
+  CHECK_EQ(frame->dynamuic_feature_by_tracklet_id_.size(), frame->dynamic_features_.size());
 
   previous_frame_ = frame;
   return frame;
@@ -213,8 +226,8 @@ void FeatureTracker::trackStatic(const InputPacket& input_packet, FeaturePtrs& s
     }
   }
 
-  cv::imshow("Optical flow", viz);
-  cv::waitKey(1);
+  // cv::imshow("Optical flow", viz);
+  // cv::waitKey(1);
 
   size_t total_tracks = features_assigned.size();
   n_new_tracks = total_tracks - n_optical_flow;
@@ -234,7 +247,11 @@ void FeatureTracker::trackDynamic(const InputPacket& input_packet, FeaturePtrs& 
   const cv::Mat& flow = images.flow;
   const size_t& frame_id = input_packet.frame_id;
   const Timestamp& timestamp = input_packet.timestamp;
-  int step = 4;  // 3
+  int step = 3;  // 3
+
+  cv::Mat viz;
+  rgb.copyTo(viz);
+
 
   FeaturePtrs sampled_features, tracked_features;
   std::vector<InstanceLabel> instance_labels;
@@ -242,6 +259,7 @@ void FeatureTracker::trackDynamic(const InputPacket& input_packet, FeaturePtrs& 
   //a mask to show which feature have been with optical flow from the previous frame
   //zeros mean have not been tracked
   cv::Mat tracked_feature_mask =  cv::Mat::zeros(rgb.size(), CV_8UC1);
+  
 
   if(previous_frame_) {
     for(Feature::Ptr previous_dynamic_feature : previous_frame_->dynamic_features_) {
@@ -252,18 +270,19 @@ void FeatureTracker::trackDynamic(const InputPacket& input_packet, FeaturePtrs& 
       const int& x = kp.pt.x;
       const int& y = kp.pt.y;
 
-      double flow_xe = static_cast<double>(images.flow.at<cv::Vec2f>(y, x)[0]);
-      double flow_ye = static_cast<double>(images.flow.at<cv::Vec2f>(y, x)[1]);
 
       InstanceLabel predicted_label = images.semantic_mask.at<InstanceLabel>(y, x);
 
       const KeypointCV& previous_point = previous_dynamic_feature->keypoint;
-      InstanceLabel previous_label = previous_frame_->images_.semantic_mask.at<InstanceLabel>(previous_point.pt.y, previous_point.pt.x);
-      bool same_propogated_label = previous_label == predicted_label;
+      // InstanceLabel previous_label = previous_frame_->images_.semantic_mask.at<InstanceLabel>(previous_point.pt.y, previous_point.pt.x);
+      // bool same_propogated_label = previous_label == predicted_label;
 
-      if (camera_.isKeypointContained(kp, previous_dynamic_feature->depth) && previous_dynamic_feature->inlier && same_propogated_label)
+      if (camera_.isKeypointContained(kp, previous_dynamic_feature->depth) && previous_dynamic_feature->inlier && predicted_label != Feature::background)
       {
         size_t new_age = age + 1;
+        double flow_xe = static_cast<double>(images.flow.at<cv::Vec2f>(y, x)[0]);
+        double flow_ye = static_cast<double>(images.flow.at<cv::Vec2f>(y, x)[1]);
+
 
          // // save correspondences
         Feature::Ptr feature = std::make_shared<Feature>();
@@ -278,6 +297,10 @@ void FeatureTracker::trackDynamic(const InputPacket& input_packet, FeaturePtrs& 
         feature->predicted_keypoint = predicted_kp;
         feature->keypoint = kp;
 
+        //propogate dynamic object label
+        feature->object_id = previous_dynamic_feature->object_id;
+
+
 
         Depth d = images.depth.at<double>(y, x);  // be careful with the order  !!!
         if (d > 0)
@@ -289,18 +312,32 @@ void FeatureTracker::trackDynamic(const InputPacket& input_packet, FeaturePtrs& 
           // log warning?
           feature->depth = -1;
         }
-
-        tracked_features.push_back(feature);
+        //TODO: change to tracked
+        sampled_features.push_back(feature);
         tracked_feature_mask.at<uchar>(y, x) = 1;
+        instance_labels.push_back(feature->instance_label);
+        //calculate scene flow
+        // Landmark lmk_current, lmk_previous;
+        // camera_.backProject(feature->keypoint, feature->depth, &lmk_current);
+        // camera_.backProject(previous_point, previous_dynamic_feature->depth, &lmk_previous);
+
+        // //put both into the world frame
+        // lmk_previous = previous_frame_->pose_.transformFrom(lmk_previous);
+
+        cv::arrowedLine(viz, previous_dynamic_feature->keypoint.pt, feature->keypoint.pt, Display::getObjectColour(feature->instance_label));
+        // utils::DrawCircleInPlace(viz, feature->keypoint.pt, cv::Scalar(0, 0, 255));
+
       }
 
 
     }
   }
 
-  for (int i = 0; i < rgb.rows; i = i + step)
+  LOG(INFO) << "Tracked dynamic points - " << sampled_features.size();
+
+  for (int i = 0; i < rgb.rows -  step; i = i + step)
   {
-    for (int j = 0; j < rgb.cols; j = j + step)
+    for (int j = 0; j < rgb.cols - step; j = j + step)
     {
       
       if (images.semantic_mask.at<int>(i, j) == Feature::background) {
@@ -348,19 +385,18 @@ void FeatureTracker::trackDynamic(const InputPacket& input_packet, FeaturePtrs& 
         CHECK_EQ(feature->object_id, -1);
         sampled_features.push_back(feature);
         instance_labels.push_back(feature->instance_label);
+        // utils::DrawCircleInPlace(viz, feature->keypoint.pt, cv::Scalar(0, 255, 0));
 
-        // //really would be nice for this to be a templated function as i use this code all the time
-        // if(object_instance_map.find(feature->instance_label) == object_instance_map.end()) {
-        //   object_instance_map.insert({feature->instance_label, {feature}});
-        // }
-        // else {
-        //   object_instance_map.at(feature->instance_label).push_back(feature);
-        // }
+       
         
       }
     }
   }
   dynamic_features = sampled_features;
+
+  cv::imshow("Dynamic flow", viz);
+  cv::waitKey(1);
+
 
   LOG(INFO) << "Dynamic Sampled " << sampled_features.size();
 
@@ -369,71 +405,12 @@ void FeatureTracker::trackDynamic(const InputPacket& input_packet, FeaturePtrs& 
   unique_instance_labels.erase(std::unique(unique_instance_labels.begin(), unique_instance_labels.end()), unique_instance_labels.end());
 
   std::stringstream ss;
-  ss << " Unique instance labels: ";
+  ss << "Unique instance labels: ";
   for (int i = 0; i < unique_instance_labels.size(); ++i)
     ss << unique_instance_labels[i] << " ";
   ss << std::endl;
 
   LOG(INFO) << ss.str();
-  std::vector<FeaturePtrs> predicted_labels(unique_instance_labels.size());
-  // for (int i = 0; i < mCurrentFrame.vSemObjLabel.size(); ++i)
-  // {
-  //   // skip outliers
-  //   if (mCurrentFrame.vObjLabel[i] == -1)
-  //     continue;
-
-  //   // save object label
-  //   for (int j = 0; j < UniLab.size(); ++j)
-  //   {
-  //     if (mCurrentFrame.vSemObjLabel[i] == UniLab[j])
-  //     {
-  //       Posi[j].push_back(i);
-  //       break;
-  //     }
-  //   }
-  // }
-
-  for(Feature::Ptr dynamic_feature : sampled_features) {
-     // save object label
-    for (int j = 0; j < unique_instance_labels.size(); ++j)
-    {
-      if (dynamic_feature->instance_label == unique_instance_labels[j])
-      {
-        predicted_labels[j].push_back(dynamic_feature);
-        break;
-      }
-    }
-  }
-  std::vector<FeaturePtrs> object_ids;
-  //ensure objects are not on the boundary
-  static constexpr float kRowBoundary = 25;
-  static constexpr float kColBoundary = 50;
-  //at least half of the object is visible?
-  static constexpr double KCountThreshold = 0.5;
-  for(size_t i = 0; i < predicted_labels.size(); i++) {
-    int count = 0;
-    for(size_t j = 0; j < predicted_labels[i].size(); j++ ) {
-      const KeypointCV& kp = predicted_labels[i][j]->keypoint;
-      const float u = kp.pt.x;
-      const float v = kp.pt.y;
-
-      if(v < kRowBoundary || v > (rgb.rows - kRowBoundary) || u < kColBoundary || u > (rgb.cols - kColBoundary)) {
-        count++;
-      }
-    }
-    //most parts of this object are on the image boundary
-    if(static_cast<double>(count)/static_cast<double>(predicted_labels[i].size()) > KCountThreshold ) {
-      for(Feature::Ptr feature : predicted_labels[i]) {
-        feature->object_id = -1;
-      }
-    }
-    else {
-      object_ids.push_back(predicted_labels[i]);
-    }
-  }
-
-  LOG(INFO) << "Object ids size - " << object_ids.size();
-
 
 }
 

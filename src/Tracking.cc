@@ -11,6 +11,7 @@
 #include <opencv2/opencv.hpp>
 #include <glog/logging.h>
 #include <algorithm>
+#include <map>
 
 namespace vdo
 {
@@ -75,6 +76,8 @@ FrontendOutput::Ptr Tracking::processBoostrap(const InputPacket& input,
     LOG(INFO) << "Initalising pose identity matrix " << frame->pose_;
   }
 
+  // trackDynamicObjects(frame);
+
   // set initalisatiobn
   previous_frame_ = frame;
   state = State::kNominal;
@@ -131,6 +134,8 @@ FrontendOutput::Ptr Tracking::processNominal(const InputPacket& input,
   }
   displayFeatures(*frame);
   updateMotionModel(previous_frame_, frame);
+
+  trackDynamicObjects(frame);
 
   // frame_logger.log(*frame);
 
@@ -370,6 +375,202 @@ bool Tracking::solveInitalCamModel(Frame::Ptr previous_frame, Frame::Ptr current
   return true;
 }
 
+
+void Tracking::trackDynamicObjects(Frame::Ptr frame) {
+
+  const cv::Mat& rgb = frame->images_.rgb;
+  const cv::Mat& semantic_mask = frame->images_.semantic_mask;
+  const cv::Mat& flow = frame->images_.flow;
+
+  cv::Mat viz;
+  rgb.copyTo(viz);
+
+
+  // std::vector<InstanceLabel> instance_labels;
+  // for(Feature::Ptr dynamic_feature : frame->dynamic_features_) {
+  //   // if(dynamic_feature->inlier) {
+  //     instance_labels.push_back(dynamic_feature->instance_label);
+  //   // }
+  // }
+  // CHECK_EQ(instance_labels.size(), frame->dynamic_features_.size());
+
+
+  // std::sort(instance_labels.begin(), instance_labels.end());
+  // instance_labels.erase(std::unique(instance_labels.begin(), instance_labels.end()), instance_labels.end());
+  // std::vector<std::vector<int>> object_features(instance_labels.size());
+  // std::vector<FeaturePtrs> predicted_labels(instance_labels.size());
+
+
+  // for(Feature::Ptr dynamic_feature : frame->dynamic_features_) {
+  //    // save object label
+  //   for (int j = 0; j < instance_labels.size(); ++j)
+  //   {
+  //     if (dynamic_feature->instance_label == instance_labels[j])
+  //     {
+  //       predicted_labels[j].push_back(dynamic_feature);
+  //       break;
+  //     }
+  //   }
+  // }
+  // std::vector<FeaturePtrs> object_ids;
+  //ensure objects are not on the boundary
+  static constexpr float kRowBoundary = 25;
+  static constexpr float kColBoundary = 50;
+  //at least half of the object is visible?
+  static constexpr double KCountThreshold = 0.5;
+  for(auto instance_feature_pair : frame->semantic_instance_map_) {
+    const int instance_label = instance_feature_pair.first;
+    FeaturePtrs features = instance_feature_pair.second;
+    int count = 0;
+    int dynamic_tracklet_count = 0;
+    int static_tracklet_count = 0;
+    int sf_count = 0;
+    int previous_object_id = -1;
+    std::vector<int> sf_range(10, 0);
+    FeaturePtrs dynamic_features_after_thresh;
+    for(Feature::Ptr feature : features) {
+    // for(size_t j = 0; j < predicted_labels[i].size(); j++ ) {
+      Feature::Ptr current_feature = feature;
+      const KeypointCV& kp = current_feature->keypoint;
+      const float u = kp.pt.x;
+      const float v = kp.pt.y;
+
+
+      //we could not track from the previous one?
+      Feature::Ptr previous_feature = previous_frame_->getDynamicByTrackletId(current_feature->tracklet_id);
+      //all the features should have the same instance label after propogation from udpateMask...
+      //TODO: dont just use the last object id...
+
+      if(v > kRowBoundary || v < (rgb.rows - kRowBoundary) || u > kColBoundary || u < (rgb.cols - kColBoundary)) {
+        count++;
+
+        if(previous_feature) {
+          previous_object_id = previous_feature->object_id;
+
+          //we could track however the previous feature may have been marked as static from optical/scene flow?
+          if(previous_feature->type == Feature::Type::DYNAMIC) dynamic_tracklet_count++;
+          if(previous_feature->type == Feature::Type::STATIC) static_tracklet_count++;
+
+          //at this point frame MUST have an pose estimate from the frontend
+          //is it to calculate the sceneflow
+          Landmark lmk_previous, lmk_current;
+          camera.backProject(previous_feature->keypoint, previous_feature->depth, &lmk_previous);
+          camera.backProject(current_feature->keypoint, current_feature->depth, &lmk_current);
+
+          gtsam::Pose3 previous_pose = previous_frame_->pose_;
+          gtsam::Pose3 current_pose = frame->pose_;
+          //convert to world frame
+          lmk_previous = previous_pose.transformFrom(lmk_previous);
+          lmk_current = current_pose.transformFrom(lmk_current);
+
+          Landmark flow_world = lmk_current - lmk_previous;
+          gtsam::Pose3 flow_world_transform(gtsam::Rot3::identity(), flow_world);
+          //this is in the world frame
+          //we conver to camera frame which will be the flow from the previous point to the current point
+          // //^c_{t-1}F_t = ^cX_{t-1} * ^w_{t-1}F_t * ^cX_{t-1}^{-1}
+          gtsam::Pose3 flow_prev_curr_transform = previous_pose.inverse() * flow_world_transform * previous_pose;
+          Landmark flow_prev_curr = flow_prev_curr_transform.translation();
+          feature->scene_flow = flow_prev_curr;
+
+          double scene_flow_norm = flow_prev_curr.norm();
+
+          if(scene_flow_norm > params.scene_flow_magnitude) {
+            dynamic_features_after_thresh.push_back(current_feature);
+            sf_count++;
+            // utils::DrawCircleInPlace(viz, feature->keypoint.pt, cv::Scalar(0, 0, 255));
+          }
+
+          {
+            if (0.0 <= scene_flow_norm && scene_flow_norm < 0.05)
+              sf_range[0] = sf_range[0] + 1;
+            else if (0.05 <= scene_flow_norm && scene_flow_norm < 0.1)
+              sf_range[1] = sf_range[1] + 1;
+            else if (0.1 <= scene_flow_norm && scene_flow_norm < 0.2)
+              sf_range[2] = sf_range[2] + 1;
+            else if (0.2 <= scene_flow_norm && scene_flow_norm < 0.4)
+              sf_range[3] = sf_range[3] + 1;
+            else if (0.4 <= scene_flow_norm && scene_flow_norm < 0.8)
+              sf_range[4] = sf_range[4] + 1;
+            else if (0.8 <= scene_flow_norm && scene_flow_norm < 1.6)
+              sf_range[5] = sf_range[5] + 1;
+            else if (1.6 <= scene_flow_norm && scene_flow_norm < 3.2)
+              sf_range[6] = sf_range[6] + 1;
+            else if (3.2 <= scene_flow_norm && scene_flow_norm < 6.4)
+              sf_range[7] = sf_range[7] + 1;
+            else if (6.4 <= scene_flow_norm && scene_flow_norm < 12.8)
+              sf_range[8] = sf_range[8] + 1;
+            // else if (12.8 <= scene_flow_norm && scene_flow_norm < 25.6)
+            //   sf_range[9] = sf_range[9] + 1;
+            else
+              sf_range[9]++;
+          }
+        }
+      }
+    }
+    //most parts of this object are on the image boundary
+    double object_count = count/(int)features.size();
+    LOG(INFO) <<  " object count " << object_count;
+    if(object_count < KCountThreshold ) {
+      for(Feature::Ptr feature : features) {
+        feature->object_id = -1;
+      }
+      //then continue?
+      // LOG(INFO) << 
+      continue;
+    }
+
+    if(features.size() < 50) {
+      // LOG(INFO) << "Object " << instance_label << " did not have enough points";
+      continue;
+    }
+
+    double average_dynamic_tracks = dynamic_tracklet_count/count; //average of how many points 
+    double average_static_tracks = static_tracklet_count/count;
+    std::cout << "scene flow distribution:"  << std::endl;
+    for (int j = 0; j < sf_range.size(); ++j)
+        std::cout << sf_range[j] << " ";
+    std::cout << std::endl;
+
+    //if not enough of the object is dynamic label all features as static
+    double average_flow_count = (double)sf_count/(double)count;
+    LOG(INFO) << "Num points that are dynamic " << average_flow_count << "/" << params.scene_flow_percentage;
+    if(average_flow_count > params.scene_flow_percentage) {
+      // for(Feature::Ptr feature : dynamic_features_after_thresh) {
+      //     utils::DrawCircleInPlace(viz, feature->keypoint.pt, Display::getObjectColour(instance_label));
+
+      // }
+      int center_x = 0, center_y = 0;
+      for(Feature::Ptr feature : features) {
+        utils::DrawCircleInPlace(viz, feature->keypoint.pt, Display::getObjectColour(instance_label));
+        feature->object_id = instance_label;
+        center_x += feature->keypoint.pt.x;
+        center_y += feature->keypoint.pt.y;
+      }
+      center_x/=features.size();
+      center_y/=features.size();
+
+      cv::putText(viz, //target image
+            std::to_string(instance_label), //text
+            cv::Point(center_x, center_y), //top-left position
+            cv::FONT_HERSHEY_DUPLEX,
+            1.0,
+            CV_RGB(118, 185, 0), //font color
+            3);
+    }
+
+    LOG(INFO) << "Object  " << instance_label << " was tracked - " << dynamic_tracklet_count << "/" << count;
+  }
+
+  cv::imshow("Scene flow", viz);
+  cv::waitKey(1);
+
+  // //for each feature within a unique label try and propogate the previous actual object label
+
+
+
+  // LOG(INFO) << "Object ids size - " << object_ids.size();
+}
+
 void Tracking::preprocessInput(const InputPacket& input, ImagePacket& images)
 {
   input.images.rgb.copyTo(images.rgb);
@@ -442,22 +643,22 @@ void Tracking::displayFeatures(const Frame& frame)
     }
   }
 
-  for (const Feature::Ptr feature : frame.dynamic_features_)
-  {
-    cv::Point2d point(feature->keypoint.pt.x, feature->keypoint.pt.y);
-    // if (feature.inlier)
-    // {
-      cv::arrowedLine(disp, feature->keypoint.pt, feature->predicted_keypoint.pt, cv::Scalar(255, 0, 0));
-      // cv::putText(disp, std::to_string(feature.tracklet_id),
-    //               cv::Point2i(feature.keypoint.pt.x - 10, feature.keypoint.pt.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.3,
-    //               cv::Scalar(255, 0, 0));
-    // }
-    // else
-    // {
-    // utils::DrawCircleInPlace(disp, point, Display::getObjectColour(feature->instance_label), 1);
-    // }
+  // for (const Feature::Ptr feature : frame.dynamic_features_)
+  // {
+  //   cv::Point2d point(feature->keypoint.pt.x, feature->keypoint.pt.y);
+  //   // if (feature.inlier)
+  //   // {
+  //     cv::arrowedLine(disp, feature->keypoint.pt, feature->predicted_keypoint.pt, cv::Scalar(255, 0, 0));
+  //     // cv::putText(disp, std::to_string(feature.tracklet_id),
+  //   //               cv::Point2i(feature.keypoint.pt.x - 10, feature.keypoint.pt.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.3,
+  //   //               cv::Scalar(255, 0, 0));
+  //   // }
+  //   // else
+  //   // {
+  //   // utils::DrawCircleInPlace(disp, point, Display::getObjectColour(feature->instance_label), 1);
+  //   // }
     
-  }
+  // }
 
   cv::imshow("Frames", disp);
   cv::waitKey(1);

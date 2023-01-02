@@ -24,12 +24,13 @@ public:
 
   void process(const VisualiserInput& viz_input) override;
 
+  static void drawOpticalFlow(const cv::Mat& flow, cv::Mat& flow_viz);
+  static void drawSemanticInstances(const cv::Mat& rgb, const cv::Mat& mask, cv::Mat& mask_viz);
+
 private:
   void drawFrame(const Frame& input);
   void drawInputImages(const Frame& frame);
 
-  void drawOpticalFlow(const cv::Mat& flow, cv::Mat& flow_viz);
-  void drawSemanticInstances(const cv::Mat& rgb, const cv::Mat& mask, cv::Mat& mask_viz);
   void drawFeatures(const cv::Mat& rgb, const Frame& frame, cv::Mat& frame_viz);
 
   void addDisplayImages(const cv::Mat& image, const std::string& title);

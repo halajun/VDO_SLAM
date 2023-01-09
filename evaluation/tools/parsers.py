@@ -8,7 +8,8 @@ import matplotlib.pyplot as plt
 class ParseFrontendMetrics(object):
 
     def __init__(self, folder = "../output_logs", file = 'frontend_metrics.xml') -> None:
-        path = folder + "/" + file
+        self.output_folder = folder
+        path = self.output_folder + "/" + file
         self.tree = ET.parse(path)
         #list of dictioanries, with elements for each tag in the frontend_metrics file
         self.data_frames = self._parse(self.tree.getroot())
@@ -38,7 +39,7 @@ class ParseFrontendMetrics(object):
         plt.ylabel("Absolute Rotation Error (r)")
 
         plt.legend(loc="upper left")
-        plt.savefig("test.png")
+        plt.savefig(self.output_folder + "/test.png")
 
 
     def _parse(self, root: Element):

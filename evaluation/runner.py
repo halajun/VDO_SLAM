@@ -47,14 +47,22 @@ class Runner(object):
 
 
 def run(args):
-    runner = Runner( "../build", "../output_logs", args.dataset_path, args.param_file)
-    result = runner.spin()
-    if not result:
+    executable_path = os.path.abspath("../build")
+    output_logs_folder = os.path.abspath("../output_logs") #the default location
+
+    if args.output_logs:
+        output_logs_folder =os.path.abspath(args.output_logs)
+
+    if args.dataset_path and args.param_file:
+        result = Runner( executable_path, output_logs_folder, args.dataset_path, args.param_file).spin()
+        print(f"Dataset was run with status {result}")
+    elif args.dataset_path or args.param_file:
+        print("Args must be run with both -d/--dataset_path and -p/--param_file")
         return
 
     if args.plot:
-        print("Running plots from output_logs")
-        frontend_metrics = ParseFrontendMetrics(runner.output_path)
+        print(f"Running plots from {output_logs_folder}")
+        frontend_metrics = ParseFrontendMetrics(output_logs_folder)
         frontend_metrics.plot()
 
 def parser():
@@ -68,12 +76,14 @@ def parser():
     output_opts = shared_parser.add_argument_group("output options")
 
     input_opts.add_argument("-d", "--dataset_path",
-                                 help="Absoltute or relative path to dataset", required=True)
+                                 help="Absoltute or relative path to dataset")
     input_opts.add_argument("-p", "--param_file",
-                                 help="Absolute or relative path to param file", required=True)
+                                 help="Absolute or relative path to param file")
 
     output_opts.add_argument(
         "--plot", action="store_true", help="show plot window",)
+    output_opts.add_argument(
+        "--output_logs", help="Where the output logs should be stored",)
     output_opts.add_argument("--save_plots", action="store_true",
                              help="Save plots?")
     output_opts.add_argument("--write_website", action="store_true",

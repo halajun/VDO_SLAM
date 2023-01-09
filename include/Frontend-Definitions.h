@@ -2,8 +2,10 @@
 
 #include "Macros.h"
 #include "Types.h"
+#include "utils/Metrics.h"
 
 #include <opencv2/opencv.hpp>
+#include <boost/serialization/access.hpp>
 
 namespace vdo
 {
@@ -90,6 +92,35 @@ struct Feature : public VisualMeasurement
 
   //object id -> only valid for dynamic object
   int object_id {-1};
+};
+
+
+struct FrontendMetrics {
+  gtsam::Pose3 pose;
+  gtsam::Pose3 gt_pose;
+  Timestamp timestamp;
+  size_t frame_id;
+
+  //specific metrics for plotting etc
+  ErrorPair ate_before_flow;
+  ErrorPair rte_before_flow;
+
+  ErrorPair ate_after_flow;
+  ErrorPair rte_after_flow;
+
+  template<class Archive>
+  void serialize(Archive & ar, const unsigned int)
+  {
+      ar & BOOST_SERIALIZATION_NVP(pose);
+      ar & BOOST_SERIALIZATION_NVP(gt_pose);
+      ar & boost::serialization::make_nvp("timestamp", timestamp);
+      ar & boost::serialization::make_nvp("frame_id", frame_id);
+      ar & BOOST_SERIALIZATION_NVP(ate_before_flow);
+      ar & BOOST_SERIALIZATION_NVP(rte_before_flow);
+      ar & BOOST_SERIALIZATION_NVP(ate_after_flow);
+      ar & BOOST_SERIALIZATION_NVP(rte_after_flow);
+  }
+
 };
 
 using Features = std::vector<vdo::Feature>;

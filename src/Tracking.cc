@@ -20,6 +20,17 @@ Tracking::Tracking(const TrackingParams& params_, const Camera& camera_) : param
   feature_tracker = vdo::make_unique<FeatureTracker>(params_, camera_);
 }
 
+Tracking::~Tracking() {
+  VLOG(1) << "Writing all metrics to file";
+  std::vector<FrontendMetrics*> metric_pointers;
+  for(FrontendMetrics& m : metrics) {
+    metric_pointers.push_back(&m);
+  }  
+
+  saveArchiveAsXML<std::vector<FrontendMetrics*>>("frontend_metrics.xml", metric_pointers);
+
+}
+
 FrontendOutput::Ptr Tracking::process(const InputPacket& input, GroundTruthInputPacket::ConstOptional ground_truth)
 {
   FrontendOutput::Ptr output = nullptr;
@@ -87,6 +98,8 @@ FrontendOutput::Ptr Tracking::processBoostrap(const InputPacket& input,
 FrontendOutput::Ptr Tracking::processNominal(const InputPacket& input,
                                              GroundTruthInputPacket::ConstOptional ground_truth)
 {
+  FrontendMetrics metric;
+  
   const Timestamp& timestamp = input.timestamp;
   const size_t& frame_id = input.frame_id;
   ImagePacket images;
@@ -137,7 +150,24 @@ FrontendOutput::Ptr Tracking::processNominal(const InputPacket& input,
 
   trackDynamicObjects(frame);
 
-  // frame_logger.log(*frame);
+  //book keeping and collect metrics
+  metric.frame_id = frame_id;
+  metric.timestamp = timestamp;
+  metric.gt_pose = ground_truth->X_wc;
+  metric.pose = frame->pose_;
+
+  metric.ate_before_flow.translation = t_error_before_opt;
+  metric.ate_before_flow.rot = r_error_before_opt;
+  metric.rte_before_flow.translation = rel_t_error_before_opt;
+  metric.rte_before_flow.rot = rel_r_error_before_opt;
+
+  metric.ate_after_flow.translation = t_error_after_opt;
+  metric.ate_after_flow.rot = r_error_after_opt;
+  metric.rte_after_flow.translation = rel_t_error_after_opt;
+  metric.rte_after_flow.rot = rel_r_error_after_opt;
+
+  metrics.push_back(metric);
+
 
   previous_frame_ = frame;
   FrontendOutput::Ptr output = std::make_shared<FrontendOutput>(frame);

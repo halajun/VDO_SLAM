@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<!DOCTYPE boost_serialization>
+<boost_serialization signature="serialization::archive" version="15">
+<val class_id="0" tracking_level="0" version="0">
+	<count>2</count>
+	<item_version>0</item_version>
+	<item class_id="1" tracking_level="1" version="0" object_id="_0">
+		<pose class_id="2" tracking_level="0" version="0">
+			<R_ class_id="3" tracking_level="0" version="0">
+				<rot11>1.00000000000000000e+00</rot11>
+				<rot12>0.00000000000000000e+00</rot12>
+				<rot13>0.00000000000000000e+00</rot13>
+				<rot21>0.00000000000000000e+00</rot21>
+				<rot22>1.00000000000000000e+00</rot22>
+				<rot23>0.00000000000000000e+00</rot23>
+				<rot31>0.00000000000000000e+00</rot31>
+				<rot32>0.00000000000000000e+00</rot32>
+				<rot33>1.00000000000000000e+00</rot33>
+			</R_>
+			<t_ class_id="4" tracking_level="0" version="0">
+				<data>
+					<item>0.00000000000000000e+00</item>
+					<item>0.00000000000000000e+00</item>
+					<item>0.00000000000000000e+00</item>
+				</data>
+			</t_>
+		</pose>
+		<gt_pose>
+			<R_>
+				<rot11>1.00000000000000000e+00</rot11>
+				<rot12>0.00000000000000000e+00</rot12>
+				<rot13>0.00000000000000000e+00</rot13>
+				<rot21>0.00000000000000000e+00</rot21>
+				<rot22>1.00000000000000000e+00</rot22>
+				<rot23>0.00000000000000000e+00</rot23>
+				<rot31>0.00000000000000000e+00</rot31>
+				<rot32>0.00000000000000000e+00</rot32>
+				<rot33>1.00000000000000000e+00</rot33>
+			</R_>
+			<t_>
+				<data>
+					<item>0.00000000000000000e+00</item>
+					<item>0.00000000000000000e+00</item>
+					<item>0.00000000000000000e+00</item>
+				</data>
+			</t_>
+		</gt_pose>
+		<timestamp>1.00000000000000000e+02</timestamp>
+		<frame_id>12</frame_id>
+		<ate_before_flow class_id="5" tracking_level="0" version="0">
+			<translation>4.94065645841246544e-324</translation>
+			<rot>1.20000000000000000e+01</rot>
+		</ate_before_flow>
+		<rte_before_flow>
+			<translation>6.95332728340790106e-310</translation>
+			<rot>4.66792013070436809e-310</rot>
+		</rte_before_flow>
+		<ate_after_flow>
+			<translation>4.66791874472849373e-310</translation>
+			<rot>1.54000000000000004e+01</rot>
+		</ate_after_flow>
+		<rte_before_flow>
+			<translation>6.95332728340790106e-310</translation>
+			<rot>4.66792013070436809e-310</rot>
+		</rte_before_flow>
+	</item>
+	<item class_id_reference="1" object_id="_1">
+		<pose>
+			<R_>
+				<rot11>1.00000000000000000e+00</rot11>
+				<rot12>0.00000000000000000e+00</rot12>
+				<rot13>0.00000000000000000e+00</rot13>
+				<rot21>0.00000000000000000e+00</rot21>
+				<rot22>1.00000000000000000e+00</rot22>
+				<rot23>0.00000000000000000e+00</rot23>
+				<rot31>0.00000000000000000e+00</rot31>
+				<rot32>0.00000000000000000e+00</rot32>
+				<rot33>1.00000000000000000e+00</rot33>
+			</R_>
+			<t_>
+				<data>
+					<item>0.00000000000000000e+00</item>
+					<item>0.00000000000000000e+00</item>
+					<item>0.00000000000000000e+00</item>
+				</data>
+			</t_>
+		</pose>
+		<gt_pose>
+			<R_>
+				<rot11>1.00000000000000000e+00</rot11>
+				<rot12>0.00000000000000000e+00</rot12>
+				<rot13>0.00000000000000000e+00</rot13>
+				<rot21>0.00000000000000000e+00</rot21>
+				<rot22>1.00000000000000000e+00</rot22>
+				<rot23>0.00000000000000000e+00</rot23>
+				<rot31>0.00000000000000000e+00</rot31>
+				<rot32>0.00000000000000000e+00</rot32>
+				<rot33>1.00000000000000000e+00</rot33>
+			</R_>
+			<t_>
+				<data>
+					<item>0.00000000000000000e+00</item>
+					<item>0.00000000000000000e+00</item>
+					<item>0.00000000000000000e+00</item>
+				</data>
+			</t_>
+		</gt_pose>
+		<timestamp>4.66792013170514746e-310</timestamp>
+		<frame_id>94479724818013</frame_id>
+		<ate_before_flow>
+			<translation>4.66792013170238069e-310</translation>
+			<rot>4.66792013170396170e-310</rot>
+		</ate_before_flow>
+		<rte_before_flow>
+			<translation>4.66792013170593797e-310</translation>
+			<rot>4.66792013170751898e-310</rot>
+		</rte_before_flow>
+		<ate_after_flow>
+			<translation>4.66792013170949524e-310</translation>
+			<rot>4.66792013171226201e-310</rot>
+		</ate_after_flow>
+		<rte_before_flow>
+			<translation>4.66792013170593797e-310</translation>
+			<rot>4.66792013170751898e-310</rot>
+		</rte_before_flow>
+	</item>
+</val>
+</boost_serialization>
+

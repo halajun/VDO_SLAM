@@ -2,8 +2,26 @@
 
 #include <gtsam/geometry/Pose3.h>
 
+#include <boost/serialization/access.hpp>
+
 namespace vdo
 {
+
+struct ErrorPair {
+  double translation;
+  double rot;
+
+  template<class Archive>
+  void serialize(Archive & ar, const unsigned int)
+  {
+      ar & boost::serialization::make_nvp("translation", translation);
+      ar & boost::serialization::make_nvp("rot", rot);
+  }
+
+};
+
+
+
 static inline void calculatePoseError(const gtsam::Pose3& estimated, const gtsam::Pose3& ground_truth, double& t_error,
                                       double& rot_error)
 {

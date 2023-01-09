@@ -9,9 +9,30 @@
 #include <unordered_map>
 
 #include <glog/logging.h>
+#include <boost/serialization/access.hpp>
+#include <boost/archive/tmpdir.hpp>
+#include <boost/archive/xml_oarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/serialization/vector.hpp>
+
+
+DECLARE_string(output_path);
+
 
 namespace vdo
 {
+template<typename T>
+void saveArchiveAsXML(const std::string& name, T& val) {
+  const std::string filename = FLAGS_output_path + "/" + name;
+  VLOG(1) << "Saving to xml archieve " << name;
+  std::ofstream ofs(filename);
+  CHECK(ofs.good());
+  boost::archive::xml_oarchive oa(ofs);
+  oa << BOOST_SERIALIZATION_NVP(val);
+}
+
+
 // Open files with name output_filename, and checks that it is valid
 static inline void OpenFile(const std::string& output_filename, std::ofstream* output_file, bool append_mode = false)
 {

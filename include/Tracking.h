@@ -24,6 +24,8 @@ public:
 
   Tracking(const TrackingParams& params_, const Camera& camera_);
 
+  ~Tracking();
+
   FrontendOutput::Ptr process(const InputPacket& input,
                               GroundTruthInputPacket::ConstOptional ground_truth = boost::none);
   // for now just pose
@@ -63,6 +65,8 @@ private:
   Camera camera;
 
   FeatureTracker::UniquePtr feature_tracker;
+
+  std::vector<FrontendMetrics> metrics;
 
   int object_id_count = 1;
 

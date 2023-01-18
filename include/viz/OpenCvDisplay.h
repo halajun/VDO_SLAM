@@ -19,7 +19,7 @@ class OpenCvDisplay : public Display
 public:
   VDO_POINTER_TYPEDEFS(OpenCvDisplay);
 
-  OpenCvDisplay(DisplayParams::Ptr params_);
+  OpenCvDisplay(DisplayParams::Ptr params_, const Camera& camera);
   ~OpenCvDisplay() = default;
 
   void process(const VisualiserInput& viz_input) override;

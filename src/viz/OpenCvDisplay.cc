@@ -7,7 +7,7 @@
 
 namespace vdo
 {
-OpenCvDisplay::OpenCvDisplay(DisplayParams::Ptr params_) : Display(params_)
+OpenCvDisplay::OpenCvDisplay(DisplayParams::Ptr params_, const Camera& camera) : Display(params_, camera)
 {
 }
 

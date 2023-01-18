@@ -4,7 +4,7 @@
 
 namespace vdo
 {
-Display::Display(DisplayParams::Ptr params_) : params(CHECK_NOTNULL(params_))
+Display::Display(DisplayParams::Ptr params_, const Camera& camera) : params(CHECK_NOTNULL(params_)), camera_(camera)
 {
 }
 

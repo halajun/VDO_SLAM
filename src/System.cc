@@ -95,7 +95,7 @@ System::System(const std::string& settings_file)
   optimizer = vdo::make_unique<IncrementalOptimizer>(backend_params, camera);
 
   DisplayParams::Ptr display_params = DisplayParams::loadFromParamParser(parser);
-  viz = vdo::make_unique<Visualizer>(display_params);
+  viz = vdo::make_unique<Visualizer>(display_params, camera);
 }
 
 gtsam::Pose3 System::TrackRGBD(const InputPacket& input, boost::optional<const GroundTruthInputPacket&> ground_truth)

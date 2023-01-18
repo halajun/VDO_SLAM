@@ -9,7 +9,7 @@
 
 namespace vdo
 {
-OpenCvVisualizer3D::OpenCvVisualizer3D(DisplayParams::Ptr params_) : Display(params_)
+OpenCvVisualizer3D::OpenCvVisualizer3D(DisplayParams::Ptr params_, const Camera& camera) : Display(params_, camera)
 {
   if (params->use_3d_viz)
   {
@@ -140,6 +140,11 @@ void OpenCvVisualizer3D::drawFrontend(WidgetsMap* widgets_map, const FrontendOut
     markWidgetForRemoval("static_cloud");
   }
 
+  for (const ObjectObservation& object : frontend->objects_)
+  {
+    addObjectCloudWidget(widgets_map, X_wc, object);
+  }
+
   // if (dynamic_cloud)
   // {
   //   (*widgets_map)["dynamic_cloud"] = std::move(dynamic_cloud);
@@ -181,8 +186,6 @@ std::unique_ptr<cv::viz::WCloud> OpenCvVisualizer3D::createCloudWidget(const Lan
     return nullptr;
   }
   cv::Mat point_cloud(1, landmarks.size(), CV_32FC3);
-  // cv::Mat point_cloud_color(
-  //     1, point_cloud_color.size(), CV_8UC3, cloud_color_);
 
   cv::Point3f* data = point_cloud.ptr<cv::Point3f>();
   size_t i = 0;
@@ -198,6 +201,23 @@ std::unique_ptr<cv::viz::WCloud> OpenCvVisualizer3D::createCloudWidget(const Lan
   std::unique_ptr<cv::viz::WCloud> cloud_widget = vdo::make_unique<cv::viz::WCloud>(point_cloud, colour);
   cloud_widget->setRenderingProperty(cv::viz::POINT_SIZE, 2);
   return cloud_widget;
+}
+
+void OpenCvVisualizer3D::addObjectCloudWidget(WidgetsMap* widgets_map, const gtsam::Pose3& pose_w,
+                                              const ObjectObservation& object)
+{
+  Landmarks points_w = object.collectLandmarks(camera_, pose_w);
+
+  cv::Scalar colour = Display::getObjectColour(object.object_label_);
+
+  std::unique_ptr<cv::viz::WCloud> cloud = createCloudWidget(points_w, cv::viz::Color(colour[2], colour[1], colour[0]));
+  if (cloud)
+  {
+    std::string cloud_name = "object_cloud_" + std::to_string(object.object_label_);
+
+    (*widgets_map)[cloud_name] = std::move(cloud);
+    markWidgetForRemoval(cloud_name);
+  }
 }
 
 // void OpenCvVisualizer3D::followCurrentView()

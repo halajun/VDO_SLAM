@@ -286,7 +286,8 @@ void FeatureTracker::trackDynamic(const InputPacket& input_packet, FeaturePtrs& 
 
         // // save correspondences
         Feature::Ptr feature = std::make_shared<Feature>();
-        feature->instance_label = images.semantic_mask.at<InstanceLabel>(y, x);
+        // feature->instance_label = images.semantic_mask.at<InstanceLabel>(y, x);
+        feature->instance_label = predicted_label;
         feature->frame_id = frame_id;
         feature->type = Feature::Type::DYNAMIC;
         feature->age = new_age;

@@ -115,7 +115,8 @@ FrontendOutput::Ptr Tracking::processNominal(const InputPacket& input,
 
   // estimate initialPos
   // assumes we have set the motion model from the previous frame
-  if(!solveInitalCamModel(previous_frame_, frame)) {
+  if (!solveInitalCamModel(previous_frame_, frame))
+  {
     LOG(ERROR) << "Solve PnP or Motion failed";
   }
 
@@ -147,7 +148,8 @@ FrontendOutput::Ptr Tracking::processNominal(const InputPacket& input,
   displayFeatures(*frame);
   tracking_tools::updateMotionModel(previous_frame_, frame);
 
-  trackDynamicObjects(frame);
+  ObjectObservations objects;
+  trackDynamicObjects(frame, objects);
 
   // book keeping and collect metrics
   metric.frame_id = frame_id;
@@ -169,6 +171,7 @@ FrontendOutput::Ptr Tracking::processNominal(const InputPacket& input,
 
   previous_frame_ = frame;
   FrontendOutput::Ptr output = std::make_shared<FrontendOutput>(frame);
+  output->objects_ = objects;
 
   for (Feature::Ptr feature : frame->features_)
   {
@@ -185,11 +188,11 @@ FrontendOutput::Ptr Tracking::processNominal(const InputPacket& input,
 
 bool Tracking::solveInitalCamModel(Frame::Ptr previous_frame, Frame::Ptr current_frame)
 {
-  KeypointsCV current_2d; //current 2d observations
-  Landmarks previous_3d; //corresponding 3d points in the camera frame of the previous pose
+  KeypointsCV current_2d;    // current 2d observations
+  Landmarks previous_3d;     // corresponding 3d points in the camera frame of the previous pose
   TrackletIds tracklet_ids;  // feature tracklets from the current frame so we can assign values as inliers
 
-  //collect all 2d obs and previous 3d correspondences
+  // collect all 2d obs and previous 3d correspondences
   for (Feature::Ptr current_feature : current_frame->features_)
   {
     const std::size_t& tracklet_id = current_feature->tracklet_id;
@@ -228,18 +231,12 @@ bool Tracking::solveInitalCamModel(Frame::Ptr previous_frame, Frame::Ptr current
   }
 
   MotionSolver::Options solver_options;
-  MotionSolver::Result result = MotionSolver::solvePnpOrMotion(
-    current_2d,
-    previous_3d,
-    tracklet_ids,
-    previous_frame->pose_,
-    previous_frame->motion_model_,
-    camera,
-    solver_options
-  );
+  MotionSolver::Result result =
+      MotionSolver::solvePnpOrMotion(current_2d, previous_3d, tracklet_ids, previous_frame->pose_,
+                                     previous_frame->motion_model_, camera, solver_options);
 
-
-  LOG(INFO) << "Motion solved using model " << (result.model == MotionSolver::Result::Selection::PNP ? "PnPRansac" : "Motion");
+  LOG(INFO) << "Motion solved using model "
+            << (result.model == MotionSolver::Result::Selection::PNP ? "PnPRansac" : "Motion");
 
   for (TrackletId inlier_id : result.inliers)
   {
@@ -257,274 +254,32 @@ bool Tracking::solveInitalCamModel(Frame::Ptr previous_frame, Frame::Ptr current
 
   current_frame->pose_ = result.pose;
   return result.success;
-
-
-  //from the result update the current frame with the new pose and mark as inliers
-  
-  // bool solve_in_camera_frame = true;
-
-  // std::vector<cv::Point2f> current_2d;
-  // std::vector<cv::Point3f> previous_3d;
-  // TrackletIds tracklet_ids;  // feature tracklets from the current frame so we can assign values as inliers
-
-  // cv::Mat viz;
-  // current_frame->images_.rgb.copyTo(viz);
-
-  // for (Feature::Ptr current_feature : current_frame->features_)
-  // {
-  //   const std::size_t& tracklet_id = current_feature->tracklet_id;
-
-  //   Feature::Ptr previous_feature = previous_frame->getByTrackletId(tracklet_id);
-  //   if (!previous_feature)
-  //   {
-  //     continue;
-  //   }
-
-  //   CHECK_EQ(previous_feature->tracklet_id, current_feature->tracklet_id);
-  //   CHECK_EQ(previous_feature->tracklet_id, tracklet_id);
-
-  //   // dont think this shoudl happen as we only track (old) points if it is an inlier! see staticTrackOpticalFlow
-  //   if (!previous_feature->inlier)
-  //   {
-  //     current_feature->inlier = false;
-  //     continue;
-  //   }
-
-  //   // utils::DrawCircleInPlace(viz, current_feature->keypoint.pt, cv::Scalar(0, 255, 0));
-
-  //   // // if(current_feature->age > ) {
-  //   //       cv::arrowedLine(viz, previous_feature->keypoint.pt, current_feature->keypoint.pt,cv::Scalar(0, 0, 255));
-  //   // // }
-  //   float dist = std::sqrt((current_feature->keypoint.pt.x - previous_feature->keypoint.pt.x) *
-  //                              (current_feature->keypoint.pt.x - previous_feature->keypoint.pt.x) +
-  //                          (current_feature->keypoint.pt.y - previous_feature->keypoint.pt.y) *
-  //                              (current_feature->keypoint.pt.y - previous_feature->keypoint.pt.y));
-  //   if (dist > 100)
-  //   {
-  //     // cv::arrowedLine(viz, previous_feature->keypoint.pt, current_feature->keypoint.pt,cv::Scalar(255, 0, 0));
-  //     LOG(INFO) << current_feature->age << " " << previous_feature->age << " " << current_feature->tracklet_id;
-  //   }
-
-  //   current_2d.push_back(current_feature->keypoint.pt);
-  //   Landmark lmk;
-  //   camera.backProject(previous_feature->keypoint, previous_feature->depth, &lmk);
-  //   if (solve_in_camera_frame)
-  //   {
-  //     cv::Point3f lmk_f(static_cast<float>(lmk.x()), static_cast<float>(lmk.y()), static_cast<float>(lmk.z()));
-  //     previous_3d.push_back(lmk_f);
-  //     tracklet_ids.push_back(tracklet_id);
-  //   }
-  //   else
-  //   {
-  //     // solve as standard PnP formaulation and solve in world frame
-  //     // lmk is in camera frame. Put into world frame
-  //     Landmark lmk_world = previous_frame->pose_.transformFrom(lmk);
-  //     cv::Point3f lmk_f(static_cast<float>(lmk_world.x()), static_cast<float>(lmk_world.y()),
-  //                       static_cast<float>(lmk_world.z()));
-  //     previous_3d.push_back(lmk_f);
-  //     tracklet_ids.push_back(tracklet_id);
-  //   }
-  // }
-
-  // // cv::imshow("Optical flow", viz);
-  // // cv::waitKey(1);
-
-  // // TODO: if we have zero tracket features -> this means need to fix the way the frontend takes feature points so we
-  // // never completely clear our tracks
-  // if (previous_3d.size() < 5)
-  // {
-  //   LOG(WARNING) << "Cannot run PnP with < 5 points";
-  //   current_frame->pose_ = previous_frame->pose_;
-  //   return false;
-  // }
-
-  // // sanity check
-  // CHECK_EQ(previous_3d.size(), tracklet_ids.size());
-
-  // LOG(INFO) << "Solving initial camera model with  " << previous_3d.size() << " features";
-
-  // const cv::Mat& K = camera.Params().K;
-  // const cv::Mat& D = camera.Params().D;
-
-  // // output
-  // cv::Mat Rvec(3, 1, CV_64FC1);
-  // cv::Mat Tvec(3, 1, CV_64FC1);
-  // cv::Mat Rot(3, 3, CV_64FC1);
-  // cv::Mat pnp_inliers;  // a [1 x N] vector
-
-  // // solve
-  // int iter_num = 500;
-  // double reprojectionError = 0.4, confidence = 0.98;  // 0.5 0.3
-  // cv::solvePnPRansac(previous_3d, current_2d, K, D, Rvec, Tvec, false, iter_num, reprojectionError, confidence,
-  //                    pnp_inliers, cv::SOLVEPNP_AP3P);  // AP3P EPNP P3P ITERATIVE DLS
-  // // LOG(INFO) << "inliers " << pnp_inliers;
-
-  // cv::Rodrigues(Rvec, Rot);
-  // // vector of tracklet id's that PnP ransac marked as inliers
-  // TrackletIds pnp_tracklet_inliers, pnp_tracklet_outliers;
-  // for (size_t i = 0; i < pnp_inliers.rows; i++)
-  // {
-  //   int inlier_index = pnp_inliers.at<int>(i);
-  //   size_t inlier_tracklet = tracklet_ids[inlier_index];
-  //   pnp_tracklet_inliers.push_back(inlier_tracklet);
-  // }
-
-  // // calculate outliers
-  // determineOutlierIds(pnp_tracklet_inliers, tracklet_ids, pnp_tracklet_outliers);
-  // CHECK_EQ((pnp_tracklet_inliers.size() + pnp_tracklet_outliers.size()), tracklet_ids.size());
-  // CHECK_EQ(pnp_tracklet_inliers.size(), pnp_inliers.rows);
-  // LOG(INFO) << "PNP Inliers/total = " << pnp_inliers.rows << "/" << previous_3d.size();
-
-  // // // mark all features in current frame as either inlier or outlier
-  // // TODO: after the motion estimation
-  // for (TrackletId inlier_id : pnp_tracklet_inliers)
-  // {
-  //   Feature::Ptr feature = current_frame->getByTrackletId(inlier_id);
-  //   CHECK_NOTNULL(feature);
-  //   feature->inlier = true;
-  // }
-
-  // for (TrackletId outlier_id : pnp_tracklet_outliers)
-  // {
-  //   Feature::Ptr feature = current_frame->getByTrackletId(outlier_id);
-  //   CHECK_NOTNULL(feature);
-  //   feature->inlier = false;
-  // }
-
-  // gtsam::Pose3 pnp_pose = utils::cvMatsToGtsamPose3(Rot, Tvec).inverse();
-  // gtsam::Pose3 relative_pose;
-
-  // if (solve_in_camera_frame)
-  // {
-  //   // need to compose this pose and the previous pose as "pose" as solved by PnP should be a relative pose
-  //   pnp_pose = previous_frame->pose_ * pnp_pose;
-  // }
-
-  // LOG(INFO) << "pnp pose\n\n" << pnp_pose;
-  // LOG(INFO) << "motion_model\n\n" << previous_frame->motion_model_;
-
-  // // TODO: make functions
-  // // using current velocity estimate, step from previous pose to current pose
-  // // pose in in world frame
-  // gtsam::Pose3 pose_from_motion_model = previous_frame->pose_ * previous_frame->motion_model_;
-  // // iterate through all the points
-  // float total_reprojection_error = 0.0;
-  // float total_reprojection_error_inliers = 0.0;
-  // int successful_projections = 0;
-  // TrackletIds motion_tracklet_inliers, motion_tracklet_outliers;
-  // for (TrackletId i = 0; i < tracklet_ids.size(); i++)
-  // {
-  //   const TrackletId tracklet_id = tracklet_ids[i];
-  //   Landmark lmk_camera;     // the previous 3d point as projected into the current camera frame using the motion model
-  //   KeypointCV kp_observed;  // the 2d observation of the projected kp
-  //   kp_observed.pt = current_2d[i];
-
-  //   cv::Point3f cv_lmk_previous = previous_3d[i];
-  //   gtsam::Point3 lmk_previous(static_cast<double>(cv_lmk_previous.x), static_cast<double>(cv_lmk_previous.y),
-  //                              static_cast<double>(cv_lmk_previous.z));
-
-  //   if (solve_in_camera_frame)
-  //   {
-  //     // lmk_previous will be in camera frame of the previous camera pose
-  //     // we need to translate it into the current camera pose
-  //     // we use the motion model which should be the transform between C_{t-1} and C_t
-  //     // lmk_camera = previous_frame->motion_model_.inverse() * lmk_previous;
-  //     lmk_camera = previous_frame->motion_model_.inverse() * lmk_previous;
-  //   }
-  //   else
-  //   {
-  //     // lmk_previous will be in the world frame abd we want it in the camera frame
-  //     lmk_camera = pose_from_motion_model.inverse() * lmk_previous;
-  //   }
-
-  //   // at this point lmk camera is a landmark in the reference frame of camera t and kp is the observation
-  //   // in the image frame
-  //   // calcualte reporojection error
-  //   KeypointCV projected;
-  //   bool is_contained = camera.isLandmarkContained(lmk_camera, projected);
-  //   if (!is_contained)
-  //   {
-  //     continue;
-  //   }
-  //   else
-  //   {
-  //     successful_projections++;
-  //   }
-
-  //   const float u_err = kp_observed.pt.x - projected.pt.x;
-  //   const float v_err = kp_observed.pt.y - projected.pt.y;
-  //   const float reprojection_err = std::sqrt(u_err * u_err + v_err * v_err);
-  //   total_reprojection_error += reprojection_err;
-
-  //   if (reprojection_err < static_cast<float>(reprojectionError))
-  //   {
-  //     motion_tracklet_inliers.push_back(tracklet_id);
-  //     total_reprojection_error_inliers += reprojection_err;
-  //   }
-  // }
-
-  // // housekeeping
-  // total_reprojection_error /= tracklet_ids.size();
-  // total_reprojection_error_inliers /= motion_tracklet_inliers.size();
-
-  // LOG(INFO) << "Motion model estimation\n inliers - " << motion_tracklet_inliers.size() << "\ntotal repr error - "
-  //           << total_reprojection_error << "\ninlier repr error - " << total_reprojection_error_inliers
-  //           << "\nsuccessful projections - " << successful_projections << "/" << tracklet_ids.size();
-
-  // // calculate outliers
-  // determineOutlierIds(motion_tracklet_inliers, tracklet_ids, motion_tracklet_outliers);
-  // CHECK_EQ((motion_tracklet_inliers.size() + motion_tracklet_outliers.size()), tracklet_ids.size());
-  // LOG(INFO) << "Motion Inliers/total = " << motion_tracklet_inliers.size() << "/" << tracklet_ids.size();
-
-  // current_frame->pose_ = pnp_pose;
-  // LOG(INFO) << current_frame->pose_;
-  // return true;
 }
 
-void Tracking::trackDynamicObjects(Frame::Ptr frame)
+// function does a lot -> sets scene flow and marks features with object ID
+size_t Tracking::trackDynamicObjects(Frame::Ptr frame, ObjectObservations& objects)
 {
   const cv::Mat& rgb = frame->images_.rgb;
   const cv::Mat& semantic_mask = frame->images_.semantic_mask;
   const cv::Mat& flow = frame->images_.flow;
 
-  cv::Mat viz;
+  cv::Mat viz, heat_map;
   rgb.copyTo(viz);
+  rgb.copyTo(heat_map);
+  objects.clear();
 
-  // std::vector<InstanceLabel> instance_labels;
-  // for(Feature::Ptr dynamic_feature : frame->dynamic_features_) {
-  //   // if(dynamic_feature->inlier) {
-  //     instance_labels.push_back(dynamic_feature->instance_label);
-  //   // }
-  // }
-  // CHECK_EQ(instance_labels.size(), frame->dynamic_features_.size());
-
-  // std::sort(instance_labels.begin(), instance_labels.end());
-  // instance_labels.erase(std::unique(instance_labels.begin(), instance_labels.end()), instance_labels.end());
-  // std::vector<std::vector<int>> object_features(instance_labels.size());
-  // std::vector<FeaturePtrs> predicted_labels(instance_labels.size());
-
-  // for(Feature::Ptr dynamic_feature : frame->dynamic_features_) {
-  //    // save object label
-  //   for (int j = 0; j < instance_labels.size(); ++j)
-  //   {
-  //     if (dynamic_feature->instance_label == instance_labels[j])
-  //     {
-  //       predicted_labels[j].push_back(dynamic_feature);
-  //       break;
-  //     }
-  //   }
-  // }
   // std::vector<FeaturePtrs> object_ids;
   // ensure objects are not on the boundary
   static constexpr float kRowBoundary = 25;
   static constexpr float kColBoundary = 50;
   // at least half of the object is visible?
   static constexpr double KCountThreshold = 0.5;
+  // semantic map is construced in the feature tracking after dynamicTrack
   for (auto instance_feature_pair : frame->semantic_instance_map_)
   {
     const int instance_label = instance_feature_pair.first;
     FeaturePtrs features = instance_feature_pair.second;
-    int count = 0;
+    int object_count = 0;  // number of valid features
     int dynamic_tracklet_count = 0;
     int static_tracklet_count = 0;
     int sf_count = 0;
@@ -546,7 +301,7 @@ void Tracking::trackDynamicObjects(Frame::Ptr frame)
 
       if (v > kRowBoundary || v < (rgb.rows - kRowBoundary) || u > kColBoundary || u < (rgb.cols - kColBoundary))
       {
-        count++;
+        object_count++;
 
         if (previous_feature)
         {
@@ -576,7 +331,7 @@ void Tracking::trackDynamicObjects(Frame::Ptr frame)
           // we conver to camera frame which will be the flow from the previous point to the current point
           // //^c_{t-1}F_t = ^cX_{t-1} * ^w_{t-1}F_t * ^cX_{t-1}^{-1}
           gtsam::Pose3 flow_prev_curr_transform = previous_pose.inverse() * flow_world_transform * previous_pose;
-          Landmark flow_prev_curr = flow_prev_curr_transform.translation();
+          gtsam::Point3 flow_prev_curr = flow_prev_curr_transform.translation();
           feature->scene_flow = flow_prev_curr;
 
           double scene_flow_norm = flow_prev_curr.norm();
@@ -616,7 +371,6 @@ void Tracking::trackDynamicObjects(Frame::Ptr frame)
       }
     }
     // most parts of this object are on the image boundary
-    double object_count = count / (int)features.size();
     LOG(INFO) << " object count " << object_count;
     if (object_count < KCountThreshold)
     {
@@ -635,15 +389,15 @@ void Tracking::trackDynamicObjects(Frame::Ptr frame)
       continue;
     }
 
-    double average_dynamic_tracks = dynamic_tracklet_count / count;  // average of how many points
-    double average_static_tracks = static_tracklet_count / count;
+    double average_dynamic_tracks = dynamic_tracklet_count / object_count;  // average of how many points
+    double average_static_tracks = static_tracklet_count / object_count;
     std::cout << "scene flow distribution:" << std::endl;
     for (int j = 0; j < sf_range.size(); ++j)
       std::cout << sf_range[j] << " ";
     std::cout << std::endl;
 
     // if not enough of the object is dynamic label all features as static
-    double average_flow_count = (double)sf_count / (double)count;
+    double average_flow_count = (double)sf_count / (double)object_count;
     LOG(INFO) << "Num points that are dynamic " << average_flow_count << "/" << params.scene_flow_percentage;
     if (average_flow_count > params.scene_flow_percentage)
     {
@@ -651,6 +405,13 @@ void Tracking::trackDynamicObjects(Frame::Ptr frame)
       //     utils::DrawCircleInPlace(viz, feature->keypoint.pt, Display::getObjectColour(instance_label));
 
       // }
+      LOG(INFO) << "Object  " << instance_label << " was tracked - " << dynamic_tracklet_count << "/" << object_count;
+
+      ObjectObservation object_observation;
+      object_observation.object_label_ = instance_label;
+      object_observation.average_flow_ = average_flow_count;
+      object_observation.frame_ = frame;
+
       int center_x = 0, center_y = 0;
       for (Feature::Ptr feature : features)
       {
@@ -658,9 +419,26 @@ void Tracking::trackDynamicObjects(Frame::Ptr frame)
         feature->object_id = instance_label;
         center_x += feature->keypoint.pt.x;
         center_y += feature->keypoint.pt.y;
+        object_observation.object_features_.push_back(feature->tracklet_id);
+
+        gtsam::Point3 normalized_scene_flow = feature->scene_flow.normalized();
+
+        cv::Scalar colour(255 * normalized_scene_flow.x(), 255 * normalized_scene_flow.y(),
+                          255 * normalized_scene_flow.z());
+        utils::DrawCircleInPlace(heat_map, feature->keypoint.pt, colour);
+
+        // heat_map.at<cv::Vec3f>(feature->keypoint.pt)[0] = feature->scene_flow.x();
+        // heat_map.at<cv::Vec3f>(feature->keypoint.pt)[1] = feature->scene_flow.y();
+        // heat_map.at<cv::Vec3f>(feature->keypoint.pt)[2] = feature->scene_flow.z();
+        // heat_map.at<cv::Vec3f>(feature->keypoint.pt)[0] = feature->scene_flow.norm();
+        // heat_map.at<cv::Vec3f>(feature->keypoint.pt)[1] = feature->scene_flow.norm();
+        // heat_map.at<cv::Vec3f>(feature->keypoint.pt)[2] = feature->scene_flow.norm();
       }
       center_x /= features.size();
       center_y /= features.size();
+
+      object_observation.object_center_ = gtsam::Point2(center_x, center_y);
+      objects.push_back(object_observation);
 
       cv::putText(viz,                                                // target image
                   std::to_string(instance_label),                     // text
@@ -668,12 +446,12 @@ void Tracking::trackDynamicObjects(Frame::Ptr frame)
                   cv::FONT_HERSHEY_DUPLEX, 1.0, CV_RGB(118, 185, 0),  // font color
                   3);
     }
-
-    LOG(INFO) << "Object  " << instance_label << " was tracked - " << dynamic_tracklet_count << "/" << count;
   }
 
   cv::imshow("Scene flow", viz);
+  cv::imshow("Flow Heat map", heat_map);
   cv::waitKey(1);
+  return objects.size();
 
   // //for each feature within a unique label try and propogate the previous actual object label
 

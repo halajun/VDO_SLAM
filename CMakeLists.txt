@@ -54,7 +54,6 @@ find_package(CSparse REQUIRED)
 find_package(Gflags REQUIRED)
 find_package(Glog 0.3.5 REQUIRED)
 find_package(GTSAM REQUIRED)
-find_package(matplotlib_cpp REQUIRED)
 
 include_directories(
 ${PROJECT_SOURCE_DIR}
@@ -62,9 +61,8 @@ ${PROJECT_SOURCE_DIR}/include
 
 ${EIGEN3_INCLUDE_DIR}
 ${CSPARSE_INCLUDE_DIR}
-${GLOG_INCLUDE_DIRS} 
+${GLOG_INCLUDE_DIRS}
 ${GTSAM_INCLUDE_DIR}
-   /usr/include/python2.7
 )
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
@@ -77,6 +75,7 @@ src/FeatureTracker.cc
 src/FactorGraphManager.cc
 src/Tracking-Tools.cc
 src/MotionSolver.cc
+src/Objects.cc
 
 src/utils/ParamParser.cc
 src/utils/UtilsOpenCV.cc
@@ -111,7 +110,6 @@ gtsam
 gtsam_unstable
 ${GFLAGS_LIBRARIES}
 ${GLOG_LIBRARIES}
-python2.7 #for matplotlib_cpp
 )
 
 

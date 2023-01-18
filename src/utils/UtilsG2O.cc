@@ -1,9 +1,9 @@
 #include "utils/UtilsG2O.h"
 
-namespace vdo {
-
-namespace utils {
-
+namespace vdo
+{
+namespace utils
+{
 g2o::SE3Quat toSE3Quat(const cv::Mat& cvT)
 {
   Eigen::Matrix<double, 3, 3> R;
@@ -15,14 +15,12 @@ g2o::SE3Quat toSE3Quat(const cv::Mat& cvT)
   return g2o::SE3Quat(R, t);
 }
 
-gtsam::Pose3 toGtsamPose3(const g2o::SE3Quat& se3_quat) {
+gtsam::Pose3 toGtsamPose3(const g2o::SE3Quat& se3_quat)
+{
   Eigen::Matrix<double, 4, 4> eigMat = se3_quat.to_homogeneous_matrix();
   return gtsam::Pose3(eigMat);
 }
 
+}  // namespace utils
 
-
-
-}
-
-}
+}  // namespace vdo

@@ -1,6 +1,6 @@
 #include "viz/OpenCvVisualizer3D.h"
 #include "utils/UtilsOpenCV.h"
-#include "UtilsGtsam.h"
+#include "utils/UtilsGtsam.h"
 // #include "utils/UtilsGTSAM.h"
 
 #include <memory>
@@ -30,12 +30,14 @@ void OpenCvVisualizer3D::process(const VisualiserInput& viz_input)
 
   WidgetsMap widgets;
 
-  if(viz_input.frontend_output) {
+  if (viz_input.frontend_output)
+  {
     drawFrontend(&widgets, viz_input.frontend_output);
   }
 
-  if(viz_input.backend_output) {
-      drawBackend(&widgets, viz_input.backend_output);
+  if (viz_input.backend_output)
+  {
+    drawBackend(&widgets, viz_input.backend_output);
   }
 
   for (auto it = widgets.begin(); it != widgets.end(); ++it)
@@ -128,9 +130,8 @@ void OpenCvVisualizer3D::drawFrontend(WidgetsMap* widgets_map, const FrontendOut
     static_points_w.push_back(X_wc.transformFrom(tracklet_lmk_pair.second));
   }
 
-
-  std::unique_ptr<cv::viz::WCloud> static_cloud = std::move(createCloudWidget(static_points_w,
-  cv::viz::Color::red())); std::unique_ptr<cv::viz::WCloud> dynamic_cloud =
+  std::unique_ptr<cv::viz::WCloud> static_cloud = std::move(createCloudWidget(static_points_w, cv::viz::Color::red()));
+  std::unique_ptr<cv::viz::WCloud> dynamic_cloud =
       std::move(createCloudWidget(dynamic_points_w, cv::viz::Color::blue()));
 
   if (static_cloud)
@@ -148,7 +149,8 @@ void OpenCvVisualizer3D::drawFrontend(WidgetsMap* widgets_map, const FrontendOut
   // draw pose for object
 }
 
-void OpenCvVisualizer3D::drawBackend(WidgetsMap* widgets_map, const BackendOutput::Ptr& backend) {
+void OpenCvVisualizer3D::drawBackend(WidgetsMap* widgets_map, const BackendOutput::Ptr& backend)
+{
   // draw camera pose
   const gtsam::Pose3 X_wc = backend->estimated_pose_;
   std::unique_ptr<cv::viz::WCameraPosition> cam_pose = std::move(createPoseWidget(X_wc, cv::viz::Color::blue()));
@@ -159,7 +161,6 @@ void OpenCvVisualizer3D::drawBackend(WidgetsMap* widgets_map, const BackendOutpu
     markWidgetForRemoval("camera_pose_opt");
   }
 }
-
 
 std::unique_ptr<cv::viz::WCameraPosition> OpenCvVisualizer3D::createPoseWidget(const gtsam::Pose3& pose_w,
                                                                                const cv::viz::Color& colour)

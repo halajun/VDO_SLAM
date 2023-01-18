@@ -5,7 +5,7 @@
 #include "utils/Metrics.h"
 #include "utils/UtilsOpenCV.h"
 #include "utils/UtilsG2O.h"
-#include "UtilsGtsam.h"
+#include "utils/UtilsGtsam.h"
 #include "Tracking-Tools.h"
 
 #include <opencv2/core/eigen.hpp>
@@ -26,11 +26,12 @@
 
 namespace vdo
 {
+PoseOptimizationFlow2Cam::PoseOptimizationFlow2Cam(const Camera& camera) : camera_(camera)
+{
+}
 
-PoseOptimizationFlow2Cam::PoseOptimizationFlow2Cam(const Camera& camera) : camera_(camera) {}
-
-
-void PoseOptimizationFlow2Cam::operator()(Frame::Ptr previous_frame, Frame::Ptr current_frame) {
+void PoseOptimizationFlow2Cam::operator()(Frame::Ptr previous_frame, Frame::Ptr current_frame)
+{
   float rp_thres = 0.04;  // 0.01
   bool updateflow = true;
 
@@ -56,8 +57,9 @@ void PoseOptimizationFlow2Cam::operator()(Frame::Ptr previous_frame, Frame::Ptr 
   CHECK(current_frame);
   LOG(INFO) << "starting PoseOptimizationFlow2Cam...";
   g2o::VertexSE3Expmap* vSE3 = new g2o::VertexSE3Expmap();
-  //NOTE: we operate on the inverse of the camera pose (which is Twc) -> this is a left over of how the original code was written
-  cv::Mat Tcw_current = utils::gtsamPose3ToCvMat(current_frame->pose_.inverse());  // initial with camera pose
+  // NOTE: we operate on the inverse of the camera pose (which is Twc) -> this is a left over of how the original code
+  // was written
+  cv::Mat Tcw_current = utils::gtsamPose3ToCvMat(current_frame->pose_.inverse());    // initial with camera pose
   cv::Mat Tcw_previous = utils::gtsamPose3ToCvMat(previous_frame->pose_.inverse());  // initial with camera pose
 
   vSE3->setEstimate(utils::toSE3Quat(Tcw_current));
@@ -66,14 +68,16 @@ void PoseOptimizationFlow2Cam::operator()(Frame::Ptr previous_frame, Frame::Ptr 
   optimizer.addVertex(vSE3);
 
   TrackletIds tracklet_ids;  // feature tracklets from the current frame so we can assign values as inliers
-  for(Feature::Ptr current_feature : current_frame->features_) {
+  for (Feature::Ptr current_feature : current_frame->features_)
+  {
     CHECK(current_feature);
     const std::size_t& tracklet_id = current_feature->tracklet_id;
 
     Feature::Ptr previous_feature = previous_frame->getByTrackletId(tracklet_id);
 
-    //the only tracklets we should include are INLIERS and if we have a previous track (ie age > 1)
-    if (current_feature->inlier && previous_feature) {
+    // the only tracklets we should include are INLIERS and if we have a previous track (ie age > 1)
+    if (current_feature->inlier && previous_feature)
+    {
       tracklet_ids.push_back(tracklet_id);
     }
   }
@@ -93,19 +97,19 @@ void PoseOptimizationFlow2Cam::operator()(Frame::Ptr previous_frame, Frame::Ptr 
 
   for (int i = 0; i < N; i++)
   {
-
     const TrackletId tracklet_id = tracklet_ids[i];
     Feature::Ptr previous_feature = previous_frame->getByTrackletId(tracklet_id);
     CHECK(previous_feature);
 
     CHECK(previous_feature->inlier);
-   
+
     nInitialCorrespondences++;
 
     // Set Flow vertices
     g2o::VertexSBAFlow* vFlo = new g2o::VertexSBAFlow();
-    // Eigen::Matrix<double, 3, 1> flow_d = Converter::toVector3d(pLastFrame->ObtainFlowDepthCamera(TemperalMatch[i], 0));
-    gtsam::Vector3 flow_d = obtainFlowDepth(*previous_frame, tracklet_id);
+    // Eigen::Matrix<double, 3, 1> flow_d = Converter::toVector3d(pLastFrame->ObtainFlowDepthCamera(TemperalMatch[i],
+    // 0));
+    gtsam::Vector3 flow_d = tracking_tools::obtainFlowDepth(*previous_frame, tracklet_id);
     vFlo->setEstimate(flow_d.head(2));
     const int id = i + 1;
     vFlo->setId(id);
@@ -179,15 +183,15 @@ void PoseOptimizationFlow2Cam::operator()(Frame::Ptr previous_frame, Frame::Ptr 
     optimizer.addEdge(e_con);
   }
 
-  if (nInitialCorrespondences < 3) {
+  if (nInitialCorrespondences < 3)
+  {
     LOG(WARNING) << "init correspondences < 3";
     return;
-
   }
 
   // // We perform 4 optimizations, after each optimization we classify observation as inlier/outlier
   // // At the next optimization, outliers are not included, but at the end they can be classified as inliers again.
-  const float chi2Mono[4] = { rp_thres,rp_thres, rp_thres, rp_thres };  // {5.991,5.991,5.991,5.991} {4,4,4,4}
+  const float chi2Mono[4] = { rp_thres, rp_thres, rp_thres, rp_thres };  // {5.991,5.991,5.991,5.991} {4,4,4,4}
   const int its[4] = { 100, 100, 100, 100 };
 
   int nBad = 0;
@@ -209,12 +213,12 @@ void PoseOptimizationFlow2Cam::operator()(Frame::Ptr previous_frame, Frame::Ptr 
       Feature::Ptr feature = previous_frame->getByTrackletId(tracklet_id);
       Feature::Ptr current_feature = current_frame->getByTrackletId(tracklet_id);
 
-      //at the start of this optimzation all edges in the graph are constructed from INLIER
-      //observations. So if something is now no longer an inlier it was marked as an outlier during the
-      //optimziation process
+      // at the start of this optimzation all edges in the graph are constructed from INLIER
+      // observations. So if something is now no longer an inlier it was marked as an outlier during the
+      // optimziation process
       // if (!feature->inlier)
       // {
-        e->computeError();
+      e->computeError();
       // }
 
       const float chi2 = e->chi2();
@@ -229,7 +233,7 @@ void PoseOptimizationFlow2Cam::operator()(Frame::Ptr previous_frame, Frame::Ptr 
       else
       {
         // ++++ new added for calculating re-projection error +++
-        //this only calculates for each one -> we should show for each iteration!!
+        // this only calculates for each one -> we should show for each iteration!!
         if (it == 0)
         {
           repro_e = repro_e + std::sqrt(chi2);
@@ -265,15 +269,12 @@ void PoseOptimizationFlow2Cam::operator()(Frame::Ptr previous_frame, Frame::Ptr 
     Feature::Ptr previous_feature = previous_frame->getByTrackletId(tracklet_id);
     CHECK(previous_feature);
 
-
-
     if (updateflow && previous_feature->inlier)
     {
       Feature::Ptr current_feature = current_frame->getByTrackletId(tracklet_id);
 
       CHECK(current_feature);
 
-      
       Eigen::Vector2d flow_new = vFlow->estimate();
       cv::Point2d optimized_flow(flow_new(0), flow_new(1));
       previous_feature->optical_flow = optimized_flow;
@@ -283,7 +284,7 @@ void PoseOptimizationFlow2Cam::operator()(Frame::Ptr previous_frame, Frame::Ptr 
       predicted_kp.pt.y += static_cast<double>(flow_new(1));
       previous_feature->predicted_keypoint = predicted_kp;
 
-      current_feature->keypoint = previous_feature->predicted_keypoint; //update the actual KP
+      current_feature->keypoint = previous_feature->predicted_keypoint;  // update the actual KP
 
       updated_n_flows++;
     }
@@ -303,13 +304,15 @@ IncrementalOptimizer::IncrementalOptimizer(const BackendParams& params, const Ca
   params_.print();
 }
 
-IncrementalOptimizer::~IncrementalOptimizer() {
-  //do some logging at the end
+IncrementalOptimizer::~IncrementalOptimizer()
+{
+  // do some logging at the end
   int num_more_than_five_tracket = 0;
-  //TODO: check if still inliers?
-  for(const auto& tracklet_id_feature : all_tracklets_) {
-
-    if(tracklet_id_feature.second.size() > 5) {
+  // TODO: check if still inliers?
+  for (const auto& tracklet_id_feature : all_tracklets_)
+  {
+    if (tracklet_id_feature.second.size() > 5)
+    {
       num_more_than_five_tracket++;
     }
   }
@@ -388,7 +391,7 @@ BackendOutput::Ptr IncrementalOptimizer::processNominal(const FrontendOutput& in
 
   LOG(INFO) << "Opt pose\n" << best_pose;
 
-  //this shows a decrease in error always!!
+  // this shows a decrease in error always!!
   calculatePoseError(best_pose, ground_truth->X_wc, t_error_after_opt, r_error_after_opt);
   LOG(INFO) << std::fixed << "ATE Errors:\n"
             << "Error before: t - " << t_error_before_opt << ", r - " << r_error_before_opt << "\n"
@@ -410,8 +413,6 @@ void IncrementalOptimizer::handleStaticFeatures(const FeaturePtrs& static_featur
     const size_t frame_id = feature.frame_id;
     if (feature.inlier)
     {
-
-
       gtsam::Key pose_key = poseKey(frame_id);
       // LOG(INFO) << pose_key;
       gtsam::Symbol symb(pose_key);
@@ -438,7 +439,7 @@ void IncrementalOptimizer::handleStaticFeatures(const FeaturePtrs& static_featur
         collectFeature(feature);
       }
 
-      //we also just all to the static map
+      // we also just all to the static map
       // if not already in tracklet map, create new vector and add
       if (all_tracklets_.find(tracklet_id) != all_tracklets_.end())
       {
@@ -449,7 +450,6 @@ void IncrementalOptimizer::handleStaticFeatures(const FeaturePtrs& static_featur
         all_tracklets_.insert({ tracklet_id, { feature_ptr } });
       }
     }
-
   }
 
   // LOG(INFO) <<

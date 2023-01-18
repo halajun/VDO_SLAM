@@ -73,13 +73,14 @@ add_library(${PROJECT_NAME} SHARED
 src/System.cc
 src/Tracking.cc
 src/DataProvider.cc
-src/UtilsGtsam.cc
 src/FeatureTracker.cc
 src/FactorGraphManager.cc
 src/Tracking-Tools.cc
+src/MotionSolver.cc
 
 src/utils/ParamParser.cc
 src/utils/UtilsOpenCV.cc
+src/utils/UtilsGtsam.cc
 src/utils/UtilsG2O.cc
 src/utils/Logger.cc
 

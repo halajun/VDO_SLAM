@@ -1,15 +1,17 @@
 from __future__ import print_function
 from tools.parsers import ParseFrontendMetrics
 import os
+import sys
 
 class Runner(object):
 
-    def __init__(self, executable_path, output_path, dataset_path, param_file, vdo_slam_executable = "vdo_slam_kitti") -> None:
+    def __init__(self, executable_path, output_path, dataset_path, param_file, log_level, vdo_slam_executable = "vdo_slam_kitti") -> None:
         self.executable_path = os.path.abspath(executable_path)
         self.output_path = os.path.abspath(output_path)
         self.dataset_path = os.path.abspath(dataset_path)
         self.param_file = os.path.abspath(param_file)
         self.vdo_slam_executable = vdo_slam_executable
+        self.log_level = log_level
 
 
 
@@ -28,7 +30,7 @@ class Runner(object):
                 --logtostderr=1 \
                 --colorlogtostderr=1 \
                 --log_prefix=1 \
-                --v=7"
+                --v={self.log_level}"
             return_code = subprocess.call(command, shell=True)
             if return_code is 0:
                 thread_return['success'] = True
@@ -50,11 +52,12 @@ def run(args):
     executable_path = os.path.abspath("../build")
     output_logs_folder = os.path.abspath("../output_logs") #the default location
 
+
     if args.output_logs:
-        output_logs_folder =os.path.abspath(args.output_logs)
+        output_logs_folder = os.path.abspath(args.output_logs)
 
     if args.dataset_path and args.param_file:
-        result = Runner( executable_path, output_logs_folder, args.dataset_path, args.param_file).spin()
+        result = Runner( executable_path, output_logs_folder, args.dataset_path, args.param_file, args.log_level).spin()
         print(f"Dataset was run with status {result}")
     elif args.dataset_path or args.param_file:
         print("Args must be run with both -d/--dataset_path and -p/--param_file")
@@ -76,24 +79,25 @@ def parser():
     output_opts = shared_parser.add_argument_group("output options")
 
     input_opts.add_argument("-d", "--dataset_path",
-                                 help="Absoltute or relative path to dataset")
+                                 help="Absoltute or relative path to dataset folder", required=True)
     input_opts.add_argument("-p", "--param_file",
-                                 help="Absolute or relative path to param file")
+                                 help="Absolute or relative path to param file", required=True)
 
     output_opts.add_argument(
         "--plot", action="store_true", help="show plot window",)
     output_opts.add_argument(
         "--output_logs", help="Where the output logs should be stored",)
-    output_opts.add_argument("--save_plots", action="store_true",
-                             help="Save plots?")
-    output_opts.add_argument("--write_website", action="store_true",
-                             help="Write website with results?")
-    output_opts.add_argument("--save_boxplots", action="store_true",
-                             help="Save boxplots?")
-    output_opts.add_argument("--save_results", action="store_true",
-                             help="Save results?")
-    output_opts.add_argument("-v", "--verbose_sparkvio", action="store_true",
-                             help="Make SparkVIO log all verbosity to console. Useful for debugging if a run failed.")
+    # output_opts.add_argument("--save_plots", action="store_true",
+    #                          help="Save plots?")
+    # output_opts.add_argument("--write_website", action="store_true",
+    #                          help="Write website with results?")
+    # output_opts.add_argument("--save_boxplots", action="store_true",
+    #                          help="Save boxplots?")
+    # output_opts.add_argument("--save_results", action="store_true",
+    #                          help="Save results?")
+    output_opts.add_argument("-l", "--log_level",
+                             help="Glogging level to use.",
+                             default=7)
 
     main_parser = argparse.ArgumentParser(description="{}".format(basic_desc))
     sub_parsers = main_parser.add_subparsers(dest="subcommand")
@@ -101,7 +105,6 @@ def parser():
     return shared_parser
 
 import argcomplete
-import sys
 if __name__ == '__main__':
     # log.setLevel("INFO")
     parser = parser()

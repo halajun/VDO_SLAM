@@ -4,9 +4,9 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
-
+//totoal namespace importing
 using namespace vdo;
-
+using namespace vdo::tracking_tools;
 
 TEST(testTrackingTools, determineOutlierIdsBasic)
 {

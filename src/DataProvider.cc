@@ -1,5 +1,5 @@
 #include "DataProvider.h"
-#include "UtilsGtsam.h"
+#include "utils/UtilsGtsam.h"
 
 #include <opencv2/optflow.hpp>
 #include <glog/logging.h>
@@ -32,7 +32,6 @@ bool loadSemanticMask(const std::string& image_path, cv::Mat& mask)
   std::ifstream file_mask;
   file_mask.open(image_path.c_str());
 
-
   // Main loop
   int count = 0;
   while (!file_mask.eof())
@@ -64,7 +63,8 @@ bool loadSemanticMask(const std::string& image_path, cv::Mat& mask)
   return true;
 }
 
-void convertToUniqueLabels(const cv::Mat& semantic_instance_mask, cv::Mat& unique_mask) {
+void convertToUniqueLabels(const cv::Mat& semantic_instance_mask, cv::Mat& unique_mask)
+{
   semantic_instance_mask.copyTo(unique_mask);
 
   cv::Mat mask_8;
@@ -73,23 +73,23 @@ void convertToUniqueLabels(const cv::Mat& semantic_instance_mask, cv::Mat& uniqu
   std::vector<cv::Mat> contours;
   cv::Mat hierarchy;
   cv::findContours(object_mask, contours, hierarchy, cv::RETR_CCOMP, cv::CHAIN_APPROX_SIMPLE);
-  cv::Mat drawing = cv::Mat::zeros( semantic_instance_mask.size(), CV_8UC3 );
+  cv::Mat drawing = cv::Mat::zeros(semantic_instance_mask.size(), CV_8UC3);
   // LOG(INFO) << "Found unique obj - " <<  contours.size();
-  for( size_t i = 0; i< contours.size(); i++ )
+  for (size_t i = 0; i < contours.size(); i++)
   {
-      cv::Scalar color = cv::Scalar(static_cast<int>(i+1), 0, 0 );
-      cv::drawContours( drawing, contours, (int)i, color, CV_FILLED, cv::LINE_8, hierarchy, 0 );
-
+    cv::Scalar color = cv::Scalar(static_cast<int>(i + 1), 0, 0);
+    cv::drawContours(drawing, contours, (int)i, color, CV_FILLED, cv::LINE_8, hierarchy, 0);
   }
 
   unique_mask = cv::Mat::zeros(semantic_instance_mask.size(), CV_32SC1);
-  for(int i = 0; i < unique_mask.rows; i++) {
-    for(int j = 0; j < unique_mask.cols; j++) {
-        unique_mask.at<int>(i, j) = drawing.at<cv::Vec3b>(i, j)[0];
+  for (int i = 0; i < unique_mask.rows; i++)
+  {
+    for (int j = 0; j < unique_mask.cols; j++)
+    {
+      unique_mask.at<int>(i, j) = drawing.at<cv::Vec3b>(i, j)[0];
     }
   }
 }
-
 
 size_t DataProvider::next(Inputs& input)
 {

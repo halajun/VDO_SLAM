@@ -3,8 +3,6 @@
 #include "utils/UtilsOpenCV.h"
 #include "viz/OpenCvDisplay.h"
 
-
-
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <gtest/gtest.h>
@@ -41,12 +39,10 @@ protected:
     loadFlow(kitti_test_data_path + "000000.flo", flow);
     mask = cv::Mat(flow.rows, flow.cols, CV_32SC1);
     loadSemanticMask(kitti_test_data_path + "000101.txt", mask);
-
   }
 
   std::string kitti_test_data_path;
   cv::Mat mask;
-
 };
 
 // TEST_F(TestDataProvider, testUniqueObject)
@@ -58,8 +54,6 @@ protected:
 //     cv::Mat mask_8;
 //     mask.convertTo(mask_8, CV_8UC1);
 
-
-    
 //     cv::RNG rng(12345);
 //     int thresh = 1;
 //     cv::Mat canny_output;

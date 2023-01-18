@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 
-CHECKOUT_HASH=$1
+TAG=$1
 
-if [ -z $CHECKOUT_HASH ]; then
-    CHECKOUT_HASH=gtsam-refactor
+if [ -z $TAG ]; then
+    echo "Usage: ./docker/build_docker.sh TAG"
+    exit -1
 fi
 
-docker build --build-arg CHECKOUT_HASH=$CHECKOUT_HASH -f Dockerfile.vdo_slam -t docker_vdo_slam .
+docker build -f docker/Dockerfile.vdo_slam --ssh default -t $TAG .

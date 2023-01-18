@@ -6,11 +6,11 @@ CONTAINER_IMAGE_NAME=docker_vdo_slam
 ### EDIT THIS TO WHEREVER YOU'RE STORING YOU DATA ###
 # folder should exist before you mount it
 LOCAL_DATA_FOLDER=/media/jesse/T73/datasets
-LOCAL_SSH_KEY_FOLDER=~/.ssh
+# LOCAL_SSH_KEY_FOLDER=~/.ssh
 
 
 CONTAINER_DATA_FOLDER=/root/data
-CONTAINER_SSH_FOLDER=/root/.ssh
+# CONTAINER_SSH_FOLDER=/root/.ssh
 
 
 xhost +local:root
@@ -79,7 +79,8 @@ if "$USE_NVIDIA"; then
         -i -d --gpus all \
         --volume $XSOCK:$XSOCK:rw \
         -v $LOCAL_DATA_FOLDER:$CONTAINER_DATA_FOLDER \
-        -v $LOCAL_SSH_KEY_FOLDER:$CONTAINER_SSH_FOLDER \
+        -e SSH_AUTH_SOCK=/ssh-agent \
+        -v "$(readlink -f """$SSH_AUTH_SOCK""")":/ssh-agent \
         -v /var/run/docker.sock:/var/run/docker.sock \
         --env DISPLAY=$DISPLAY \
         --env XAUTHORITY=$XAUTH \

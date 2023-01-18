@@ -86,7 +86,7 @@ FrontendOutput::Ptr Tracking::processBoostrap(const InputPacket& input,
   }
   else
   {
-    frame->pose_ = gtsam::Pose3::identity();
+    frame->pose_ = gtsam::Pose3::Identity();
     LOG(INFO) << "Initalising pose identity matrix " << frame->pose_;
   }
 
@@ -326,7 +326,7 @@ size_t Tracking::trackDynamicObjects(Frame::Ptr frame, ObjectObservations& objec
           lmk_current = current_pose.transformFrom(lmk_current);
 
           Landmark flow_world = lmk_current - lmk_previous;
-          gtsam::Pose3 flow_world_transform(gtsam::Rot3::identity(), flow_world);
+          gtsam::Pose3 flow_world_transform(gtsam::Rot3::Identity(), flow_world);
           // this is in the world frame
           // we conver to camera frame which will be the flow from the previous point to the current point
           // //^c_{t-1}F_t = ^cX_{t-1} * ^w_{t-1}F_t * ^cX_{t-1}^{-1}

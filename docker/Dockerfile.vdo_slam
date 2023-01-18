@@ -63,9 +63,9 @@ RUN apt-get update && apt-get install -y \
 
 
 # Install xvfb to provide a display to container for GUI realted testing.
-RUN apt-get update && apt-get install -y xvfb
+RUN apt-get update && apt-get install -y xvfb python3-dev python3-setuptools
 
-RUN pip3 install pre-commit scipy matplotlib
+RUN pip3 install setuptools pre-commit scipy matplotlib
 
 
 

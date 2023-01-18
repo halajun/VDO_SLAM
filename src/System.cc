@@ -113,7 +113,7 @@ gtsam::Pose3 System::TrackRGBD(const InputPacket& input, boost::optional<const G
   // TODO: update frontend
   VisualiserInput viz_input(frontend_output, backend_output);
   viz->process(viz_input);
-  return gtsam::Pose3::identity();
+  return gtsam::Pose3::Identity();
 }
 
 }  // namespace vdo

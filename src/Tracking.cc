@@ -778,10 +778,12 @@ void Tracking::Track()
         mCurrentFrame.vObjCentre3D.resize(ObjIdNew.size());
         mCurrentFrame.vnObjID.resize(ObjIdNew.size());
         mCurrentFrame.vnObjInlierID.resize(ObjIdNew.size());
+        mCurrentFrame.vObjectPoseDyna.resize(ObjIdNew.size());
         repro_e.resize(ObjIdNew.size(),0.0);
         cv::Mat Last_Twc_gt = Converter::toInvMatrix(mLastFrame.mTcw_gt);
         cv::Mat Curr_Twc_gt = Converter::toInvMatrix(mCurrentFrame.mTcw_gt);
         // main loop
+        cv::Mat objectFrame(1000, 1000, CV_8UC3, cv::Scalar(255,255,255));
         for (int i = 0; i < ObjIdNew.size(); ++i)
         {
             cout << endl << "Processing Object No.[" << mCurrentFrame.nModLabel[i] << "]:" << endl;
@@ -830,6 +832,8 @@ void Tracking::Track()
 
             if (!bCheckGT1 || !bCheckGT2)
             {
+                if(!bCheckGT1) cout << "No previous gt motion" << std::endl;
+                
                 cout << "Found a detected object with no ground truth motion! ! !" << endl;
                 mCurrentFrame.bObjStat[i] = false;
                 mCurrentFrame.vObjMod_gt[i] = cv::Mat::eye(4,4, CV_32F);
@@ -854,15 +858,29 @@ void Tracking::Track()
             // ***************************************************************************************
 
             cv::Mat ObjCentre3D_pre = (cv::Mat_<float>(3,1) << 0.f, 0.f, 0.f);
+            cv::Mat ObjCentre3D_current = (cv::Mat_<float>(3,1) << 0.f, 0.f, 0.f);
             for (int j = 0; j < ObjIdNew[i].size(); ++j)
             {
                 // save object centroid in current frame
+                {
                 cv::Mat x3D_p = mLastFrame.UnprojectStereoObject(ObjIdNew[i][j],0);
                 ObjCentre3D_pre = ObjCentre3D_pre + x3D_p;
+                }
+
+                {
+                cv::Mat x3D_p = mCurrentFrame.UnprojectStereoObject(ObjIdNew[i][j],0);
+                ObjCentre3D_current = ObjCentre3D_current + x3D_p;
+                }
 
             }
             ObjCentre3D_pre = ObjCentre3D_pre/ObjIdNew[i].size();
             mCurrentFrame.vObjCentre3D[i] = ObjCentre3D_pre;
+
+            ObjCentre3D_current = ObjCentre3D_current/ObjIdNew[i].size();
+
+
+
+
 
 
             s_3_1 = clock();
@@ -871,10 +889,90 @@ void Tracking::Track()
             std::vector<int> ObjIdTest = ObjIdNew[i];
             mCurrentFrame.vnObjID[i] = ObjIdTest;
             std::vector<int> ObjIdTest_in;
+
+
+
             mCurrentFrame.mInitModel = GetInitModelObj(ObjIdTest,ObjIdTest_in,i);
             // cv::Mat H_tmp = Converter::toInvMatrix(mCurrentFrame.mTcw_gt)*mCurrentFrame.mInitModel;
             // cout << "Initial motion estimation: " << endl << H_tmp << endl;
             e_3_1 = clock();
+
+            // Set MapPoint vertices
+            const int num_points = ObjIdTest_in.size();
+            int tracked_object = mCurrentFrame.nModLabel[i];
+            
+
+
+            //object point positions in object frame
+            std::map<int, std::map<int, cv::Mat>>& point_object_frame_initalisation = mpMap->vnPointObjectFrame;
+            std::map<int, cv::Mat>& objectPoseInitial = mpMap->vnObjectPoseInitial;
+            if(point_object_frame_initalisation.find(tracked_object) == point_object_frame_initalisation.end()) {
+                point_object_frame_initalisation[tracked_object] = std::map<int, cv::Mat>();
+
+                cv::Mat L_w = cv::Mat::eye(4,4, CV_32F);
+                L_w.at<float>(0,3) = ObjCentre3D_current.at<float>(0, 0);
+                L_w.at<float>(1,3) = ObjCentre3D_current.at<float>(1, 0);
+                L_w.at<float>(2,3) = ObjCentre3D_current.at<float>(2, 0);
+                objectPoseInitial[tracked_object] = L_w;
+
+            }
+
+
+            std::map<int, cv::Mat>& points_in_object_frame = point_object_frame_initalisation[tracked_object];
+            for(int point_idx = 0; point_idx < num_points; point_idx++) {
+                int feature_idx = ObjIdTest_in[point_idx];
+                 if(points_in_object_frame.find(feature_idx) == points_in_object_frame.end()) {
+                    //initalise with x_o (or m in L)
+                    cv::Mat m_w = mCurrentFrame.UnprojectStereoObject(feature_idx,0);
+                    cv::Mat m_w_homogenous = (cv::Mat_<float>(4,1) << 0.f, 0.f, 0.f, 1.f);
+                    m_w_homogenous.at<float>(0, 0) = m_w.at<float>(0, 0);
+                    m_w_homogenous.at<float>(1, 0) = m_w.at<float>(1, 0);
+                    m_w_homogenous.at<float>(2, 0) = m_w.at<float>(2, 0);
+                    
+                    const cv::Mat L_w = objectPoseInitial[tracked_object];
+
+                    cv::Mat m_L_homogenous = Converter::toInvMatrix(L_w) * m_w_homogenous;
+                    cv::Mat m_L = (cv::Mat_<float>(3,1) << 0.f, 0.f, 0.f);
+                    m_L.at<float>(0, 0) = m_L_homogenous.at<float>(0, 0);
+                    m_L.at<float>(1, 0) = m_L_homogenous.at<float>(1, 0);
+                    m_L.at<float>(2, 0) = m_L_homogenous.at<float>(2, 0);
+                    points_in_object_frame[feature_idx] = m_L;
+                }
+
+                 //draw object 1
+                if(tracked_object == 1) {
+                    // const float u = mCurrentFrame.mvObjKeys[feature_idx].pt.x;
+                    // const float v = mCurrentFrame.mvObjKeys[feature_idx].pt.y;
+
+                    const cv::Mat m_L = points_in_object_frame[feature_idx];
+                    const cv::Mat L_w = objectPoseInitial[tracked_object];
+                    cv::Mat m_L_homogenous = (cv::Mat_<float>(4,1) << 0.f, 0.f, 0.f, 1.f);
+                    m_L_homogenous.at<float>(0, 0) = m_L.at<float>(0, 0);
+                    m_L_homogenous.at<float>(1, 0) = m_L.at<float>(1, 0);
+                    m_L_homogenous.at<float>(2, 0) = m_L.at<float>(2, 0);
+
+                    cv::Mat m_w_homogenous = L_w * m_L_homogenous;
+                    cv::Mat m_w = (cv::Mat_<float>(3,1) << 0.f, 0.f, 0.f);
+                    float x = m_w_homogenous.at<float>(0, 0);
+                    float y = m_w_homogenous.at<float>(1, 0);
+                    float z= m_w_homogenous.at<float>(2, 0);
+
+
+                    float fx = mK.at<float>(0,0);
+                    float cu = mK.at<float>(0,2);
+                    float fy = mK.at<float>(1,1);
+                    float cv = mK.at<float>(1,2);
+                    float u = static_cast<float>((x * fx) / z + cu);
+                    float v = static_cast<float>((y * fy) / z + cv);
+
+                    cv::circle(objectFrame, cv::Point(u, v), 1, CV_RGB(128, 0, 128), 2); // orange
+                }
+                
+            }
+
+
+            // cv::Mat object_pose_dyna_slam = GetInitObjPoseDynaSlam(ObjIdTest_in, i);
+
 
             if (ObjIdTest_in.size()<50)
             {
@@ -886,6 +984,7 @@ void Tracking::Track()
                 mCurrentFrame.vObjSpeed_gt[i] = 0.0;
                 mCurrentFrame.vSpeed[i] = cv::Point2f(0.f, 0.f);
                 mCurrentFrame.vnObjInlierID[i] = ObjIdTest_in;
+                mCurrentFrame.vObjectPoseDyna[i] = cv::Mat::eye(4,4, CV_32F);
                 continue;
             }
 
@@ -939,6 +1038,7 @@ void Tracking::Track()
             obj_mot_time = obj_mot_time + (double)(e_3_1-s_3_1)/CLOCKS_PER_SEC*1000 + (double)(e_3_2-s_3_2)/CLOCKS_PER_SEC*1000;
 
             mCurrentFrame.vnObjInlierID[i] = InlierID;
+            mCurrentFrame.vObjectPoseDyna[i] = cv::Mat::eye(4,4, CV_32F);;
 
             // cout << "computed motion of object No. " << mCurrentFrame.nSemPosition[i] << " :" << endl;
             // cout << mCurrentFrame.vObjMod[i] << endl;
@@ -999,6 +1099,9 @@ void Tracking::Track()
 
             // *****************************************************************************
         }
+
+        cv::imshow("Object reference points", objectFrame);
+        cv::waitKey(1);
 
         if (t_con!=0)
         {
@@ -1075,7 +1178,7 @@ void Tracking::Track()
         mpMap->vmCameraPose.push_back(CameraPoseTmp);
         mpMap->vmCameraPose_RF.push_back(CameraPoseTmp);
         // (6) Rigid motions and label, including camera (label=0) and objects (label>0)
-        std::vector<cv::Mat> Mot_Tmp, ObjPose_Tmp;
+        std::vector<cv::Mat> Mot_Tmp, ObjPose_Tmp, ObjectPoseDyna_Tmp;
         std::vector<int> Mot_Lab_Tmp, Sem_Lab_Tmp;
         std::vector<bool> Obj_Stat_Tmp;
         // (6.1) Save Camera Motion and Label
@@ -1095,6 +1198,7 @@ void Tracking::Track()
             ObjPose_Tmp.push_back(mCurrentFrame.vObjPosePre[i]);
             Mot_Lab_Tmp.push_back(mCurrentFrame.nModLabel[i]);
             Sem_Lab_Tmp.push_back(mCurrentFrame.nSemPosition[i]);
+            ObjectPoseDyna_Tmp.push_back(mCurrentFrame.vObjectPoseDyna[i]);
         }
         // (6.3) Save to The Map
         mpMap->vmRigidMotion.push_back(Mot_Tmp);
@@ -1103,6 +1207,7 @@ void Tracking::Track()
         mpMap->vnRMLabel.push_back(Mot_Lab_Tmp);
         mpMap->vnSMLabel.push_back(Sem_Lab_Tmp);
         mpMap->vbObjStat.push_back(Obj_Stat_Tmp);
+        mpMap->vmObjPosePreDynaSlam.push_back(ObjectPoseDyna_Tmp);
 
         // (6.4) Count the tracking times of each unique object
         if (max_id>1)
@@ -1188,6 +1293,7 @@ void Tracking::Track()
 
     bGlobalBatch = true;
     if (f_id==StopFrame) // bFrame2Frame f_id>=2
+    // if (f_id>=50) // bFrame2Frame f_id>=2
     {
         // Metric Error BEFORE Optimization
         GetMetricError(mpMap->vmCameraPose,mpMap->vmRigidMotion, mpMap->vmObjPosePre,
@@ -1206,6 +1312,7 @@ void Tracking::Track()
             // GetVelocityError(mpMap->vmRigidMotion_RF, mpMap->vp3DPointDyn, mpMap->vnFeatLabel,
             //                  mpMap->vnRMLabel, mpMap->vfAllSpeed_GT, mpMap->vnAssoDyn, mpMap->vbObjStat);
         }
+
     }
 
     mState = OK;
@@ -1714,16 +1821,79 @@ cv::Mat Tracking::GetInitModelCam(const std::vector<int> &MatchId, std::vector<i
     return output;
 }
 
+cv::Mat Tracking::GetInitObjPoseDynaSlam(const std::vector<int> &ObjId, const int objid) {
+    const std::map<int, cv::Mat>& points_in_object_frame = mpMap->vnPointObjectFrame[objid];
+    const size_t N = points_in_object_frame.size();
+
+     // construct input
+    std::vector<cv::Point2f> cur_2d(N);
+    std::vector<cv::Point3f> object_frame_points(N);
+    size_t i = 0;
+    for(const auto it : points_in_object_frame) {
+        const int feature_idx = it.first;
+        const cv::Mat m_L = it.second;  
+
+        cv::Point2f tmp_2d;
+        tmp_2d.x = mCurrentFrame.mvObjKeys[feature_idx].pt.x;
+        tmp_2d.y = mCurrentFrame.mvObjKeys[feature_idx].pt.y;
+        cur_2d[i] = tmp_2d;
+        cv::Point3f tmp_3d; //tracked point on object frame
+        tmp_3d.x = m_L.at<float>(0);
+        tmp_3d.y = m_L.at<float>(1);
+        tmp_3d.z = m_L.at<float>(2);
+        object_frame_points[i] = tmp_3d;
+
+        i++;
+    }
+
+    // camera matrix & distortion coefficients
+    cv::Mat camera_mat(3, 3, CV_64FC1);
+    cv::Mat distCoeffs = cv::Mat::zeros(1, 4, CV_64FC1);
+    camera_mat.at<double>(0, 0) = mK.at<float>(0,0);
+    camera_mat.at<double>(1, 1) = mK.at<float>(1,1);
+    camera_mat.at<double>(0, 2) = mK.at<float>(0,2);
+    camera_mat.at<double>(1, 2) = mK.at<float>(1,2);
+    camera_mat.at<double>(2, 2) = 1.0;
+
+    // output
+    cv::Mat Rvec(3, 1, CV_64FC1);
+    cv::Mat Tvec(3, 1, CV_64FC1);
+    cv::Mat d(3, 3, CV_64FC1);
+    cv::Mat inliers;
+
+    // solve
+    int iter_num = 500;
+    double reprojectionError = 0.4, confidence = 0.98; // 0.3 0.5 1.0
+    cv::solvePnPRansac(object_frame_points, cur_2d, camera_mat, distCoeffs, Rvec, Tvec, false,
+               iter_num, reprojectionError, confidence, inliers, cv::SOLVEPNP_AP3P); // AP3P EPNP P3P ITERATIVE DLS
+
+    cv::Rodrigues(Rvec, d);
+
+    cv::Mat G = cv::Mat::eye(4,4,CV_32F);
+    // assign the result to current pose
+    //at this stage object pose is actually T_cw * T_wo
+    G.at<float>(0,0) = d.at<double>(0,0); G.at<float>(0,1) = d.at<double>(0,1); G.at<float>(0,2) = d.at<double>(0,2); G.at<float>(0,3) = Tvec.at<double>(0,0);
+    G.at<float>(1,0) = d.at<double>(1,0); G.at<float>(1,1) = d.at<double>(1,1); G.at<float>(1,2) = d.at<double>(1,2); G.at<float>(1,3) = Tvec.at<double>(1,0);
+    G.at<float>(2,0) = d.at<double>(2,0); G.at<float>(2,1) = d.at<double>(2,1); G.at<float>(2,2) = d.at<double>(2,2); G.at<float>(2,3) = Tvec.at<double>(2,0);
+    
+    //object 
+    // cv::Mat Two
+    return G;
+}
+
 cv::Mat Tracking::GetInitModelObj(const std::vector<int> &ObjId, std::vector<int> &ObjId_sub, const int objid)
 {
     cv::Mat Mod = cv::Mat::eye(4,4,CV_32F);
     int N = ObjId.size();
+
+
 
     // construct input
     std::vector<cv::Point2f> cur_2d(N);
     std::vector<cv::Point3f> pre_3d(N);
     for (int i = 0; i < N; ++i)
     {
+        
         cv::Point2f tmp_2d;
         tmp_2d.x = mCurrentFrame.mvObjKeys[ObjId[i]].pt.x;
         tmp_2d.y = mCurrentFrame.mvObjKeys[ObjId[i]].pt.y;

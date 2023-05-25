@@ -35,8 +35,28 @@ class LandmarkMotionTernaryEdge: public BaseMultiEdge<3,Vector3>
       _measurement = m;
     }
 
+    virtual void setFrameId(int frame_id){
+      frame_id_ = frame_id;
+    }
+
+    virtual void setObjectLabel(int object_label){
+      object_label_ = object_label;
+    }
+
+    virtual void setCameraPoseIdx(int camera_pose_idx){
+      camera_pose_idx_ = camera_pose_idx;
+    }
+
+    virtual void setPositionIdx(int position_idx){
+      position_id_ = position_idx;
+    }
+
 private:
     Eigen::Matrix<number_t,3,6,Eigen::ColMajor> J;
+    int frame_id_{-1};
+    int object_label_{-1};
+    int camera_pose_idx_{-1};
+    int position_id_{-1};
 
 };
 

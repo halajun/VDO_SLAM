@@ -68,6 +68,8 @@ namespace g2o {
       v=_measurement;
       return true;
     }
+
+    virtual void setAsDynamic() {is_dynamic_ = 1; }
     
     virtual int measurementDimension() const {return 3;}
 
@@ -84,6 +86,7 @@ namespace g2o {
     const ParameterSE3Offset* offsetParameter() { return offsetParam; }
   private:
     Eigen::Matrix<number_t,3,9,Eigen::ColMajor> J; // jacobian before projection
+    int is_dynamic_{0}; //ie false
     ParameterSE3Offset* offsetParam;
     CacheSE3Offset* cache;
     virtual bool resolveCaches();

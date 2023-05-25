@@ -611,6 +611,9 @@ void Optimizer::PartialBatchOptimization(Map* pMap, const cv::Mat Calib_K, const
                         em->setVertex(1, optimizer.vertex(count_unique_id));
                         em->setVertex(2, optimizer.vertex(ObjPositionID));
                         em->setMeasurement(Eigen::Vector3d(0,0,0));
+                        em->setFrameId(i);
+                        std::cout << "Object id " << pMap->nObjID[TrackID] << std::endl;
+                        em->setObjectLabel(pMap->nObjID[TrackID]);
                         em->information() = Eigen::Matrix3d::Identity()/sigma2_obj;
                         if (ROBUST_KERNEL)
                         {
@@ -1547,6 +1550,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                     g2o::EdgeSE3PointXYZ * e = new g2o::EdgeSE3PointXYZ();
                     e->setVertex(0, optimizer.vertex(CurFrameID));
                     e->setVertex(1, optimizer.vertex(count_unique_id));
+                    e->setAsDynamic();
                     cv::Mat Xc = Optimizer::Get3DinCamera(pMap->vpFeatDyn[i][j],pMap->vfDepDyn[i][j],Calib_K);
                     e->setMeasurement(Converter::toVector3d(Xc));
                     e->information() = Eigen::Matrix3d::Identity()/sigma2_3d_dyn;
@@ -1653,12 +1657,19 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                         continue;
                     }
 
+                    std::cout << pMap->nObjID[TrackID] << " " << TrackID << " " << pMap->vnFeatLabel[i-1][j] << std::endl;
+                    std::cout << pMap->vnSMLabelGT[i-1][pMap->nObjID[TrackID]] << " " << pMap->vnSMLabelGT[i][pMap->nObjID[TrackID]] << std::endl;
+                    std::cout << pMap->vnSMLabelGT[i-1].size() << " " << pMap->vnSMLabelGT[i].size() << std::endl;
+
                     // get the object position id of current feature
                     int ObjPositionID = -1;
+                    int gt_object_label = -1;
                     for (int k = 1; k < pMap->vnRMLabel[i-1].size(); ++k)
                     {
                         if (pMap->vnRMLabel[i-1][k]==pMap->nObjID[TrackID]){
                             ObjPositionID = ObjUniqueID[k-1];
+                            // gt_object_label = pMap->vnSMLabelGT[i-1][k];
+                            gt_object_label = pMap->vnSMLabelGT[i-1][pMap->nObjID[TrackID]];
                             break;
                         }
                     }
@@ -1679,6 +1690,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                         optimizer.addVertex(v_p);
                         // (4) save <EDGE_3D>
                         g2o::EdgeSE3PointXYZ * e = new g2o::EdgeSE3PointXYZ();
+                        e->setAsDynamic();
                         e->setVertex(0, optimizer.vertex(CurFrameID));
                         e->setVertex(1, optimizer.vertex(count_unique_id));
                         cv::Mat Xc = Optimizer::Get3DinCamera(pMap->vpFeatDyn[i][j],pMap->vfDepDyn[i][j],Calib_K);
@@ -1710,6 +1722,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                         g2o::EdgeSE3PointXYZ * e = new g2o::EdgeSE3PointXYZ();
                         e->setVertex(0, optimizer.vertex(CurFrameID));
                         e->setVertex(1, optimizer.vertex(count_unique_id));
+                        e->setAsDynamic();
                         cv::Mat Xc = Optimizer::Get3DinCamera(pMap->vpFeatDyn[i][j],pMap->vfDepDyn[i][j],Calib_K);
                         e->setMeasurement(Converter::toVector3d(Xc));
                         e->information() = Eigen::Matrix3d::Identity()/sigma2_3d_dyn;
@@ -1730,7 +1743,16 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                         em->setVertex(0, optimizer.vertex(FeaMakTmp));
                         em->setVertex(1, optimizer.vertex(count_unique_id));
                         em->setVertex(2, optimizer.vertex(ObjPositionID));
+                        em->setFrameId(i);
+                        // em->setObjectLabel(pMap->nObjID[TrackID]);
+                        em->setObjectLabel(gt_object_label);
+                        em->setPositionIdx(PositionID);
+            
+                        // assert(i < pMap->vnFeatLabel.size() && "i not < size " + std::to_string(pMap->vnFeatLabel.size()));
+                        // assert(j < pMap->vnFeatLabel[i].size() && "j not < size " + std::to_string(pMap->vnFeatLabel[i].size()));
+                        // em->setObjectLabel(pMap->vnSMLabelGT[i-1][j]);
                         em->setMeasurement(Eigen::Vector3d(0,0,0));
+                        em->setCameraPoseIdx(CurFrameID);
                         em->information() = Eigen::Matrix3d::Identity()/sigma2_obj;
                         if (ROBUST_KERNEL){
                             g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
@@ -1744,7 +1766,10 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
                         vnFeaMakDyn[i][j] = count_unique_id;
                         count_unique_id++;
                     }
+
+                
                 }
+                // std::cout << pMap->vpFeatDyn[i].size() << " " << pMap->vnFeatLabel[i-1].size() << std::endl;
             }
         }
 
@@ -1753,6 +1778,7 @@ void Optimizer::FullBatchOptimization(Map* pMap, const cv::Mat Calib_K)
         // update frame ID
         PreFrameID = CurFrameID;
     }
+
 
     // // show feature mark index
     // for (int i = 0; i < StaTracks.size(); ++i)

@@ -47,7 +47,7 @@ Frame::Frame(const Frame &frame)
      mTcw_gt(frame.mTcw_gt), vObjPose_gt(frame.vObjPose_gt), nSemPosi_gt(frame.nSemPosi_gt),
      vObjLabel(frame.vObjLabel), nModLabel(frame.nModLabel), nSemPosition(frame.nSemPosition),
      bObjStat(frame.bObjStat), vObjMod(frame.vObjMod), mvCorres(frame.mvCorres), mvObjCorres(frame.mvObjCorres),
-     mvFlowNext(frame.mvFlowNext), mvObjFlowNext(frame.mvObjFlowNext)
+     mvFlowNext(frame.mvFlowNext), mvObjFlowNext(frame.mvObjFlowNext), vObjectPoseDyna(frame.vObjectPoseDyna)
 {
     for(int i=0;i<FRAME_GRID_COLS;i++)
         for(int j=0; j<FRAME_GRID_ROWS; j++)

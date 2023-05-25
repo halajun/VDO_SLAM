@@ -164,6 +164,7 @@ public:
     std::vector<std::vector<int> > vnObjInlierID; // object id in current frame
     std::vector<cv::Mat> vObjCentre3D; // 3D in the world coordinate frame
     std::vector<cv::Mat> vObjCentre2D; // 2D in the image plane
+    std::vector<cv::Mat> vObjectPoseDyna;
 
     // for initializing motion
     cv::Mat mInitModel;

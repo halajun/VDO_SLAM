@@ -37,6 +37,10 @@ bool LandmarkMotionTernaryEdge::read(std::istream& is)
         if (i!=j)
           information()(j,i) = information()(i,j);
       }
+    is >> object_label_;
+    is >> frame_id_;
+    is >> camera_pose_idx_;
+    is >> position_id_;
     return true;
 
 }
@@ -47,6 +51,11 @@ bool LandmarkMotionTernaryEdge::write(std::ostream& os) const
     for (int i=0; i<3; ++i)
       for (int j=i; j<3; ++j)
         os <<  information()(i, j) << " " ;
+    
+    os << object_label_ << " ";
+    os << frame_id_ << " ";
+    os << camera_pose_idx_ << " ";
+    os << position_id_ << " ";
     return os.good();
 }
 

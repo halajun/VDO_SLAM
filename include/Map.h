@@ -12,6 +12,7 @@
 #include<opencv2/core/core.hpp>
 
 #include <set>
+#include <map>
 
 
 namespace VDO_SLAM
@@ -49,6 +50,8 @@ public:
     std::vector<std::vector<int> > vnAssoDyn;
     // label indicating which object the feature (3D point) belongs to. (k-1)*n
     std::vector<std::vector<int> > vnFeatLabel;
+    std::map<int, std::map<int, cv::Mat>> vnPointObjectFrame; //object label and then feature idx
+    std::map<int, cv::Mat> vnObjectPoseInitial; //the frist object center computed as the object centroid. Used to initalise m in L
     // feature tracklets: pair.first = frameID; pair.second = featureID;
     std::vector<std::vector<std::pair<int, int> > > TrackletDyn;
     std::vector<int> nObjID;
@@ -61,6 +64,7 @@ public:
     // rigid motion of camera and dynamic points. (k-1)*m
     std::vector<std::vector<cv::Mat> > vmRigidCentre;  // ground truth object center
     std::vector<std::vector<cv::Mat> > vmRigidMotion;
+    std::vector<std::vector<cv::Mat> > vmObjPosePreDynaSlam;
     std::vector<std::vector<cv::Mat> > vmObjPosePre; // for new metric 26 Feb 2020
     std::vector<std::vector<cv::Mat> > vmRigidMotion_RF;  // refine result
     std::vector<std::vector<cv::Mat> > vmRigidMotion_GT;  // ground truth result

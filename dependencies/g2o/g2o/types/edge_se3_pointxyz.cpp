@@ -61,9 +61,9 @@ namespace g2o {
 
 
   bool EdgeSE3PointXYZ::read(std::istream& is) {
-    int pId;
-    is >> pId;
-    setParameterId(0, pId);
+    // int pId;
+    // is >> pId;
+    // setParameterId(0, pId);
     // measured keypoint
     Vector3 meas;
     for (int i=0; i<3; i++) is >> meas[i];
@@ -81,17 +81,19 @@ namespace g2o {
     if (is.bad()) {
       //  we overwrite the information matrix
       information().setIdentity();
-    } 
+    }
+    is >> is_dynamic_;
     return true;
   }
 
   bool EdgeSE3PointXYZ::write(std::ostream& os) const {
-    os << offsetParam->id() << " ";
+    // os << offsetParam->id() << " ";
     for (int i=0; i<3; i++) os  << measurement()[i] << " ";
     for (int i=0; i<information().rows(); i++)
       for (int j=i; j<information().cols(); j++) {
         os <<  information()(i,j) << " ";
       }
+    os << is_dynamic_ << " ";
     return os.good();
   }
 

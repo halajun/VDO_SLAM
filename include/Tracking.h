@@ -89,6 +89,8 @@ public:
     cv::Mat GetInitModelCam(const std::vector<int> &MatchId, std::vector<int> &MatchId_sub);
     cv::Mat GetInitModelObj(const std::vector<int> &ObjId, std::vector<int> &ObjId_sub, const int objid);
 
+    cv::Mat GetInitObjPoseDynaSlam(const std::vector<int> &ObjId, const int objid);
+
     void StackObjInfo(std::vector<cv::KeyPoint> &FeatDynObj, std::vector<float> &DepDynObj,
                       std::vector<int> &FeatLabObj);
     std::vector<std::vector<std::pair<int, int> > > GetStaticTrack();
